@@ -34,9 +34,10 @@ Ollama日志为66/66层GPU，`ollama ps`显示100%GPU。未重装驱动、未修
 | `pnpm lint` | 退出0；2条继承的React Hooks警告，包级lint仍是上游no-op |
 | `NEXT_TELEMETRY_DISABLED=1 pnpm build` | Next.js14.2.35生产构建通过；18个静态页面生成成功 |
 | `pnpm start` | 127.0.0.1:3000生产服务启动成功，无standalone启动冲突 |
-| Chromium151浏览器主页面 | `/`、`/sources`、`/wiki`、`/query`全部HTTP200；品牌/标题/输入框正常；0 console.error、0未捕获异常、0资源错误 |
+| Chromium151浏览器页面 | 首页、Sources、Wiki、Query和原文Source共5项通过；全部HTTP200；品牌/标题/输入框正常；0 console.error、0未捕获异常、0资源错误 |
+| 浏览器完整操作链 | 实际填写问题并点击Ask → 点击正文`aldh1`引用 → Wiki → 原始Source；核对完整输入文本与`corpus_id=45638119`，通过 |
 | 实际错误与无证据路径 | 空Query/空Ingest返回400；不存在页面/来源返回404；无检索命中返回低置信、空引用、明确证据不足；5项通过 |
-| 本地配置/停止回归 | Wiki选择5项回归通过；launcher变更后2项定向回归通过 |
+| 本地配置/停止回归 | Wiki选择5项回归通过；launcher变更后2项定向回归通过；真实SIGTERM释放3000端口，重新启动后首页/设置/页面/来源API均200 |
 | LICENSE/忽略规则 | LICENSE与上游逐字节一致；数据/配置/SQLite/node_modules均被忽略 |
 
 Lint的两条非阻塞警告位于 `command-palette.tsx:240` 与 `graph/vault-graph.tsx:139`，留待后续UI稳定性整理。
@@ -89,6 +90,8 @@ python3 scripts/demo_scifact.py --limit 2 --questions 1
 默认浏览器地址 `http://127.0.0.1:3000`。测试命令见README。
 完整机器生成的本地日志、API结果和驱动证据在 `.local/evidence/`，均不进入Git；
 本报告会保留必要的结果摘要和溯源ID，避免提交数据或个人运行目录。
+浏览器证据为`browser-smoke.json`、`browser-ui-chain.json`与对应截图；
+停止/重启证据为`launcher-stop.json`、`launcher-restart.json`。
 
 ## 局限与下一轮
 
@@ -98,4 +101,6 @@ Embedding、Hybrid、RRF尚未实现。PDF/OCR与多语种检索未专项验证�
 
 ## Git
 
-将在测试完成后记录实际代码提交SHA。当前没有个人远端，不会推送上游。
+实现与首版验收提交：`395747308fb0f888702f224c6be5e3eeefa491ca`。
+后续文档提交补充浏览器操作链、真实停止/重启结果和上述实现SHA，可用`git log -2 --oneline`核对。
+当前没有个人远端，未执行推送；个人仓库的最少设置命令见README。
