@@ -106,7 +106,7 @@ NEXT_TELEMETRY_DISABLED=1 pnpm build
 历史 Round 01 实测为 210 项 JavaScript/TypeScript 测试、30 项 Python 测试通过，1 项云端测试跳过；2026-10-17 15:42（Asia/Shanghai）命名整理后的交付前复测结果相同，typecheck/lint/build 均退出 0，lint 仍有 2 条继承警告。测试基线、两次验证范围和 GPU 小样本结果见验收报告；独立审阅者应针对自己的 checkout 执行以上命令。
 
 - [GPT / 独立审阅入口](docs/GPT_REVIEW_GUIDE.md)
-- [工程现状与调用链](docs/PROJECT_OVERVIEW.md)
+- [项目架构与维护约定](architecture.md)
 - [当前进度](docs/PROGRESS.md)
 - [开发日志](docs/DEVLOG.md)
 - [Round 01 验收报告](docs/ROUND_01_ACCEPTANCE.md)

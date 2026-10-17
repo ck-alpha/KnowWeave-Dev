@@ -51,3 +51,9 @@ README 增加 VS Code Remote SSH 的 `code --openExternal` 与本机 13000 端�
 新生产服务的 `/`、`/about`、`/query`、`/sources`、`/wiki` 均 HTTP 200，HTML 标题为 KnowWeave。真实 Query 使用已有 Wiki，返回 `qwen3.8:27b` 的回答并引用 `aldh1`；驱动 580.178.04，Ollama 显示 `100% GPU`、上下文 32768。Chromium 页面复测 5 项通过、浏览器错误 0，产物为 `.local/evidence/remote-delivery-browser/browser-smoke.json`。原始业务复测产物为 `.local/evidence/remote-delivery-gpu.json`，检查时间 `2026-10-17T15:42:45.787667+08:00`；测试日志使用 `remote-delivery-*` 文件名前缀，必要摘要汇入 `docs/evidence/ROUND_01_RESULTS.json` 的 `remote_delivery_recheck`。
 
 本次业务复测范围为已有 Wiki 的问答与 HTTP 页面检查；首次 SciFact 导入/更新及完整浏览器点击链仍由前述历史验收记录支撑。实际交付版本以远端 `main` 提交为准。
+
+## 2026-10-17（Asia/Shanghai）— 架构文档维护入口
+
+将原 `PROJECT_OVERVIEW.md` 架构正文整理为根目录 `architecture.md`，旧文件保留跳转入口。补充模块职责、服务器访问边界与同提交更新的维护约定；README、GPT 审阅指南、贡献说明和开发指引统一引用该文件，并新增 `AGENTS.md` 供后续开发代理读取维护要求。本次只调整文档，未改变应用代码或运行配置。
+
+源码核对发现原文将 SQLite 元数据笼统描述为“可重建”不够准确：同步仅重建页面元数据、FTS5 和同步状态，不能恢复全部来源关联、用量等记录。架构文档已明确数据库应随 Wiki 备份。

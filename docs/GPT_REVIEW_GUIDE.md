@@ -13,7 +13,7 @@
 1. [README](../README.md)：产品范围、启动、远程访问和复现命令。
 2. [三轮计划](THREE_ROUND_PLAN.md) 与 [Round 01 需求](ROUND_01_REQUIREMENTS.md)：核对本轮验收边界；当前项目名以最新说明为准。
 3. [NOTICE](../NOTICE.md) 与 [LICENSE](../LICENSE)：区分继承能力、本轮独立改造及许可，不把已有 UI/Ingest 等说成完全原创。
-4. [工程架构](PROJECT_OVERVIEW.md)：真实调用链与检索接入位置，再沿下表阅读源码。
+4. [工程架构](../architecture.md)：真实调用链与检索接入位置，再沿下表阅读源码。
 5. [SciFact 数据流程](SCIFACT.md)：原始数据、固定选择规则、manifest、数据许可和样本边界。
 6. [验收报告](ROUND_01_ACCEPTANCE.md) 与 [历史证据摘要](evidence/ROUND_01_RESULTS.json)：核对运行日期、模型、样本、结果和原始产物哈希。
 7. [开发日志](DEVLOG.md)、[当前进度](PROGRESS.md) 及 Git 历史：查阅决策、故障、修复、未实现事项，并确认当前代码相对历史验收提交的变化。
