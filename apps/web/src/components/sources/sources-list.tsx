@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import type { IngestSuccess } from "@/lib/ingest-result";
 
 type SourceItem = {
   id: string;
@@ -54,9 +55,12 @@ function formatSize(n: number): string {
 type Props = {
   // Bumping this from the parent forces a re-fetch after a successful ingest.
   refreshNonce: number;
+  onPreview: (result: IngestSuccess) => void;
+  onBusyChange: (busy: boolean) => void;
+  disabled?: boolean;
 };
 
-export function SourcesList({ refreshNonce }: Props) {
+export function SourcesList({ refreshNonce, onPreview, onBusyChange, disabled }: Props) {
   const [sources, setSources] = useState<SourceItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -86,7 +90,9 @@ export function SourcesList({ refreshNonce }: Props) {
   }, [fetchSources, refreshNonce]);
 
   async function onRetry(s: SourceItem) {
+    if (disabled || busyId !== null) return;
     setBusyId(s.id);
+    onBusyChange(true);
     setActionFlash(null);
     setError(null);
     const sourceLabel = s.title?.trim() || s.filename;
@@ -100,7 +106,7 @@ export function SourcesList({ refreshNonce }: Props) {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({}),
       });
-      const json = (await res.json()) as {
+      const json = (await res.json()) as IngestSuccess & {
         ok?: boolean;
         error?: string;
         providerUsed?: string;
@@ -111,6 +117,12 @@ export function SourcesList({ refreshNonce }: Props) {
         };
       };
       if (!res.ok || !json.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
+      if (json.kind === "preview") {
+        onPreview(json);
+        setActionFlash("Proposal ready. Review and Apply or Discard it below.");
+        await fetchSources();
+        return;
+      }
       console.log(
         `%c[Ingest Retry Success] Selected ${json.providerUsed || "unknown"} to ingest: "${sourceLabel}" -> Status: Success`,
         "color: #10b981; font-weight: bold;"
@@ -132,10 +144,12 @@ export function SourcesList({ refreshNonce }: Props) {
       setError((err as Error).message);
     } finally {
       setBusyId(null);
+      onBusyChange(false);
     }
   }
 
   async function onDelete(s: SourceItem) {
+    if (disabled || busyId !== null) return;
     const label =
       s.title?.trim() || s.originalName?.trim() || s.url?.trim() || s.filename;
     const isPending = s.ingestedAt === null;
@@ -148,6 +162,7 @@ export function SourcesList({ refreshNonce }: Props) {
     if (!confirm(msg)) return;
 
     setBusyId(s.id);
+    onBusyChange(true);
     setActionFlash(null);
     setError(null);
     try {
@@ -160,6 +175,7 @@ export function SourcesList({ refreshNonce }: Props) {
       setError((err as Error).message);
     } finally {
       setBusyId(null);
+      onBusyChange(false);
     }
   }
 
@@ -194,9 +210,9 @@ export function SourcesList({ refreshNonce }: Props) {
     <div className="space-y-3">
       {pendingCount > 0 ? (
         <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-200">
-          {pendingCount} source{pendingCount === 1 ? "" : "s"} pending — the
-          first ingest didn't complete. Click <strong>Retry</strong> (uses the
-          ingest model from Settings) or <strong>Delete</strong> to drop them.
+          {pendingCount} source{pendingCount === 1 ? "" : "s"} pending — ingestion failed or is awaiting approval.
+          Review any proposal below, or use <strong>Retry</strong> to generate a new one.
+          <strong> Delete</strong> removes the source.
         </p>
       ) : null}
 
@@ -254,7 +270,7 @@ export function SourcesList({ refreshNonce }: Props) {
                       size="sm"
                       variant="outline"
                       onClick={() => void onRetry(s)}
-                      disabled={busyId !== null}
+                      disabled={disabled || busyId !== null}
                     >
                       {isBusy ? "Retrying…" : "Retry"}
                     </Button>
@@ -268,7 +284,7 @@ export function SourcesList({ refreshNonce }: Props) {
                   size="sm"
                   variant="ghost"
                   onClick={() => void onDelete(s)}
-                  disabled={busyId !== null}
+                  disabled={disabled || busyId !== null}
                   title="Remove from the list. Raw file goes to .llm-wiki/trash/raw/."
                 >
                   {isBusy && !isPending ? "Removing…" : "Delete"}

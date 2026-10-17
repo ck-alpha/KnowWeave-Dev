@@ -1,0 +1,258 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-17",
+  "timezone": "Asia/Shanghai",
+  "status": "passed",
+  "scope": "Round 03 product stability, real SciFact Wiki demo, browser screenshots and reproducible presentation; historical Round 02 retrieval metrics unchanged",
+  "git": {
+    "baseline": "7b5eb844c8cd0afc0b3bfac2f0dcd9630ae60205",
+    "tested_state": "worktree, implementation SHA to be pinned after commit",
+    "repository": "https://github.com/ck-alpha/KnowWeave",
+    "branch": "main",
+    "private": true
+  },
+  "environment": {
+    "node": "22.23.3",
+    "pnpm": "10.12.1",
+    "python": "3.13.12",
+    "ollama": "0.34.4",
+    "browser": "Chrome/151.0.7922.34",
+    "gpu_reported": "NVIDIA GeForce RTX 4090 / 49140 MiB",
+    "driver": "580.178.04",
+    "qwen_tag": "qwen3.8:27b",
+    "qwen_digest": "aaee06c39dcf2437cde036998d960e1fc1494b8191be7cc9657d01e509097813",
+    "embedding": {
+      "model": "nomic-embed-text:v1.5",
+      "digest": "0a109f422b47e3a30ba2b10eca18548e944e8a23073ee3f3e947efcf3c45e59f",
+      "documentPrefix": "search_document: ",
+      "queryPrefix": "search_query: ",
+      "numCtx": 8192
+    },
+    "embedding_dimensions": 768,
+    "observed_context": {
+      "qwen": 32768,
+      "embedding": 2048
+    }
+  },
+  "checks": {
+    "pnpm_install_frozen_lockfile": {
+      "exit": 0,
+      "scope": "existing dependency environment; not a clean OS install"
+    },
+    "pnpm_test": {
+      "exit": 0,
+      "passed": 299,
+      "skipped": 1
+    },
+    "pnpm_test_data": {
+      "exit": 0,
+      "passed": 47
+    },
+    "pnpm_typecheck": {
+      "exit": 0
+    },
+    "pnpm_lint": {
+      "exit": 0,
+      "inherited_hooks_warnings": 2
+    },
+    "pnpm_build": {
+      "exit": 0
+    },
+    "real_http_errors": {
+      "passed": 26,
+      "generated_answers": false
+    },
+    "real_embedding_lifecycle": {
+      "passed": 8
+    }
+  },
+  "api_demo": {
+    "started_at": "2026-10-17T09:36:53.838230+00:00",
+    "finished_at": "2026-10-17T09:37:14.565658+00:00",
+    "status": "passed",
+    "corpus_ids": [
+      "45638119",
+      "16322674"
+    ],
+    "ingests": [
+      {
+        "corpus_id": "45638119",
+        "seconds": 5.283,
+        "new_pages": 2,
+        "page_updates": 0,
+        "raw_sha256": "28a9e390bd936984a99cab1cf71db70a36e4419e423ff862a0484042e564bca7"
+      },
+      {
+        "corpus_id": "16322674",
+        "seconds": 5.749,
+        "new_pages": 1,
+        "page_updates": 1,
+        "raw_sha256": "69740941221455eb3fb554f2b29095c55dd5e9216e132caae03cf896027490e5"
+      }
+    ],
+    "llm_updated_slugs": [
+      "mammary-stem-cells"
+    ],
+    "manual_edit": {
+      "kind": "manual_cross_document_reading_list",
+      "pending": 1,
+      "stale_hybrid_status": 409,
+      "refresh_embedded": 1,
+      "unchanged_refresh_embedded": 0
+    },
+    "queries": [
+      {
+        "mode": "bm25",
+        "question": "What evidence in the imported SciFact sources supports or contradicts this claim: ALDH1 expression is associated with better breast cancer outcomes.",
+        "seconds": 2.985,
+        "pages_used": [
+          "aldh1"
+        ],
+        "confidence": "high",
+        "evidence_corpus_ids": [
+          "45638119"
+        ]
+      },
+      {
+        "mode": "embedding",
+        "question": "What evidence in the imported SciFact sources supports or contradicts this claim: ALDH1 expression is associated with better breast cancer outcomes.",
+        "seconds": 3.2,
+        "pages_used": [
+          "aldh1"
+        ],
+        "confidence": "high",
+        "evidence_corpus_ids": [
+          "45638119"
+        ]
+      },
+      {
+        "mode": "hybrid",
+        "question": "What evidence in the imported SciFact sources supports or contradicts this claim: ALDH1 expression is associated with better breast cancer outcomes.",
+        "seconds": 2.66,
+        "pages_used": [
+          "aldh1"
+        ],
+        "confidence": "high",
+        "evidence_corpus_ids": [
+          "45638119"
+        ]
+      }
+    ],
+    "no_evidence": {
+      "mode": "bm25",
+      "confidence": "low",
+      "pages_used": []
+    }
+  },
+  "browser": {
+    "started_at": "2026-10-17T09:37:14.678Z",
+    "finished_at": "2026-10-17T09:37:33.631Z",
+    "status": "passed",
+    "third_corpus_id": "18340282",
+    "import_action": "new third source via browser",
+    "new_pages": 1,
+    "page_updates": 0,
+    "query_modes": [
+      "bm25",
+      "embedding",
+      "hybrid"
+    ],
+    "inline_wiki": "/wiki/aldh1",
+    "source_corpus_ids": [
+      "45638119"
+    ],
+    "complete_original_text_verified": true,
+    "errors": 0,
+    "screenshots_direct_unedited": true
+  },
+  "service_lifecycle": {
+    "status": "passed",
+    "signal": "SIGTERM",
+    "port_released": true,
+    "pages_before_after": [
+      4,
+      4
+    ],
+    "sources_before_after": [
+      3,
+      3
+    ],
+    "vectors_ready_after_restart": true,
+    "routes": {
+      "/": 200,
+      "/about": 200,
+      "/query": 200,
+      "/sources": 200,
+      "/wiki": 200
+    },
+    "real_query_mode": "hybrid",
+    "cited_pages": [
+      "aldh1"
+    ]
+  },
+  "failures_and_resolution": [
+    "First API run failed due to pre-serialization Ingest index content; fixed with persisted body indexing and regression tests.",
+    "Browser harness corrections: target-blank link selection, Markdown heading comparison, then client navigation readiness; final complete fresh-Wiki run passed.",
+    "HTTP harness initially inherited system proxy; final loopback-direct checks passed."
+  ],
+  "verified_files_sha256": {
+    "apps/web/src/app/api/ingest/apply/route.ts": "5b32829bef2e8a5d0a6e4c383e2c80109a7946d104ed7aa16eac89f5829bea70",
+    "apps/web/src/app/api/ingest/route.ts": "471c321de87051441b7182bd612bedd28c52bbd8f7b3648acfb7ec88ad9eaece",
+    "apps/web/src/app/api/pages/[slug]/route.ts": "0aed414fdf94d26b788e5088271c46b36f03913abc6ea09762b5bad7fbba5a37",
+    "apps/web/src/app/api/pages/route.ts": "1b76ff182f3bfb6231aaab0b55cc7fdbf02550fcd5d36f195f2858719738c89b",
+    "apps/web/src/app/api/retrieval/route.ts": "07ae5023d067d38b72982aa95e6cc8fd4187bfbfb453604be5bdf3db3adbe330",
+    "apps/web/src/app/api/sources/[id]/delete/route.ts": "ff72c25bbbdc39f12fef011c0706d78e1f43b6fd4c318bd47b0ed7d458f62ef2",
+    "apps/web/src/app/api/sources/[id]/retry/route.ts": "5a34145be4e8b1e9bcd69779d413c0d67fee799d2af546d7ba6124c6155d5717",
+    "apps/web/src/app/query/query-view.tsx": "8d6ee55bba44cb77c4c4f02372492a386029e9c5fbc2858bb218cb3d91ba34eb",
+    "apps/web/src/app/sources/[id]/page.tsx": "eb4ebbc7f85a5406c4dfc1d7cb7e59860ff384a8572bec0cc306c85987940345",
+    "apps/web/src/app/sources/sources-view.tsx": "8bd55f7b4f2c6a4a84003c1b9eeb904fa511d5c377c3b1d9a15e9c362e9d1030",
+    "apps/web/src/app/wiki/[slug]/page.tsx": "446c7ba251f631cf61f5e8ecbaff446c10f20f3cd4ac224726fb57f73a55dccb",
+    "apps/web/src/components/sources/sources-list.tsx": "3736b3e0619670fb85be6356e5ee7ed0fbe255bbe3816ec58e4ce34b90f731eb",
+    "apps/web/src/components/wiki/page-view.tsx": "9dbee78edef184505132be345e56f094cb99c6fbd58df348e20fe2e24b4de351",
+    "apps/web/src/lib/ingest-result.ts": "5763be6a89221a9a7c907e6850314eca8a0fd6a74ae931f75bca11e4bac1e101",
+    "package.json": "bbbf20007e915afcc1e9d51f8a803184199fe9c5796493dd541ec3e265e2a46f",
+    "packages/core/src/editor.test.ts": "5a87b4561951aa4db4861524cdd3f45dda444d45dd100548b09d2096464b1e0d",
+    "packages/core/src/editor.ts": "a715151ad0e0e25daeeb83389b37fb4451fb9fd6f90e89f73bab1f166c1d9ec8",
+    "packages/core/src/ingest.test.ts": "bd3b9effd4edefba6a0fd802a31550ff259316026c9dd9825fd8c1f970131cae",
+    "packages/core/src/ingest.ts": "dcae8a466d641c58f50de7c3f7949ab89c4cdbbd18411f121db12f2f79490dd8",
+    "packages/core/src/retrieval.test.ts": "fabe97d4d08d7d96b4bed63eda9c7bb3c6b9b8bfe78863ac8adc549065e89836",
+    "scripts/demo-browser.mjs": "321a26ebca9b7bbe09809210646e6340c1bcc378a7dcea90c6d3bf6aa7f797ba",
+    "scripts/demo_round03.py": "715cc1e9c067051cd9c925bf14e9d820d04f253d291c0b8bb133e5d11ffba3d7",
+    "tests/retrieval-api.test.ts": "8a898e136e15b0b103f5996f16df86e404013a798ade146c0d2a328ff27eaddd",
+    "tests/source-api.test.ts": "07aac7901ecbe7422851528e550befb462af0e6ecee4344ac795d7c28ec5e843",
+    "tests/test_demo_round03.py": "ac6507b73f3303ee57406336ab797617aab6c65e89792e04c82f0ce975355601"
+  },
+  "screenshots": {
+    "docs/images/round03-query.png": {
+      "sha256": "7da6613ee13008b7eb9b619f4420587a2c1544d3bec6e7b888dd37ac58783c1b",
+      "bytes": 176381
+    },
+    "docs/images/round03-source.png": {
+      "sha256": "269f61ffcb64b5a59f417dbc5b7bff94c775785de3c3f686bc5d6b0452c128bc",
+      "bytes": 237011
+    },
+    "docs/images/round03-wiki.png": {
+      "sha256": "1177888880e5c6e13c2af20f5d17f513a45956d05065470a88ddc4b1027061e0",
+      "bytes": 175260
+    }
+  },
+  "local_artifacts": {
+    "demo-delivery.json": "e07ea0c87063aa16b209f4571d2c6a9afd664ccf8668c282f96711fceb561d48",
+    "browser-delivery/browser.json": "c2f9b66475e897b7b0254d211a235f5ea851d20671213b6c291a3148df2fce38",
+    "errors.json": "4ca2d17e6a81bbc3206f5f22e02806b4671517dfae4f132cdb9338d0a1eeb83d",
+    "index-lifecycle.json": "90271452550bfb466ed9aa8e3558e120b0df680e4751a3b7df448501f73902f7",
+    "service-lifecycle.json": "02b719240cd032c503e8f04cb0bad32b164ecdeebed47fd8192cfd219e7f0f88",
+    "tests-js.log": "0f1662cb958fa15073bbdefc2be6d880fba978e3dddc7b7ef9493c047ac4fca0",
+    "tests-python.log": "29257dd5943fa6bb9fa5172d377f80f528e2bae22ac3af17a9eb1794ceab531a",
+    "typecheck.log": "1e6e17e19cb5723f89c2fb3c5dc8cbd3106ea79d355bfe17cbd2e97c77379d4b",
+    "lint.log": "4f7a6154cc3248202cfeafa19fb404c5e259b9a70b8c016734c8a394fb87c978",
+    "build.log": "3972e0c148a9ed8799e8a30e0c77111c4ef17b4c443eca7b3dce7958fc51c7d9"
+  },
+  "limitations": [
+    "No new full SciFact benchmark; use Round 02 report and implementation SHA for historical metrics.",
+    "No clean OS installation, model download rerun, full outage injection or real malformed-model trial.",
+    "No broad Chinese, PDF/OCR, long-document chunking, large-Wiki or concurrency stress validation.",
+    "In-process apply/build locks do not provide multi-process or cross-file transactional guarantees.",
+    "Citations prove supplied-page membership and traceability, not answer factual correctness."
+  ]
+}

@@ -41,6 +41,7 @@ export function QueryView() {
   const [indexStatus, setIndexStatus] = useState<string>("Checking embedding index…");
   const [indexError, setIndexError] = useState<string | null>(null);
   const [indexBusy, setIndexBusy] = useState(false);
+  const [indexBuildMessage, setIndexBuildMessage] = useState<string | null>(null);
 
   const [promoting, setPromoting] = useState(false);
   const [promoteResult, setPromoteResult] = useState<{ slug: string } | null>(null);
@@ -78,20 +79,38 @@ export function QueryView() {
     })();
   }, [refreshIndexStatus]);
 
+  useEffect(() => {
+    const onFocus = () => {
+      if (!indexBusy) void refreshIndexStatus();
+    };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [indexBusy, refreshIndexStatus]);
+
   async function onBuildIndex(force = false) {
     setIndexBusy(true);
     setIndexError(null);
+    setIndexBuildMessage(null);
+    setIndexStatus("Building embedding index… Current pages will be checked before use.");
     try {
       const res = await fetch("/api/retrieval", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ force }),
       });
-      const data = (await res.json()) as { ok?: boolean; error?: string };
+      const data = (await res.json()) as {
+        ok?: boolean; error?: string; ready?: boolean; embedded?: number; skipped?: number;
+      };
       if (!res.ok || !data.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
       await refreshIndexStatus();
+      setIndexBuildMessage(
+        `Refresh finished: ${data.embedded ?? 0} vectors built, ${data.skipped ?? 0} reused.${data.ready ? "" : " Pages changed during the build; refresh again before semantic / hybrid search."}`,
+      );
     } catch (err) {
-      setIndexError((err as Error).message);
+      // A failed full rebuild may already have cleared old vectors. Always
+      // reread counts instead of leaving a stale “Ready” message on screen.
+      await refreshIndexStatus();
+      setIndexError(`Index refresh failed: ${(err as Error).message}`);
     } finally {
       setIndexBusy(false);
     }
@@ -122,6 +141,7 @@ export function QueryView() {
       setError((err as Error).message);
     } finally {
       setBusy(false);
+      void refreshIndexStatus();
     }
   }
 
@@ -170,8 +190,11 @@ export function QueryView() {
             <select
               id="retrieval-mode"
               value={mode}
-              onChange={(e) => setMode(e.target.value as RetrievalMode)}
-              disabled={busy}
+              onChange={(e) => {
+                setMode(e.target.value as RetrievalMode);
+                void refreshIndexStatus();
+              }}
+              disabled={busy || indexBusy}
               className="rounded-md border border-input bg-background px-2 py-1"
             >
               <option value="bm25">BM25 · keywords</option>
@@ -202,6 +225,14 @@ export function QueryView() {
             Build once before semantic or hybrid search; refresh after page changes. BM25 works
             without an embedding model.
           </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {mode === "bm25"
+              ? "BM25 matches words in your Wiki. All answer modes still use the configured Qwen model."
+              : mode === "embedding"
+                ? "Embedding finds semantically similar pages using the current vector index. Similarity alone does not prove a claim."
+                : "Hybrid combines keyword and semantic rankings with RRF. Both indexes must be current; errors are shown without changing modes."}
+          </p>
+          {indexBuildMessage ? <p role="status" className="mt-2 text-xs">{indexBuildMessage}</p> : null}
           {indexError ? (
             <p role="alert" className="mt-2 text-xs text-destructive">
               {indexError}
@@ -214,7 +245,7 @@ export function QueryView() {
         <Textarea
           id="question"
           rows={3}
-          placeholder="e.g. How does Shor's algorithm relate to RSA?"
+          placeholder="e.g. Does ALDH1 predict favorable breast cancer outcomes?"
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
           disabled={busy}

@@ -1,136 +1,171 @@
 # KnowWeave
 
-本地优先的 Agent 知识管理项目：文档 → Qwen Ingest → 可维护的 Markdown Wiki → 检索问答 → 原始来源。
+**把零散资料整理成可持续更新、能够回溯原文的本地知识库。**
 
-当前已完成 Round 02：沿用 Ollama `qwen3.8:27b` 的文本导入、Wiki 生成与带来源问答，新增本地 Embedding、Hybrid（RRF）与 SciFact 原始语料评测。实现与本机实测范围见 [Round 02 验收报告](docs/ROUND_02_ACCEPTANCE.md)。
+KnowWeave 将文档交给本地 Qwen 整理为 Markdown Wiki，支持 BM25、Embedding 和 Hybrid 检索，再基于检索到的页面回答问题。回答中的 Wiki 引用可以继续跳到原始来源，方便检查模型依据、修正知识和追加资料。
 
-代码许可与来源说明：[LICENSE](LICENSE) · [NOTICE](NOTICE.md)。项目继承能力及本轮独立改造范围以 NOTICE 为准。
+这是基于 MIT 项目 [LLM Wiki](https://github.com/ddsyasas/llm-wiki) 的二次开发作品。本项目重点实现本地 Qwen/Ollama 适配、向量索引维护、混合检索、引用约束与可复现评测；继承能力和贡献边界见 [NOTICE](NOTICE.md)，原 [LICENSE](LICENSE) 保留。
 
-## 本地启动
+[最终轮验收](docs/ROUND_03_ACCEPTANCE.md) · [架构](architecture.md) · [求职展示与面试提纲](docs/CAREER_PRESENTATION.md) · [独立审阅指南](docs/GPT_REVIEW_GUIDE.md)
 
-需要 Node.js 22、pnpm 10.12.1、Python 3.10+，以及运行中的 Ollama 和实际安装的 Qwen3.8 模型。
+## 看一次实际使用
+
+查询页面：选择检索模式，查看索引状态、回答和引用。
+
+![KnowWeave 实际 Query 页面，展示检索模式、索引状态与带引用回答](docs/images/round03-query.png)
+
+Wiki 页面：查看整理后的知识，并沿 Sources 返回原始文献。
+
+![KnowWeave 实际 Wiki 页面，展示知识内容与原始来源入口](docs/images/round03-wiki.png)
+
+截图来自本地应用的真实浏览器操作；另见 [原文追溯截图](docs/images/round03-source.png)。采集范围和验证记录见 [Round 03 验收](docs/ROUND_03_ACCEPTANCE.md)，演示只使用公开 SciFact 样本。
+
+## 主要功能与实现范围
+
+| 能力 | 当前行为 |
+| --- | --- |
+| 文档 → Wiki | Qwen 生成或更新 Markdown 页面；同名原文独立保存，失败来源可 Retry，保留页面来源关系 |
+| 三路检索 | Query 可选 BM25、Embedding、Hybrid（RRF）；默认 BM25，无需 Embedding 模型 |
+| 可维护向量索引 | 各 Wiki 独立存储；内容变化使旧向量失效，显式增量刷新，支持全量重建 |
+| 回答与证据 | 实际页面正文进入模型上下文；引用须来自供给正文，支持 Wiki → 原始来源回溯 |
+| 可复现评测 | SciFact 官方原始 corpus 的三路检索对比，与小型 Wiki 问答演示分开记录 |
+
+三模式目前用于独立 Query；Ingest 和 Chat 的候选检索仍用 BM25。继承的文本导入、Wiki 浏览与更新构成本轮演示主路径，PDF/OCR 和云端模型不属于当前已验证能力。
+
+## 架构与技术栈
+
+```mermaid
+flowchart LR
+  D[原始文档] --> I[Ollama / Qwen Ingest]
+  I --> W[Markdown Wiki + 来源关系]
+  W --> S[SQLite FTS5 / 文档指纹]
+  W --> E[显式增量构建 / Nomic Embedding]
+  E --> V[SQLite 向量]
+  Q[用户问题] --> R[BM25 / Embedding / RRF]
+  S --> R
+  V --> R
+  R --> C[当前页面正文]
+  C --> A[Qwen 回答 / 引用校验]
+  A --> O[Wiki 引用 → 原始来源]
+```
+
+- **应用**：TypeScript、Next.js 14 App Router、React 18；Node.js 22、pnpm 10.12.1。
+- **存储与检索**：Markdown、SQLite FTS5/BM25、Float32 向量精确余弦扫描、等权 RRF。
+- **本地模型**：Ollama `qwen3.8:27b` 负责整理和回答；`nomic-embed-text:v1.5` 负责向量。
+- **工程验证**：Vitest、Python 标准库验收脚本、复用产品检索核心的 TypeScript benchmark。
+
+完整调用链、接口、磁盘格式和维护约定统一见 [architecture.md](architecture.md)。
+
+## 最简启动
+
+需要 Node.js 22、pnpm 10.12.1、Python 3.10+，以及运行中的 [Ollama](https://ollama.com/download)。本项目使用官方提供的 [Qwen3.8 27B tag](https://ollama.com/library/qwen3.8:27b)。若本机使用其他 tag，设置 `OLLAMA_MODEL` 为 `ollama list` 中的准确名称；`doctor` 会核验模型，不会自动下载它。
+
+在仓库根目录执行：
 
 ```bash
-cd /home/linchengkai/KnowWeave
-# 本次服务器的 Node/pnpm 安装路径；其他机器使用自己的 Node 22 即可。
-export PATH=/opt/knowwaeve-node/bin:$PATH
 pnpm install --frozen-lockfile
+ollama pull qwen3.8:27b
+ollama pull nomic-embed-text:v1.5
 pnpm doctor
 pnpm setup:local
 pnpm dev
 ```
 
-本机浏览器打开 <http://127.0.0.1:3000>。`setup:local` 先读取 Ollama `/api/tags` 核对模型 tag，再把全部模型槽配置为 Ollama。重新执行会将已有模型槽切回本地 Qwen3.8。默认 Wiki 为 `.local/wiki`，全局配置隔离在 `.local/config`，均不提交 Git。
+已有模型无需再次下载。同名 tag 可随模型注册表更新；复现实验时应核对验收报告中的模型 digest。当前记录来自既有开发环境，未验证整台干净机器从零安装。
 
-在 Sources 粘贴文档并 Ingest，到 Wiki 浏览生成页面，再在 Query 提问。点击回答中的 Wiki 引用，然后点击页面的 Sources 链接查看原文。
+打开 <http://127.0.0.1:3000>，依次进入 **Sources → Ingest → Wiki → Query**。首次使用 Embedding/Hybrid，先在 Query 点击 **Build / refresh embedding index**。新增或编辑页面后再次刷新；失败时根据提示处理，或手动选择 BM25。
 
-生产构建与运行：
+默认 Wiki 在 `.local/wiki`，配置在 `.local/config`，均不入 Git。`setup:local` 会将已有模型槽切回本地 Qwen；启动器监听本机回环地址。原生依赖首次编译可能需要 `make`、`g++`、Python 和 Linux 的 `libsecret-1-dev`。生产运行：
 
 ```bash
 NEXT_TELEMETRY_DISABLED=1 pnpm build
 pnpm start
 ```
 
-应用默认只监听本机回环地址。Node 原生依赖首次安装可能需要 `make`、`g++`、Python 和 Linux 的 `libsecret-1-dev`。
+VS Code Remote SSH 用户可转发端口 `3000`；也可在浏览器所在电脑运行 `ssh -N -L 13000:127.0.0.1:3000 <账号>@<服务器>`，再访问 `http://127.0.0.1:13000`。演示使用端口 `3001` 时相应调整转发端口。
 
-## 访问远程服务器上的页面
+## 可复现的最终 Demo
 
-使用 VS Code Remote SSH 时，在已连接服务器的 VS Code 终端执行：
-
-```bash
-code --openExternal http://127.0.0.1:3000
-```
-
-也可在 VS Code 的 Ports 面板转发服务器端口 `3000`，再打开对应的本地地址。
-
-不使用 VS Code 时，在**浏览器所在电脑**的终端建立 SSH 隧道，替换账号和服务器地址：
-
-```bash
-ssh -N -L 13000:127.0.0.1:3000 <服务器账号>@<服务器地址>
-```
-
-保持该 SSH 终端运行，在本机浏览器打开 <http://127.0.0.1:13000>。服务器上的应用仍监听 `127.0.0.1:3000`；本机的 `13000` 由隧道转发到它。
-
-## SciFact 小样本复现
-
-保持应用运行，在另一个终端执行：
+先下载并校验官方数据，再生成固定小样本。`prepare` 只读取已下载数据：
 
 ```bash
 python3 scripts/scifact.py download
 python3 scripts/scifact.py prepare
-python3 scripts/demo_scifact.py --limit 2 --questions 1
 ```
 
-`download` 下载并校验官方 ZIP，把原始 5,183 篇 corpus、queries 和 qrels 保存在 `data/scifact`；`prepare` 只读取已有数据，按固定规则生成 3 篇乳腺癌相关样本到 `data/scifact-demo`，不会自动下载。演示默认导入其中 2 篇，实际调用 Ingest 和 Query API，并核对页面落盘、引用、来源正文和原始 corpus ID。结果输出至 `.local/evidence/scifact-demo.json`；失败返回非零退出码并记录原因。
-
-重复运行会新增来源。需要隔离重跑时，用新的 Wiki 目录启动另一个端口：
+在独立 Wiki 运行演示，避免混入日常资料。终端一：
 
 ```bash
-KNOWWAEVE_WIKI_PATH="$PWD/.local/replay-wiki" pnpm dev --port 3001
-# 另一个终端
-python3 scripts/demo_scifact.py --base-url http://127.0.0.1:3001 --limit 2 --questions 1
+KNOWWAEVE_WIKI_PATH="$PWD/.local/round03-demo-wiki" pnpm dev --port 3001
 ```
 
-这是小型 Wiki 闭环演示，不是 SciFact 检索 benchmark；qrels 表示相关性，不表示文献支持声明。来源、许可和固定选择规则见 [数据说明](docs/SCIFACT.md)。
-
-## 三种在线检索模式
-
-Qwen 继续负责 Ingest 和回答；Embedding 只生成向量。先下载本地模型：
+终端二：
 
 ```bash
-ollama pull nomic-embed-text:v1.5
+python3 scripts/demo_round03.py --base-url http://127.0.0.1:3001 \
+  --wiki-path "$PWD/.local/round03-demo-wiki"
 ```
 
-启动应用后进入 Query，点击 **Build / refresh embedding index** 构建当前 Wiki 的向量，再选择 **BM25 / Embedding / Hybrid** 提问。默认 BM25，无需 Embedding 模型；页面新增或更新后再次刷新，只处理变化或缺失的向量。服务每次打开 Wiki 时同步磁盘变更，删除页面会删除向量，旧内容向量不会继续参与检索。未准备、模型变化或服务故障会明确报错，可切回 BM25。
+脚本要求 `--wiki-path` 与服务一致，且 Wiki 的页面和来源均为空；否则拒绝运行。默认导入 2 篇样本，分阶段构建/刷新索引，并核对 1 个问题的三模式回答、正文指纹和原始来源；还会显式手工编辑一次跨文档链接以验证索引失效与增量刷新，不将该编辑计作模型自动更新。输出为 `.local/evidence/round03/demo-<time>-<id>.json`，逐步操作见 [Demo 说明](docs/DEMO.md)，实际结果见 [最终轮验收](docs/ROUND_03_ACCEPTANCE.md)。重跑时为两个终端换用同一个新的 Wiki 目录，不覆盖个人 Wiki。
 
-等价 HTTP 操作（应用须已启动）：
+可选的真实浏览器复现需要系统 Chromium；若它不在 `PATH`，先设置 `CHROMIUM_PATH` 为可执行文件路径。在上面的 Demo Wiki 上继续运行：
 
 ```bash
-curl --noproxy '*' http://127.0.0.1:3000/api/retrieval
-curl --noproxy '*' -X POST http://127.0.0.1:3000/api/retrieval
-curl --noproxy '*' http://127.0.0.1:3000/api/query \
-  -H 'Content-Type: application/json' \
-  -d '{"question":"Does ALDH1 predict favorable breast cancer outcomes?","mode":"hybrid"}'
-python3 scripts/demo_retrieval.py
-pnpm exec tsx scripts/verify-retrieval.mts
+node scripts/demo-browser.mjs --base-url http://127.0.0.1:3001 \
+  --wiki-path "$PWD/.local/round03-demo-wiki"
 ```
 
-演示脚本使用现有、有来源的 Wiki，验证三模式回答、正文指纹、引用与原文。先完成上面的 SciFact 小样本导入，或使用 `--question` 提问自己的 Wiki。输出在 `.local/evidence/round02/online.json`；它不是检索 benchmark。向量与指纹保存在各 Wiki 的 `.llm-wiki/meta.sqlite`，普通查询只生成问题向量，不会重新生成文档向量。损坏索引可点击 **Rebuild all vectors**，或 POST `/api/retrieval` 并传 `{"force":true}` 全量重建。
+该脚本首次通过浏览器导入第 3 篇样本，再浏览 Wiki、刷新索引、实际提交三模式问题并点击引用和原文，输出浏览器记录与三张截图。重跑会明确记录是否复用了第 3 篇来源；复用不计作新的导入验证。
 
-## SciFact 全量检索评测
+打开 <http://127.0.0.1:3001/query>，可尝试以下两个问题，再点击回答中的 Wiki 引用与 Sources 链接核对原文：
+
+1. `Does elevated aldehyde dehydrogenase in breast tumours predict a favorable patient outcome?`
+2. `Unfavourable survival?`
+
+Round 02 的真实小样本中，第一个问题三模式均找到 ALDH1；第二个问题 BM25 无词面命中，Embedding/Hybrid 找到较差预后的相关内容并给出低置信回答。这是历史样例现象，模型生成的 Wiki 和重复运行结果可能变化，不要求每次演示都出现排名差异。qrels 表示相关文献，不表示文献支持提问中的声明。数据来源和许可见 [SCIFACT.md](docs/SCIFACT.md)。
+
+## Round 02 真实检索评测
+
+2026-10-17 本机实测：**5,183 篇官方原始标题/摘要、300 条 test queries、339 条 qrels**。三路复用同一检索核心、输入和评价规则；未用 Qwen 改写 corpus，未按 test 标签调参。此表保留 Round 02 历史结果，Round 03 演示不替换该结果。
+
+| 模式 | Recall@10 | nDCG@10 | MRR@10 | 检索 p50 / p95（ms） |
+| --- | ---: | ---: | ---: | ---: |
+| BM25 | 0.791889 | 0.661625 | 0.624677 | 28.483 / 41.049 |
+| Embedding | 0.843556 | 0.703265 | 0.666762 | 390.821 / 429.459 |
+| Hybrid（RRF） | 0.822722 | 0.703476 | 0.670402 | 420.761 / 451.159 |
+
+**Hybrid 的 Recall 低于 Embedding；nDCG 差距极小，未做显著性检验，不能称为全面领先。** 延迟包含问题向量生成与精确扫描，不含 HTTP、Next.js 同步或 Qwen 生成；不能当成在线回答耗时。固定每路 100 候选、RRF `k=60`、最终 top10。硬件、模型 digest、索引代价和指标口径见 [Round 02 验收](docs/ROUND_02_ACCEPTANCE.md) 与 [结构化摘要](docs/evidence/ROUND_02_RESULTS.json)。
+
+复现原始语料 benchmark：
 
 ```bash
 python3 scripts/scifact.py download
 pnpm benchmark:scifact
 ```
 
-脚本直接索引官方原始标题和摘要，使用全部 5,183 篇 corpus、300 条 test queries 和原始 qrels；三路共享核心检索逻辑与评价规则，不调用 Qwen。模型、内容 hash 和输入文件指纹用于复用已有索引。输出包含 Recall@10 / nDCG@10 / MRR@10、模型 digest、参数、索引耗时及查询 p50/p95；完整运行产物和缓存留在 `.local/`。具体参数、可公开结果及运行边界见 [Round 02 验收](docs/ROUND_02_ACCEPTANCE.md)。
+有效文档向量会按模型和内容指纹复用；首次建库与缓存复用耗时必须区分。完整运行产物和缓存留在 `.local/`。
 
-## 配置与排错
+## 技术取舍与限制
 
-通过 shell 环境变量配置；`.env.example` 仅为示例，不会自动加载。
+- **Wiki 是可编辑的知识层。** Ingest 先整理知识，Query 再检索页面；保留原文用于纠错。模型整理可能遗漏或误解，引用存在不等于科学结论正确。
+- **SQLite 降低本地部署复杂度。** 向量检索采用 O(Nd) 精确扫描，未验证大型 Wiki 与高并发；同 Wiki 构建锁只覆盖同进程。
+- **索引状态优先于静默回退。** 文档变更、模型不匹配或服务故障会阻止不完整的向量查询；BM25 仍可单独使用。纯向量近邻没有校准的相关性阈值，无证据问题仍需模型判断。
+- **完整证据受上下文预算约束。** Qwen 使用有界上下文，超长正文明确拒绝；Embedding 使用 `truncate:false`。请求 8192 上下文不保证服务实际采用该值，Round 02 runner 实报 2048。
+- **验证范围有限。** 当前英文 SciFact 检索指标不代表生成答案正确率或中文效果；中文/多语言、PDF/OCR、复杂长文分块、云端模型和压力测试未专项验证。未引入 MCP、GraphRAG、独立向量数据库、登录或云部署。
+
+## 配置、检查与交付
+
+通过 shell 环境变量配置；[.env.example](.env.example) 不会自动加载。
 
 | 变量 | 默认值 / 用途 |
 | --- | --- |
-| `OLLAMA_BASE_URL` | `http://127.0.0.1:11434`，兼容末尾 `/v1` |
-| `OLLAMA_MODEL` | `qwen3.8:27b`，setup/doctor 核验实际安装 tag |
-| `OLLAMA_NUM_CTX` | `32768`，每请求本地上下文长度 |
-| `OLLAMA_NUM_PREDICT` | `4096`，每请求最大生成长度 |
-| `OLLAMA_EMBED_MODEL` | `nomic-embed-text:v1.5`，本地检索向量模型 |
-| `OLLAMA_EMBED_NUM_CTX` | `8192`，Embedding 请求上下文；服务可能限制有效值，超长输入报错 |
-| `OLLAMA_EMBED_TIMEOUT_MS` | `120000`，单次 Embedding 请求超时 |
-| `KNOWWAEVE_WIKI_PATH` | 默认 `.local/wiki`，支持绝对路径覆盖 |
-| `KNOWWAEVE_CONFIG_DIR` | 默认 `.local/config`，支持绝对路径覆盖 |
+| `OLLAMA_BASE_URL` / `OLLAMA_MODEL` | `http://127.0.0.1:11434` / `qwen3.8:27b` |
+| `OLLAMA_NUM_CTX` / `OLLAMA_NUM_PREDICT` | `32768` / `4096`，请求级输入上下文与输出上限 |
+| `OLLAMA_EMBED_MODEL` | `nomic-embed-text:v1.5` |
+| `OLLAMA_EMBED_NUM_CTX` / `OLLAMA_EMBED_TIMEOUT_MS` | `8192` / `120000`，向量请求上下文与超时 |
+| `KNOWWAEVE_WIKI_PATH` / `KNOWWAEVE_CONFIG_DIR` | 默认 `.local/wiki` / `.local/config`，可设绝对路径隔离 |
 
-历史展示名 KnowWaeve 现统一为 **KnowWeave**。`KNOWWAEVE_*` 环境变量、`/opt/knowwaeve-node` 安装路径，以及内部包名和磁盘格式为兼容已有环境保留，不代表另一套应用。
-
-模型默认的大上下文曾在 GPU 驱动错配、回退 CPU 时触发 OOM。本项目使用 Ollama 原生 `/api/chat` 设置请求级上下文，关闭 thinking，按 UTF-8 字节上界和输出预算拒绝过长文本，避免静默丢失证据。大文档需缩小或按实际硬件调整上下文，小样本通过不代表任意长文档都可用。
-
-若模型运行异常，先执行 `pnpm doctor`、`nvidia-smi` 并检查 Ollama 日志。本次服务器的驱动修复及 GPU 证据见 [验收报告](docs/ROUND_01_ACCEPTANCE.md)，不作为其他机器通用的操作指令。
-
-文本导入已在 Round 01 验证，Round 02 专项验证检索。Ollama 不接受继承的 OpenRouter PDF 文件块协议；PDF 请先转换为文本/Markdown。引用约束可防止引用未提供的页面，生成内容仍需核对原文。
-
-## 检查与文档
+历史拼写 `KNOWWAEVE_*`、内部 `@llm-wiki/*` 包名与 `.llm-wiki/` 磁盘格式为兼容保留。模型异常先运行 `pnpm doctor` 并查看 Ollama 日志；GPU 历史修复只记录在验收报告，不是通用安装步骤。
 
 ```bash
 pnpm test
@@ -140,24 +175,10 @@ pnpm lint
 NEXT_TELEMETRY_DISABLED=1 pnpm build
 ```
 
-本轮实跑 266 项 JavaScript/TypeScript 测试、36 项 Python 测试通过，1 项云端测试跳过；typecheck/lint/build 退出 0，保留 2 条继承 React Hooks 警告。真实全量检索、在线引用和生命周期结果见 [Round 02 验收](docs/ROUND_02_ACCEPTANCE.md)。
+Round 03 本机代码检查：299 项 JS/TS 与 47 项 Python 通过，1 项云端 smoke 跳过；typecheck、lint、build 成功，保留 2 条继承 Hooks 警告。逐项检查、真实浏览器操作和停止/重启结果见 [Round 03 验收](docs/ROUND_03_ACCEPTANCE.md)。这些结果来自报告所列工作树；独立复现仍应在自己的 checkout 运行上述命令。
 
-历史 Round 01 实测为 210 项 JavaScript/TypeScript 测试、30 项 Python 测试通过，1 项云端测试跳过；2026-10-17 15:42（Asia/Shanghai）命名整理后的交付前复测结果相同，typecheck/lint/build 均退出 0，lint 仍有 2 条继承警告。测试基线、两次验证范围和 GPU 小样本结果见验收报告；独立审阅者应针对自己的 checkout 执行以上命令。
+- [当前进度](docs/PROGRESS.md) · [开发日志](docs/DEVLOG.md) · [独立审阅指南](docs/GPT_REVIEW_GUIDE.md)
+- [Round 01 验收](docs/ROUND_01_ACCEPTANCE.md) · [Round 02 验收](docs/ROUND_02_ACCEPTANCE.md) · [Round 03 要求](docs/KnowWeave_ROUND_03_CODEX_PROMPT.md)
+- [Agent 开发 / AI 产品经理简历描述与面试材料](docs/CAREER_PRESENTATION.md)
 
-- [GPT / 独立审阅入口](docs/GPT_REVIEW_GUIDE.md)
-- [项目架构与维护约定](architecture.md)
-- [当前进度](docs/PROGRESS.md)
-- [开发日志](docs/DEVLOG.md)
-- [Round 01 验收报告](docs/ROUND_01_ACCEPTANCE.md)
-- [Round 02 验收报告](docs/ROUND_02_ACCEPTANCE.md)
-- [数据来源与许可](docs/SCIFACT.md)
-
-需求文档已整理为 [三轮计划](docs/THREE_ROUND_PLAN.md) 、[Round 01 需求](docs/ROUND_01_REQUIREMENTS.md) 与 [Round 02 要求](docs/KnowWeave_ROUND_02_CODEX_PROMPT.md)，保留原有要求实质并统一当前名称。
-
-## 仓库与提交边界
-
-个人仓库：[ck-alpha/KnowWeave](https://github.com/ck-alpha/KnowWeave)，为 private 独立仓库，`main` 是代码与文档交付入口；私有仓库审阅需读取授权或提供源码包。
-
-实现基线提交为 `395747308fb0f888702f224c6be5e3eeefa491ca`，历史验收补充提交为 `4620b8c34040be64404541ffd8160f95310fec6f`。当前命名统一和审阅文档是后续整理，不能冒充历史提交上的再次实测。
-
-数据、模型、缓存、数据库、密钥、私有文档和 `.local/evidence` 本地证据不提交 Git。仓库提供开发文档、可执行检查及必要的历史结果摘要；代码来源和改造边界集中记录在 NOTICE。
+交付仓库为 [ck-alpha/KnowWeave](https://github.com/ck-alpha/KnowWeave)，保持 **private**，分支 `main`。审阅私有仓库需要读取授权或源码包。数据、模型、缓存、SQLite、密钥、个人文档与完整本地运行日志不提交；仓库保留必要证据摘要和经检查的公开样本截图。

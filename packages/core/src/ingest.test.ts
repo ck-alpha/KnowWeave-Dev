@@ -10,6 +10,7 @@ import { getPage, searchPages } from "./db-pages";
 import { listSourceRows } from "./db-sources";
 import { listUsageRows } from "./db-usage";
 import {
+  applyIngestResponse,
   ingestPastedText,
   ingestSource,
   ingestVisionSource,
@@ -262,7 +263,7 @@ describe("ingestPastedText", () => {
     });
 
     expect(r.sourceId).toMatch(/[0-9a-f-]{36}/);
-    expect(r.rawFilename).toMatch(/^\d{4}-\d{2}-\d{2}-shor-notes\.md$/);
+    expect(r.rawFilename).toMatch(/^\d{4}-\d{2}-\d{2}-shor-notes-[0-9a-f-]{36}\.md$/);
 
     const rawFiles = await readdir(join(wikiPath, WIKI_PATHS.raw));
     expect(rawFiles).toContain(r.rawFilename);
@@ -351,7 +352,7 @@ describe("saveRawSource + markSourceIngested", () => {
       originalName: "quantum.pdf",
     });
 
-    expect(saved.rawFilename).toMatch(/^\d{4}-\d{2}-\d{2}-quantum-paper\.pdf$/);
+    expect(saved.rawFilename).toMatch(/^\d{4}-\d{2}-\d{2}-quantum-paper-[0-9a-f-]{36}\.pdf$/);
     const rows = listSourceRows(db);
     expect(rows).toHaveLength(1);
     expect(rows[0]?.ingested_at).toBeNull();
@@ -362,4 +363,65 @@ describe("saveRawSource + markSourceIngested", () => {
     markSourceIngested(db, saved.sourceId);
     expect(listSourceRows(db)[0]?.ingested_at).not.toBeNull();
   });
+});
+
+
+describe("source and page preservation", () => {
+  it("keeps same-title pasted originals independent even when the second model call fails", async () => {
+    const first = await ingestPastedText({ wikiPath, db, title: "Same title", text: "Original evidence",
+      client: stubClient([sampleResponse]), model: "stub/model" });
+    await expect(ingestPastedText({ wikiPath, db, title: "Same title", text: "Different evidence",
+      client: stubClient([]), model: "stub/model" })).rejects.toThrow();
+    const rows = listSourceRows(db);
+    expect(rows).toHaveLength(2);
+    expect(new Set(rows.map(row => row.filename)).size).toBe(2);
+    expect(await readFile(join(wikiPath, WIKI_PATHS.raw, first.rawFilename), "utf8")).toBe("# Same title\n\nOriginal evidence\n");
+    const pending = rows.find(row => row.ingested_at === null)!;
+    expect(await readFile(join(wikiPath, WIKI_PATHS.raw, pending.filename), "utf8")).toContain("Different evidence");
+    // Removing either independently saved file cannot remove the other original.
+    await rm(join(wikiPath, WIKI_PATHS.raw, pending.filename));
+    expect(await readFile(join(wikiPath, WIKI_PATHS.raw, first.rawFilename), "utf8")).toContain("Original evidence");
+  });
+
+  it("keeps concurrent same-title file uploads independent", async () => {
+    const saved = await Promise.all(["first", "second"].map(text => saveRawSource({
+      wikiPath, db, title: "Same upload", buffer: Buffer.from(text), ext: ".txt", format: "txt",
+    })));
+    expect(saved[0]!.rawFilename).not.toBe(saved[1]!.rawFilename);
+    expect(await readFile(saved[0]!.rawPath, "utf8")).toBe("first");
+    expect(await readFile(saved[1]!.rawPath, "utf8")).toBe("second");
+  });
+
+  it("rejects a new-page collision before writing any part of the proposal", async () => {
+    await writePage(wikiPath, { slug: "peter-shor", frontmatter: { slug: "peter-shor", title: "Original",
+      type: "entity", created: "2026-01-01", updated: "2026-01-01", sources: ["original-source"] }, content: "Preserved original\n" });
+    await expect(applyIngestResponse({ wikiPath, db, response: sampleResponse, sourceId: null,
+      sourceTitle: "Collision", format: "md" })).rejects.toThrow("existing page as new");
+    const original = await readPage(wikiPath, "peter-shor");
+    expect(original.content).toBe("Preserved original\n");
+    expect(original.frontmatter.sources).toEqual(["original-source"]);
+    await expect(readPage(wikiPath, "shors-algorithm")).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it("rejects contradictory create/update operations before writing", async () => {
+    await expect(applyIngestResponse({ wikiPath, db, response: { ...sampleResponse,
+      pageUpdates: [{ slug: "shors-algorithm", content: "Conflicting", updateReason: "invalid" }] },
+      sourceId: null, sourceTitle: "Duplicate", format: "md" })).rejects.toThrow("more than once");
+    expect(await readdir(join(wikiPath, WIKI_PATHS.wiki))).toEqual([]);
+  });
+});
+
+
+it("does not let concurrent same-Wiki new-page proposals overwrite each other", async () => {
+  const opts = { wikiPath, db, sourceId: null, sourceTitle: "Concurrent", format: "md" as const };
+  const responses = await Promise.allSettled(["First", "Second"].map(content => applyIngestResponse({
+    ...opts, response: { ...sampleResponse, newPages: [{ ...sampleResponse.newPages[0]!, content }] },
+  })));
+  expect(responses.filter(r => r.status === "fulfilled")).toHaveLength(1);
+  expect(responses.filter(r => r.status === "rejected")).toHaveLength(1);
+  const winner = responses[0]!.status === "fulfilled" ? "First" : "Second";
+  expect((await readPage(wikiPath, "shors-algorithm")).content.trim()).toBe(winner);
+  // A subsequent non-conflicting application proves the lock is released.
+  await applyIngestResponse({ ...opts, response: { ...sampleResponse, newPages: [sampleResponse.newPages[1]!] } });
+  expect((await readPage(wikiPath, "peter-shor")).frontmatter.title).toBe("Peter Shor");
 });

@@ -1,4 +1,4 @@
-import { copyFile, mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, realpath, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 
@@ -277,7 +277,7 @@ export type SaveRawResult = {
 };
 
 /**
- * Persists a binary or text source to raw/<date>-<slug>.<ext> and inserts a
+ * Persists a binary or text source to raw/<date>-<slug>-<sourceId>.<ext> and inserts a
  * matching sources row (ingested_at = null). The caller flips ingested_at
  * after the LLM call succeeds.
  */
@@ -285,13 +285,12 @@ export async function saveRawSource(opts: SaveRawOptions): Promise<SaveRawResult
   const today = new Date().toISOString().slice(0, 10);
   const slug = slugify(opts.title);
   const ext = opts.ext.startsWith(".") ? opts.ext : `.${opts.ext}`;
-  const rawFilename = `${today}-${slug}${ext}`;
+  const sourceId = randomUUID();
+  const rawFilename = `${today}-${slug}-${sourceId}${ext}`;
   const rawDir = join(opts.wikiPath, WIKI_PATHS.raw);
   await mkdir(rawDir, { recursive: true });
   const rawPath = join(rawDir, rawFilename);
-  await writeFile(rawPath, opts.buffer);
-
-  const sourceId = randomUUID();
+  await writeFile(rawPath, opts.buffer, { flag: "wx" });
   const sourceRow: SourceRow = {
     id: sourceId,
     filename: rawFilename,
@@ -349,16 +348,16 @@ export async function ingestPastedText(
   const cleanTitle = (opts.title ?? deriveTitleFromBody(opts.text)).trim() || "Untitled note";
   const slug = slugify(cleanTitle);
   const today = new Date().toISOString().slice(0, 10);
-  const rawFilename = `${today}-${slug}.md`;
+  const sourceId = randomUUID();
+  const rawFilename = `${today}-${slug}-${sourceId}.md`;
   const rawDir = join(opts.wikiPath, WIKI_PATHS.raw);
   await mkdir(rawDir, { recursive: true });
   const rawPath = join(rawDir, rawFilename);
   // We persist pasted notes as markdown so they round-trip cleanly if the user
   // opens them later in Obsidian / VS Code.
-  await writeFile(rawPath, `# ${cleanTitle}\n\n${opts.text.trim()}\n`, "utf8");
+  await writeFile(rawPath, `# ${cleanTitle}\n\n${opts.text.trim()}\n`, { encoding: "utf8", flag: "wx" });
   const sizeBytes = Buffer.byteLength(opts.text, "utf8");
 
-  const sourceId = randomUUID();
   const sourceRow: SourceRow = {
     id: sourceId,
     filename: rawFilename,
@@ -466,10 +465,43 @@ export type ApplyIngestResponseOptions = {
  * approval-gate flow can call it from a separate endpoint after the user
  * reviews + confirms a previously-returned proposal.
  */
+const applyingWikis = new Set<string>();
+
 export async function applyIngestResponse(opts: ApplyIngestResponseOptions): Promise<void> {
+  // Requests use distinct DB connections. Protect the filesystem write phase
+  // by canonical Wiki path, so simultaneous proposals cannot both pass the
+  // new-page existence check in this application process.
+  const key = await realpath(opts.wikiPath);
+  if (applyingWikis.has(key)) throw new Error("Another ingest is being applied to this Wiki. Wait for it to finish, then Retry the source.");
+  applyingWikis.add(key);
+  try {
+    await applyIngestResponseUnlocked(opts);
+  } finally {
+    applyingWikis.delete(key);
+  }
+}
+
+async function applyIngestResponseUnlocked(opts: ApplyIngestResponseOptions): Promise<void> {
   const { response, wikiPath, db, sourceId } = opts;
   const today = new Date().toISOString().slice(0, 10);
   const written: string[] = [];
+
+  // Validate the complete proposal before writing any page. A model may call
+  // an existing slug "new"; applying that would erase its original lineage.
+  const proposed = new Set<string>();
+  for (const page of [...response.newPages, ...response.pageUpdates]) {
+    if (proposed.has(page.slug)) throw new Error(`Ingest proposed the page ${page.slug} more than once. Retry the source.`);
+    proposed.add(page.slug);
+  }
+  for (const page of response.newPages) {
+    try {
+      await stat(join(wikiPath, WIKI_PATHS.wiki, `${page.slug}.md`));
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") continue;
+      throw error;
+    }
+    throw new Error(`Ingest proposed an existing page as new: ${page.slug}. No pages were changed. Retry the source so it can update existing pages.`);
+  }
 
   for (const np of response.newPages) {
     await writePage(wikiPath, {
@@ -485,7 +517,7 @@ export async function applyIngestResponse(opts: ApplyIngestResponseOptions): Pro
       },
       content: ensureTrailingNewline(np.content),
     });
-    upsertWikiRowAndIndex(db, wikiPath, np.slug, np.title, np.type, today, today, np.content, np.tags);
+    await upsertWikiRowAndIndex(db, wikiPath, np.slug, np.title, np.type, today, today, np.content, np.tags);
     if (sourceId) linkPageSource(db, np.slug, sourceId);
     written.push(np.slug);
   }
@@ -507,7 +539,7 @@ export async function applyIngestResponse(opts: ApplyIngestResponseOptions): Pro
         },
         content: ensureTrailingNewline(upd.content),
       });
-      upsertWikiRowAndIndex(
+      await upsertWikiRowAndIndex(
         db,
         wikiPath,
         upd.slug,
@@ -534,7 +566,7 @@ export async function applyIngestResponse(opts: ApplyIngestResponseOptions): Pro
       },
       content: ensureTrailingNewline(upd.content),
     });
-    upsertWikiRowAndIndex(
+    await upsertWikiRowAndIndex(
       db,
       wikiPath,
       upd.slug,
@@ -555,7 +587,7 @@ export async function applyIngestResponse(opts: ApplyIngestResponseOptions): Pro
   await appendLog(wikiPath, logLine);
 }
 
-function upsertWikiRowAndIndex(
+async function upsertWikiRowAndIndex(
   db: Db,
   wikiPath: string,
   slug: string,
@@ -565,7 +597,11 @@ function upsertWikiRowAndIndex(
   updatedAt: string,
   content: string,
   tags: string[],
-): void {
+): Promise<void> {
+  // Markdown serialization normalizes boundary newlines. Index the actual
+  // persisted body, exactly as Query reads it, not the pre-serialization LLM
+  // text; otherwise the first query invalidates freshly built vectors.
+  content = (await readPage(wikiPath, slug)).content;
   upsertPage(db, {
     slug,
     title,
@@ -576,7 +612,7 @@ function upsertWikiRowAndIndex(
     tags,
   });
   indexPageForSearch(db, { slug, title, content, tags });
-  void recordSyncState(db, wikiPath, slug);
+  await recordSyncState(db, wikiPath, slug);
 }
 
 async function recordSyncState(db: Db, wikiPath: string, slug: string): Promise<void> {
@@ -597,8 +633,9 @@ async function recordSyncState(db: Db, wikiPath: string, slug: string): Promise<
 async function readPageSafe(wikiPath: string, slug: string) {
   try {
     return await readPage(wikiPath, slug);
-  } catch {
-    return null;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
+    throw error;
   }
 }
 

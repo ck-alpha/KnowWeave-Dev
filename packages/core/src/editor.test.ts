@@ -2,18 +2,23 @@ import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { Embedder, LlmClient } from "@llm-wiki/llm";
 
 import { openInMemoryDb, type Db } from "./db";
 import { getPage, searchPages, upsertPage, indexPageForSearch } from "./db-pages";
 import {
   applyManualEdit,
+  createPage,
   PageNotFoundError,
   PageRestoreConflictError,
   restoreDeletedPage,
   saveSchema,
   softDeletePage,
 } from "./editor";
+import { queryWiki } from "./query";
+import { refreshEmbeddings, retrievalStatus } from "./retrieval";
+import { retrievalContentHash } from "./retrieval-store";
 import { DEFAULT_SCHEMA_TEMPLATE } from "./templates";
 import { initWikiFolder, readPage, readSchema, WIKI_PATHS, writePage } from "./wiki";
 
@@ -111,6 +116,38 @@ describe("applyManualEdit", () => {
     await expect(
       applyManualEdit(wikiPath, db, "ghost", { content: "x\n" }),
     ).rejects.toThrow();
+  });
+});
+
+describe("editor retrieval round-trip", () => {
+  it.each(["create", "edit"])("keeps a %s with leading blank lines queryable after its first vector refresh", async (operation) => {
+    const content = "\n\nEvidence about kidney filtration.\n\n";
+    const saved = operation === "create"
+      ? await createPage(wikiPath, db, { slug: "topic", title: "Kidney evidence", type: "concept", content })
+      : await (async () => {
+        await seedPage("topic", "Previous evidence.\n");
+        return (await applyManualEdit(wikiPath, db, "topic", { content })).page;
+      })();
+    const embedder: Embedder = {
+      describe: async () => ({ model: "test-model", digest: "v1", documentPrefix: "", queryPrefix: "", numCtx: 8192 }),
+      embed: async (texts) => texts.map(() => [1, 0]),
+    };
+    await refreshEmbeddings({ db, embedder });
+    const create = vi.fn(async () => ({
+      model: "stub-qwen", choices: [{ message: { content: JSON.stringify({
+        answer: "Evidence [[topic]].", pagesUsed: ["topic"], confidence: "high", caveats: [], suggestedNewPage: null,
+      }) }, finish_reason: "stop" }], usage: { prompt_tokens: 20, completion_tokens: 10 },
+    }));
+    const client = { chat: { completions: { create } } } as unknown as LlmClient;
+    // This used to fail with INDEX_NOT_READY immediately after a successful
+    // refresh: the editor indexed whitespace that the disk round-trip removed.
+    const result = await queryWiki({ db, wikiPath, client, model: "stub-qwen", question: "filtration", retrievalMode: "hybrid", embedder });
+    const persisted = await readPage(wikiPath, "topic");
+    expect(saved).toEqual(persisted);
+    expect(result.pagesUsed).toEqual(["topic"]);
+    expect(result.retrieval.suppliedPages[0]?.documentHash).toBe(retrievalContentHash(persisted.frontmatter.title, persisted.content));
+    expect(retrievalStatus(db).ready).toBe(true);
+    expect((await refreshEmbeddings({ db, embedder })).embedded).toBe(0);
   });
 });
 

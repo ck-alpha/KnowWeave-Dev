@@ -202,3 +202,26 @@ describe("Hybrid evidence in actual queryWiki", () => {
     expect(embedder.embed).not.toHaveBeenCalled();
   });
 });
+
+it("keeps fresh Ingest vectors valid through BM25 then Hybrid evidence loading", async () => {
+  const { applyIngestResponse } = await import('./ingest');
+  const response = { summary: 'Kidney evidence', newPages: [{ slug: 'kidney', title: 'Kidney', type: 'concept' as const,
+    content: 'Renal organs filter blood.', tags: [] }], pageUpdates: [], indexEntries: [], logEntry: 'Added evidence', contradictions: [] };
+  await applyIngestResponse({ wikiPath, db, sourceId: null, sourceTitle: 'Research', format: 'md', response });
+  const embedder = mockEmbedder();
+  await refreshEmbeddings({ db, embedder });
+  const create = vi.fn(async () => ({ model: 'stub-qwen', choices: [{ message: { content: JSON.stringify({
+    answer: 'See [[kidney]].', pagesUsed: ['kidney'], confidence: 'high', caveats: [], suggestedNewPage: null,
+  }) }, finish_reason: 'stop' }], usage: { prompt_tokens: 20, completion_tokens: 10 } }));
+  const client = { chat: { completions: { create } } } as unknown as LlmClient;
+  for (const mode of ['bm25', 'hybrid'] as const) {
+    await queryWiki({ wikiPath, db, client, model: 'stub-qwen', question: 'Renal organs', retrievalMode: mode, embedder });
+    expect(retrievalStatus(db).ready).toBe(true);
+  }
+  await applyIngestResponse({ wikiPath, db, sourceId: null, sourceTitle: 'Follow-up', format: 'md',
+    response: { ...response, newPages: [], pageUpdates: [{ slug: 'kidney', content: '\nRenal organs filter blood and regulate water.', updateReason: 'New evidence' }] } });
+  expect(retrievalStatus(db).pending).toBe(1);
+  await refreshEmbeddings({ db, embedder });
+  await queryWiki({ wikiPath, db, client, model: 'stub-qwen', question: 'Renal organs', retrievalMode: 'hybrid', embedder });
+  expect((await refreshEmbeddings({ db, embedder })).embedded).toBe(0);
+});

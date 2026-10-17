@@ -71,6 +71,9 @@ export async function applyManualEdit(
     content: ensureTrailingNewline(edit.content),
   };
   await writePage(wikiPath, nextPage);
+  // Markdown serialization normalizes boundary newlines. Index and return
+  // exactly the persisted evidence that subsequent queries will read.
+  const persistedPage = await readPage(wikiPath, slug);
 
   upsertPage(db, {
     slug,
@@ -78,13 +81,13 @@ export async function applyManualEdit(
     type: nextFrontmatter.type,
     created_at: nextFrontmatter.created,
     updated_at: nextFrontmatter.updated,
-    word_count: wordCount(nextPage.content),
+    word_count: wordCount(persistedPage.content),
     tags: nextFrontmatter.tags ?? [],
   });
   indexPageForSearch(db, {
     slug,
     title: nextFrontmatter.title,
-    content: nextPage.content,
+    content: persistedPage.content,
     tags: nextFrontmatter.tags ?? [],
   });
 
@@ -109,7 +112,7 @@ export async function applyManualEdit(
   // content).
   await refreshIndexEntryForSlug(wikiPath, db, slug);
 
-  return { slug, page: nextPage, backupPath };
+  return { slug, page: persistedPage, backupPath };
 }
 
 // ---- quick fixes ---------------------------------------------------------
@@ -257,6 +260,7 @@ export async function createPage(
     content: ensureTrailingNewline(input.content),
   };
   await writePage(wikiPath, page);
+  const persistedPage = await readPage(wikiPath, input.slug);
 
   upsertPage(db, {
     slug: input.slug,
@@ -264,13 +268,13 @@ export async function createPage(
     type: input.type,
     created_at: today,
     updated_at: today,
-    word_count: wordCount(page.content),
+    word_count: wordCount(persistedPage.content),
     tags,
   });
   indexPageForSearch(db, {
     slug: input.slug,
     title: input.title,
-    content: page.content,
+    content: persistedPage.content,
     tags,
   });
 
@@ -293,7 +297,7 @@ export async function createPage(
   // waiting for the next ingest or rebuild.
   await refreshIndexEntryForSlug(wikiPath, db, input.slug);
 
-  return page;
+  return persistedPage;
 }
 
 // ---- soft delete + restore for wiki pages -------------------------------

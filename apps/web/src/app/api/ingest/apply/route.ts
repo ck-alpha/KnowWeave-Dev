@@ -32,6 +32,9 @@ export async function POST(req: Request) {
   } catch {
     return NextResponse.json({ error: "expected JSON body" }, { status: 400 });
   }
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return NextResponse.json({ error: "expected JSON object" }, { status: 400 });
+  }
   if (typeof body.sourceId !== "string" || body.sourceId.length === 0) {
     return NextResponse.json(
       { error: "sourceId is required" },
@@ -57,6 +60,12 @@ export async function POST(req: Request) {
       return NextResponse.json(
         { error: `source not found: ${body.sourceId}` },
         { status: 404 },
+      );
+    }
+    if (source.ingested_at) {
+      return NextResponse.json(
+        { error: "This source has already been applied. Refresh Sources to view its pages." },
+        { status: 409 },
       );
     }
 

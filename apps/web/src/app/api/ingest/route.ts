@@ -13,7 +13,6 @@ import {
 } from "@llm-wiki/core";
 import {
   detectFormat,
-  detectFormatFromUrl,
   extractDocx,
   extractHtml,
   extractImage,
@@ -56,6 +55,17 @@ export async function POST(req: Request) {
       body = (await req.json()) as IngestJsonBody;
     } catch {
       return NextResponse.json({ error: "expected JSON body or multipart upload" }, { status: 400 });
+    }
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return NextResponse.json({ error: "expected JSON object" }, { status: 400 });
+    }
+    for (const field of ["text", "url", "title", "model"] as const) {
+      if (body[field] !== undefined && typeof body[field] !== "string") {
+        return NextResponse.json({ error: `${field} must be a string` }, { status: 400 });
+      }
+    }
+    if (body.model !== undefined && !body.model.trim()) {
+      return NextResponse.json({ error: "model must be a non-empty string" }, { status: 400 });
     }
     if (typeof body.url === "string" && body.url.trim()) {
       return await handleUrl(body.url.trim(), body.title, body.model, apiKey);
@@ -183,11 +193,20 @@ async function handleUrl(
 async function handleFileUpload(req: Request, apiKey: string): Promise<Response> {
   const form = await req.formData();
   const file = form.get("file");
-  const titleOverride = (form.get("title") as string | null) ?? undefined;
-  const modelOverride = (form.get("model") as string | null) ?? undefined;
+  const titleOverride = form.get("title") ?? undefined;
+  const modelOverride = form.get("model") ?? undefined;
 
   if (!(file instanceof File)) {
     return NextResponse.json({ error: "missing `file` field in multipart body" }, { status: 400 });
+  }
+  if (titleOverride !== undefined && typeof titleOverride !== "string") {
+    return NextResponse.json({ error: "title must be a string" }, { status: 400 });
+  }
+  if (modelOverride !== undefined && (typeof modelOverride !== "string" || !modelOverride.trim())) {
+    return NextResponse.json({ error: "model must be a non-empty string" }, { status: 400 });
+  }
+  if (file.size === 0) {
+    return NextResponse.json({ error: "file must not be empty" }, { status: 400 });
   }
 
   const filename = file.name || "upload";

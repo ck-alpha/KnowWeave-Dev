@@ -48,6 +48,9 @@ export async function POST(req: Request) {
   } catch {
     return NextResponse.json({ error: "expected JSON body" }, { status: 400 });
   }
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return NextResponse.json({ error: "expected JSON object" }, { status: 400 });
+  }
   if (typeof body.slug !== "string" || !SLUG_RE.test(body.slug)) {
     return NextResponse.json(
       { error: "slug must be kebab-case (lowercase, hyphens only)" },
@@ -65,6 +68,11 @@ export async function POST(req: Request) {
   }
   if (typeof body.content !== "string") {
     return NextResponse.json({ error: "content must be a string" }, { status: 400 });
+  }
+  for (const field of ["tags", "sources"] as const) {
+    if (body[field] !== undefined && (!Array.isArray(body[field]) || !body[field].every((value) => typeof value === "string"))) {
+      return NextResponse.json({ error: `${field} must be an array of strings` }, { status: 400 });
+    }
   }
 
   const ctx = await openWikiContext();

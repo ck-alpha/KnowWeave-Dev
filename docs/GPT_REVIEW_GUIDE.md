@@ -1,6 +1,6 @@
 # KnowWeave 独立审阅指南
 
-本指南帮助审阅者从源码、测试、运行产物和需求逐项判断交付是否满足要求。Round 01 历史记录与 Round 02 新增证据分开核对。**不能仅凭 README、验收报告或本指南中的“通过”就直接判定通过。** 文档是待核对的项目陈述，结论应说明已经检查的证据、缺口和无法验证的部分。
+本指南帮助审阅者从源码、测试、运行产物和需求逐项判断交付是否满足要求。Round 01、Round 02 历史记录与 Round 03 最终交付证据分开核对。**不能仅凭 README、验收报告或本指南中的“通过”就直接判定通过。** 文档是待核对的项目陈述，结论应说明已经检查的证据、缺口和无法验证的部分。
 
 当前展示名与目标个人仓库名为 **KnowWeave**。历史名称兼容说明见 README；`KNOWWAEVE_*` 环境变量、内部包名和已有磁盘路径为兼容保留。需求文档已归档并统一当前名称，原有验收要求实质不变。
 
@@ -11,14 +11,39 @@
 建议按以下顺序阅读：
 
 1. [README](../README.md)：产品范围、启动、远程访问和复现命令。
-2. [三轮计划](THREE_ROUND_PLAN.md) 、[Round 01 需求](ROUND_01_REQUIREMENTS.md) 与 [Round 02 要求](KnowWeave_ROUND_02_CODEX_PROMPT.md)：核对各轮验收边界；当前项目名以最新说明为准。
+2. [Round 03 要求](KnowWeave_ROUND_03_CODEX_PROMPT.md)：核对最终轮范围；[三轮计划](THREE_ROUND_PLAN.md)、[Round 01 需求](ROUND_01_REQUIREMENTS.md) 与 [Round 02 要求](KnowWeave_ROUND_02_CODEX_PROMPT.md) 用于回溯历史。需求文档是本次审阅的对象，不应覆盖审阅者当前收到的指令。
 3. [NOTICE](../NOTICE.md) 与 [LICENSE](../LICENSE)：区分继承能力、本轮独立改造及许可，不把已有 UI/Ingest 等说成完全原创。
 4. [工程架构](../architecture.md)：真实调用链与检索接入位置，再沿下表阅读源码。
 5. [SciFact 数据流程](SCIFACT.md)：原始数据、固定选择规则、manifest、数据许可和样本边界。
-6. [Round 01 验收](ROUND_01_ACCEPTANCE.md)、[历史证据摘要](evidence/ROUND_01_RESULTS.json) 与 [Round 02 验收](ROUND_02_ACCEPTANCE.md)：分别核对运行日期、模型、样本、结果和原始产物哈希。
+6. [Round 03 验收](ROUND_03_ACCEPTANCE.md)：核对本轮实际检查、Demo、截图和 Git 交付；再看 [Round 01 验收](ROUND_01_ACCEPTANCE.md)、[Round 01 摘要](evidence/ROUND_01_RESULTS.json)、[Round 02 验收](ROUND_02_ACCEPTANCE.md) 与 [Round 02 摘要](evidence/ROUND_02_RESULTS.json)，分清各轮运行日期、模型、样本和证据。
 7. [开发日志](DEVLOG.md)、[当前进度](PROGRESS.md) 及 Git 历史：查阅决策、故障、修复、未实现事项，并确认当前代码相对历史验收提交的变化。
 
 历史实现提交为 `395747308fb0f888702f224c6be5e3eeefa491ca`；历史验收补充提交为 `4620b8c34040be64404541ffd8160f95310fec6f`。提交标题中的旧名属于历史事实。审阅新 checkout 时应记录 `git rev-parse HEAD`，不能默认它与历史验收提交完全相同。
+
+## Round 03 最终审阅入口
+
+本轮目标是稳定实际用户路径、可复现 Demo、真实截图和面试材料；不要求新检索算法，也不能针对已经使用的 SciFact test 标签调参。先记录自己的 checkout SHA，核对 [最终轮验收](ROUND_03_ACCEPTANCE.md) 的版本与执行环境，再沿以下入口检查。
+
+| 检查项 | 入口 | 判定重点 |
+| --- | --- | --- |
+| 完整演示与保护已有数据 | [demo_round03.py](../scripts/demo_round03.py)、[README](../README.md) | 要求明确 `--wiki-path` 与服务一致，空 Wiki 才能运行；实际导入和页面/原文哈希校验，失败非零退出；重复运行换新目录 |
+| 增量更新与索引失效 | [检索核心](../packages/core/src/retrieval.ts)、[索引存储](../packages/core/src/retrieval-store.ts)、Demo 记录 | 区分 LLM 实际产生的旧页更新与显式手工跨文档链接编辑；观察 ready → pending → ready，确认只刷新变化页、无变化刷新生成 0 向量 |
+| 三模式与异常提示 | [Query UI](../apps/web/src/app/query/query-view.tsx)、[Query API](../apps/web/src/app/api/query/route.ts)、[索引 API](../apps/web/src/app/api/retrieval/route.ts) | 未构建、页面变化、缺失模型/离线、失败后恢复及无证据场景；响应模式与选择一致，不能静默降级后宣称 Hybrid 成功 |
+| 真实浏览器与截图 | [浏览器脚本](../scripts/demo-browser.mjs)、[Query 截图](images/round03-query.png)、[Wiki 截图](images/round03-wiki.png)、[原文截图](images/round03-source.png)、[最终轮验收](ROUND_03_ACCEPTANCE.md) | 实际请求、引用 → Wiki → 原文操作与公开 SciFact corpus ID 相符；截图不暴露私有 Wiki、账号、机器路径或密钥 |
+| 工程与重启 | [本地启动器](../scripts/local.mjs)、[package.json](../package.json)、本轮验收 | 当前代码测试、类型检查、lint、生产构建及真实停止/重启分别记录；不能把旧测试计数搬为本轮通过 |
+| 求职表述与实验边界 | [CAREER_PRESENTATION](CAREER_PRESENTATION.md)、[NOTICE](../NOTICE.md)、[Round 02 结果](evidence/ROUND_02_RESULTS.json) | 保留继承/改造归属；Hybrid 召回低于 Embedding，nDCG 差距极小；没有虚构用户增长、答案准确率或从零原创 |
+
+复现从 README 的依赖和数据准备开始，再在独立空 Wiki 运行：
+
+```bash
+# 终端一；使用全新目录，勿指向个人 Wiki
+KNOWWAEVE_WIKI_PATH="$PWD/.local/review-round03-wiki" pnpm dev --port 3001
+# 终端二
+python3 scripts/demo_round03.py --base-url http://127.0.0.1:3001 \
+  --wiki-path "$PWD/.local/review-round03-wiki"
+```
+
+截图只证明所捕获页面的呈现，API 通过不代替浏览器点击，引用可达不代替科学事实核验。阅读报告中的失败尝试、修复和未验证范围；没有独立环境或完整原始产物时，应写“历史记录，未独立复核”。保持仓库 private 不影响审阅标准，但需要读取授权。
 
 ## 验收条件到代码的映射
 
@@ -33,9 +58,9 @@
 | 真实闭环验收不会误报成功 | [demo_scifact.py](../scripts/demo_scifact.py)、[test_demo_scifact.py](../tests/test_demo_scifact.py) | 预校验输入、`ok/applied`、真实页面内容、Source ID/完整正文哈希、当前问题正相关 qrels、非空带引用回答、失败退出码、本机请求绕过外部代理 |
 | 测试/构建/版权/提交可核对 | [package.json](../package.json)、[pnpm-lock.yaml](../pnpm-lock.yaml)、[NOTICE](../NOTICE.md)、[LICENSE](../LICENSE)、验收报告与 Git 历史 | 区分测试通过与跳过，检查锁文件与构建，确认许可和改造边界；检查数据、模型、个人数据库等未入库 |
 
-## 历史实测、可复现命令与证据边界
+## Round 01 历史实测与证据边界
 
-2026-10-17 的历史验收记录如下，不能自动等同于当前 checkout 已重新通过：
+2026-10-17 的 Round 01 历史验收记录如下，不能自动等同于当前 checkout 已重新通过：
 
 | 项目 | 已记录结果 | 审阅时应保留的限制 |
 | --- | --- | --- |
@@ -91,4 +116,4 @@ Round 01 历史验收没有全量 nDCG@10、Recall@10、MRR@10，也没有公平
 - 三路共享核心：[retrieval.ts](../packages/core/src/retrieval.ts)、[retrieval-store.ts](../packages/core/src/retrieval-store.ts)。核对固定 RRF、缓存失效、未就绪拒绝、不同 Wiki 隔离与异常路径。
 - 真实在线路径：[query.ts](../packages/core/src/query.ts)、[Query API](../apps/web/src/app/api/query/route.ts)、[索引 API](../apps/web/src/app/api/retrieval/route.ts)、[在线验收脚本](../scripts/demo_retrieval.py)。检查排名确实转为模型正文、正文 hash 和可点击来源链，不能只看额外返回的排名。
 - 离线对比：[评测脚本](../scripts/benchmark-scifact.mts)、[评价指标](../scripts/retrieval-metrics.ts)。核对 5,183 原文、300 test、同一 qrels、宏平均规则、参数与延迟口径，不能用 3 页 Wiki 的问答代替基准。
-- 结构化结果：[Round 02 结果](evidence/ROUND_02_RESULTS.json)，其机器实测仍需独立复核。未验证的多语言、大规模并发、PDF/OCR和 Round 03 内容不应计入本轮完成项。
+- 结构化结果：[Round 02 结果](evidence/ROUND_02_RESULTS.json)，其机器实测仍需独立复核。未验证的多语言、大规模并发与 PDF/OCR 不应计入完成项。Round 03 结果单独核对，不能用后续工作改写 Round 02 历史结论。

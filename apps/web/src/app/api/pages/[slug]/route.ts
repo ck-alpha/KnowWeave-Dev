@@ -44,8 +44,20 @@ export async function PUT(req: Request, { params }: RouteParams) {
   } catch {
     return NextResponse.json({ error: "expected JSON body" }, { status: 400 });
   }
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return NextResponse.json({ error: "expected JSON object" }, { status: 400 });
+  }
   if (typeof body.content !== "string") {
     return NextResponse.json({ error: "content must be a string" }, { status: 400 });
+  }
+  if (body.title !== undefined && (typeof body.title !== "string" || !body.title.trim())) {
+    return NextResponse.json({ error: "title must be a non-empty string" }, { status: 400 });
+  }
+  if (body.type !== undefined && !["entity", "concept", "source", "comparison", "overview"].includes(body.type)) {
+    return NextResponse.json({ error: "invalid page type" }, { status: 400 });
+  }
+  if (body.tags !== undefined && (!Array.isArray(body.tags) || !body.tags.every((tag) => typeof tag === "string"))) {
+    return NextResponse.json({ error: "tags must be an array of strings" }, { status: 400 });
   }
 
   const ctx = await openWikiContext();

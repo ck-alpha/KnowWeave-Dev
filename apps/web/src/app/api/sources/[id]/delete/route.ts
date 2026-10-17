@@ -36,19 +36,28 @@ export async function POST(
       );
     }
 
-    // Move the raw file to trash. Best-effort — if the file is already
-    // missing (e.g. user deleted manually), we still proceed with the row
-    // delete since leaving an orphaned row in DB is worse than a no-op
-    // trash move.
+    // An already-missing raw file can still have its metadata removed.
+    // Other I/O errors must preserve the row so the operation can be retried.
+    const otherReference = ctx.db.prepare("SELECT id FROM sources WHERE filename = ? AND id != ? LIMIT 1")
+      .get(source.filename, source.id);
     const rawPath = join(ctx.wikiPath, WIKI_PATHS.raw, source.filename);
     const trashDir = join(ctx.wikiPath, WIKI_PATHS.tooling, "trash", "raw");
     try {
-      await mkdir(trashDir, { recursive: true });
-      const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-      const trashPath = join(trashDir, `${stamp}-${source.filename}`);
-      await rename(rawPath, trashPath);
-    } catch {
-      // ENOENT or permission issue; proceed with DB cleanup anyway.
+      // Older versions could give same-title imports a shared filename.
+      // Keep that file while any surviving source still references it.
+      if (!otherReference) {
+        await mkdir(trashDir, { recursive: true });
+        const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+        const trashPath = join(trashDir, `${stamp}-${source.filename}`);
+        await rename(rawPath, trashPath);
+      }
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+        return NextResponse.json(
+          { error: "Could not move the source to trash. Nothing was removed from Sources; check folder permissions and retry." },
+          { status: 500 },
+        );
+      }
     }
 
     deleteSource(ctx.db, source.id);

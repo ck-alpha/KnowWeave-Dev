@@ -57,6 +57,7 @@ export default async function WikiSlugPage({ params }: { params: { slug: string 
         backlinks={backlinks}
         knownSlugs={knownSlugs}
         sources={sources}
+        missingSourceCount={(page.frontmatter.sources ?? []).filter((id) => !getSource(ctx.db, id)).length}
       />
     );
   } finally {

@@ -34,7 +34,9 @@ export async function GET() {
       status,
       modelAvailable: modelError === undefined,
       ...(modelError ? { modelError } : {}),
-      summary: `Embedding index: ${status.indexed}/${status.total} pages indexed, ${status.pending} pending.${modelError ? " Cached status; embedding model unavailable." : status.ready ? " Ready." : " Build or refresh to use semantic / hybrid search."}`,
+      summary: status.total === 0
+        ? "No Wiki pages yet. Ingest a source first, then build the embedding index."
+        : `Embedding index: ${status.indexed}/${status.total} pages indexed, ${status.pending} pending.${modelError ? " Cached status; embedding model unavailable. BM25 retrieval remains available." : status.ready ? " Ready." : " Pages are new, changed, or need this model's vectors. Build or refresh to use semantic / hybrid search."}`,
     });
   } catch (error) {
     return failure(error);

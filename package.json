@@ -2,7 +2,7 @@
   "name": "knowweave",
   "version": "0.1.0",
   "private": true,
-  "description": "KnowWeave — local-first agent knowledge management with Qwen and traceable Wiki",
+  "description": "KnowWeave \u2014 local-first agent knowledge management with Qwen and traceable Wiki",
   "license": "MIT",
   "author": "ck-alpha",
   "engines": {
@@ -24,7 +24,8 @@
     "data:scifact": "python3 scripts/scifact.py prepare",
     "demo:scifact": "python3 scripts/demo_scifact.py",
     "benchmark:scifact": "tsx scripts/benchmark-scifact.mts",
-    "test:data": "python3 -m unittest discover -s tests -v"
+    "test:data": "python3 -m unittest discover -s tests -v",
+    "demo:round03": "python3 scripts/demo_round03.py"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",

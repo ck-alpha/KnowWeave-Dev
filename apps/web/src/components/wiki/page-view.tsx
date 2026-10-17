@@ -24,6 +24,7 @@ type Props = {
   knownSlugs: ReadonlyArray<string>;
   /** Raw sources that contributed to this page (from page_sources join). */
   sources?: ReadonlyArray<SourceLink>;
+  missingSourceCount?: number;
 };
 
 export function PageView(props: Props) {
@@ -161,6 +162,13 @@ export function PageView(props: Props) {
                 ))}
               </ul>
             </section>
+          ) : null}
+
+          {props.missingSourceCount ? (
+            <p role="status" className="mt-6 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-sm">
+              {props.missingSourceCount} original source{props.missingSourceCount === 1 ? " is" : "s are"} no longer available.
+              This Wiki page remains readable, but those claims cannot be traced to the removed originals.
+            </p>
           ) : null}
 
           <section className="mt-10 border-t border-border pt-4">

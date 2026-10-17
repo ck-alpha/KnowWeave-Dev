@@ -9,28 +9,11 @@ import { SourcesList } from "@/components/sources/sources-list";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import type { IngestSuccess } from "@/lib/ingest-result";
 import { useWikiSettings } from "@/lib/use-wiki-settings";
 import { cn } from "@/lib/utils";
 
 type Mode = "paste" | "file" | "url";
-
-type IngestSuccess = {
-  ok: true;
-  /** "applied" = wiki changes already written. "preview" = approval pending. */
-  kind: "applied" | "preview";
-  wikiPath: string;
-  sourceId: string;
-  rawFilename: string;
-  model: string;
-  response: {
-    summary: string;
-    newPages: Array<{ slug: string; title: string; type: string }>;
-    pageUpdates: Array<{ slug: string; updateReason: string }>;
-    contradictions: Array<{ description: string; pages: string[] }>;
-  };
-  /** Full IngestResponse for re-send to /api/ingest/apply when kind=preview. */
-  fullResponse: unknown | null;
-};
 
 type IngestResult = IngestSuccess | { ok: false; error: string; type?: string } | { error: string };
 
@@ -48,6 +31,7 @@ export function SourcesView() {
   const [error, setError] = useState<string | null>(null);
   const [applyBusy, setApplyBusy] = useState(false);
   const [discardBusy, setDiscardBusy] = useState(false);
+  const [sourceActionBusy, setSourceActionBusy] = useState(false);
   const [refreshNonce, setRefreshNonce] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -106,7 +90,7 @@ export function SourcesView() {
   }
 
   const canSubmit =
-    !busy &&
+    !busy && !applyBusy && !discardBusy && !sourceActionBusy && result?.kind !== "preview" &&
     ((mode === "paste" && text.trim().length > 0) ||
       (mode === "url" && url.trim().length > 0) ||
       (mode === "file" && file !== null));
@@ -157,8 +141,6 @@ export function SourcesView() {
       // Don't clear file/url so the user can see what they ingested.
       setText("");
       setTitle("");
-      // Re-fetch the sources list above so the new ingest shows up immediately.
-      setRefreshNonce((n) => n + 1);
     } catch (err) {
       console.error(
         `[Ingest Failed] source: "${sourceLabel}" -> Status: Failed. Error: ${(err as Error).message}`
@@ -166,6 +148,8 @@ export function SourcesView() {
       setError((err as Error).message);
     } finally {
       setBusy(false);
+      // Failed model calls may still save a raw source for Retry.
+      setRefreshNonce((n) => n + 1);
     }
   }
 
@@ -184,7 +168,7 @@ export function SourcesView() {
       <PageHeader
         eyebrow="Add to wiki"
         title="Sources"
-        description="Pasted text and Markdown go straight in. URLs fetch + extract via Readability. PDFs and images go through a vision model. DOCX/PPTX/XLSX get pre-parsed locally."
+        description="Import text or Markdown, compile Wiki pages, then trace every answer back to its original sources. For the local Qwen demo, convert PDFs and images to text first."
       />
 
       <section className="mb-8 rounded-lg border border-border/70 bg-card p-5">
@@ -194,7 +178,12 @@ export function SourcesView() {
             Originals live in <code className="font-mono">raw/</code>
           </p>
         </div>
-        <SourcesList refreshNonce={refreshNonce} />
+        <SourcesList
+          refreshNonce={refreshNonce}
+          onPreview={(preview) => { setResult(preview); setError(null); }}
+          onBusyChange={setSourceActionBusy}
+          disabled={busy || applyBusy || discardBusy || result?.kind === "preview"}
+        />
       </section>
 
       <section
@@ -233,6 +222,10 @@ export function SourcesView() {
         </div>
 
         <form onSubmit={onSubmit} className="mt-5 space-y-4">
+          <p className="text-xs text-muted-foreground">
+            Each import creates a separate source. For a failed import, use Retry above to reuse
+            its original file. Related content can update existing Wiki pages; refresh the embedding index afterward.
+          </p>
           <div>
             <label className="mb-1 block text-sm font-medium" htmlFor="title">
               Title (optional)
@@ -316,7 +309,7 @@ export function SourcesView() {
                   )}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Supported: .md, .txt, .html, .pdf, .docx, .pptx, .xlsx, .png, .jpg, .webp
+                  Text: .md, .txt, .html. Office files are parsed locally. PDF/image support depends on the provider; convert to text for local Qwen.
                 </p>
                 {file ? (
                   <button
@@ -353,7 +346,7 @@ export function SourcesView() {
             <p className="text-xs text-muted-foreground">
               {mode === "file" && file && /\.(pdf|png|jpg|jpeg|webp)$/i.test(file.name)
                 ? "Vision call — uses the model from Settings → Models → vision."
-                : "Text call — uses the ingest model. ~10–30s for typical sources."}
+                : "Uses the ingest model. Processing time depends on document length and local hardware."}
             </p>
           </div>
         </form>
@@ -401,7 +394,7 @@ export function SourcesView() {
                   size="sm"
                   variant="outline"
                   onClick={() => void onApplyPreview()}
-                  disabled={applyBusy || discardBusy}
+                  disabled={applyBusy || discardBusy || sourceActionBusy}
                 >
                   {applyBusy ? "Applying…" : "Apply changes"}
                 </Button>
@@ -409,7 +402,7 @@ export function SourcesView() {
                   size="sm"
                   variant="ghost"
                   onClick={() => void onDiscardPreview()}
-                  disabled={applyBusy || discardBusy}
+                  disabled={applyBusy || discardBusy || sourceActionBusy}
                 >
                   {discardBusy ? "Discarding…" : "Discard"}
                 </Button>
@@ -502,8 +495,8 @@ function IngestErrorBanner({ message }: { message: string }) {
       </p>
       {isSchemaError ? (
         <p className="mt-1 text-destructive/85">
-          Try clicking <strong>Ingest</strong> again — small models occasionally drift on
-          JSON output. If it keeps happening, switch to a smarter model in{" "}
+          Use <strong>Retry</strong> in the source list above to reuse the saved original.
+          If the model keeps returning invalid JSON, check the ingest model in{" "}
           <a
             href="/settings"
             className="underline underline-offset-2 hover:text-destructive/70"

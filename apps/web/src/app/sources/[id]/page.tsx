@@ -89,7 +89,9 @@ export default async function SourceDetailPage({
         rawError = "Binary file — open in an editor that handles this format.";
       }
     } catch (err) {
-      rawError = (err as Error).message ?? "failed to read raw file";
+      rawError = (err as NodeJS.ErrnoException).code === "ENOENT"
+        ? "The original file is missing. Restore it from a backup to verify this source."
+        : "Could not read the original file. Check its permissions in the Wiki folder.";
     }
 
     const title =
@@ -102,7 +104,7 @@ export default async function SourceDetailPage({
           eyebrow="Source"
           title={title}
           description={
-            <span className="font-mono text-[13px] break-all">{rawPath}</span>
+            <span className="font-mono text-[13px] break-all">raw/{source.filename}</span>
           }
           actions={
             <Link
@@ -206,7 +208,7 @@ export default async function SourceDetailPage({
               <p>{rawError}</p>
               <p className="mt-2 text-xs">
                 Open the file at{" "}
-                <code className="font-mono break-all">{rawPath}</code> in your editor.
+                <code className="font-mono break-all">raw/{source.filename}</code> in your Wiki folder.
               </p>
             </div>
           ) : rawText ? (
@@ -217,7 +219,7 @@ export default async function SourceDetailPage({
               {truncated ? (
                 <p className="mt-2 text-caption text-muted-foreground">
                   Truncated at 1 MB. Full content is on disk at{" "}
-                  <code className="font-mono break-all">{rawPath}</code>.
+                  <code className="font-mono break-all">raw/{source.filename}</code> in your Wiki folder.
                 </p>
               ) : null}
             </>

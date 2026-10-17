@@ -12,6 +12,7 @@ import {
   type IngestResponse,
 } from "@llm-wiki/core";
 import { createClient, ContextLengthError, RateLimitError, UnknownModelError } from "@llm-wiki/llm";
+import { extractDocx, extractHtml, extractPptx, extractXlsx } from "@llm-wiki/ingestion";
 
 import { openWikiContext } from "@/lib/server-wiki";
 
@@ -32,9 +33,16 @@ export async function POST(
 ) {
   let body: { modelOverride?: string } = {};
   try {
-    body = (await req.json().catch(() => ({}))) as { modelOverride?: string };
+    const text = await req.text();
+    body = text.trim() ? JSON.parse(text) as { modelOverride?: string } : {};
   } catch {
-    // Optional body — empty is fine
+    return NextResponse.json({ error: "expected JSON body" }, { status: 400 });
+  }
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return NextResponse.json({ error: "expected JSON object" }, { status: 400 });
+  }
+  if (body.modelOverride !== undefined && (typeof body.modelOverride !== "string" || !body.modelOverride.trim())) {
+    return NextResponse.json({ error: "modelOverride must be a non-empty string" }, { status: 400 });
   }
 
   const { key } = await getApiKey();
@@ -43,7 +51,6 @@ export async function POST(
   try {
     const provider = ctx.settings.defaultModels.ingest.provider;
     if (provider === "openrouter" && !key) {
-      ctx.db.close();
       return NextResponse.json(
         { error: "OpenRouter API key not configured. Set one in Settings." },
         { status: 400 },
@@ -57,24 +64,45 @@ export async function POST(
         { status: 404 },
       );
     }
+    if (source.ingested_at) {
+      return NextResponse.json({ error: "This source is already ingested. Import new material to update the Wiki." }, { status: 409 });
+    }
+    if (["pdf", "image"].includes(source.format)) {
+      return NextResponse.json(
+        { error: "Retry accepts text or locally parsed Office sources. Convert this PDF/image to text for local Qwen, or upload it again with a compatible vision provider." },
+        { status: 400 },
+      );
+    }
 
     const rawPath = join(ctx.wikiPath, WIKI_PATHS.raw, source.filename);
     let rawContent: string;
     try {
-      rawContent = await readFile(rawPath, "utf8");
+      const buffer = await readFile(rawPath);
+      const filename = source.original_name || source.filename;
+      switch (source.format) {
+        case "docx": rawContent = (await extractDocx(buffer, filename)).content; break;
+        case "pptx": rawContent = (await extractPptx(buffer, filename)).content; break;
+        case "xlsx": rawContent = (await extractXlsx(buffer, filename)).content; break;
+        case "html": rawContent = (await extractHtml(buffer)).content; break;
+        default: rawContent = buffer.toString("utf8");
+      }
     } catch (err) {
+      const missing = (err as NodeJS.ErrnoException).code === "ENOENT";
       return NextResponse.json(
         {
-          error: `raw file missing at ${rawPath} — this source can't be retried, only deleted`,
+          error: missing
+            ? "The original file is missing. Restore it from a backup before retrying, or delete this source."
+            : "The original file could not be read or extracted. Check the file and import it again.",
           type: (err as Error).name,
         },
-        { status: 404 },
+        { status: missing ? 404 : 400 },
       );
     }
 
     const client = createClient(key || "", provider);
     const model = body.modelOverride ?? ctx.settings.defaultModels.ingest.model;
     const title = source.title?.trim() || source.original_name || source.filename;
+    const dryRun = ctx.settings.requireApprovalForIngest;
 
     let response: IngestResponse;
     try {
@@ -85,6 +113,7 @@ export async function POST(
         client,
         model,
         sourceId: source.id,
+        dryRun,
       });
     } catch (err) {
       const status =
@@ -103,14 +132,18 @@ export async function POST(
       );
     }
 
-    markSourceIngested(ctx.db, source.id);
+    if (!dryRun) markSourceIngested(ctx.db, source.id);
 
     return NextResponse.json({
       ok: true,
+      kind: dryRun ? "preview" : "applied",
+      wikiPath: ctx.wikiPath,
+      rawFilename: source.filename,
       sourceId: source.id,
       model,
       modelUsed: model,
       providerUsed: provider,
+      fullResponse: dryRun ? response : null,
       response: {
         summary: response.summary,
         newPages: response.newPages.map((p) => ({

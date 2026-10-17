@@ -75,6 +75,13 @@ beforeEach(() => {
 });
 
 describe("retrieval index HTTP boundary", () => {
+  it("explains that an empty Wiki needs sources, even though zero vectors are current", async () => {
+    mocks.retrievalStatus.mockReturnValueOnce({ ...readyStatus, total: 0, indexed: 0 });
+    const data = await (await GET()).json();
+    expect(data.summary).toMatch(/No Wiki pages yet/);
+    expect(data.summary).not.toContain("Ready.");
+  });
+
   it("checks readiness against the installed model without embedding documents", async () => {
     const response = await GET();
     expect(response.status, JSON.stringify(await response.clone().json())).toBe(200);
