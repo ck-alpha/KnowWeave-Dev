@@ -29,7 +29,7 @@ Round 01 历史本地验收已通过，包括 GPU 真实导入/更新/问答、�
 - 原始 SciFact 全量评测 runner 复用产品核心，输出三指标、数据/源码指纹、实际模型、索引代价与查询延迟；小型 Wiki 闭环与基准分开。
 - 纠正干净环境先 `download` 再 `prepare` 的复现命令；更新架构、开发日志、审阅入口和第二轮验收记录。
 
-本机实测及 Git 交付：见 [Round 02 验收报告](ROUND_02_ACCEPTANCE.md) 与 [结构化结果](evidence/ROUND_02_RESULTS.json)。报告逐项区分代码、真实 Ollama/SciFact、单元测试与未验证范围；旧 Round 01 测试计数不替代本轮结果。
+Round 02 实现提交：[`94464cc`](https://github.com/ck-alpha/KnowWeave/commit/94464cce3859203a574527df5e7bac560be7b040)；逐文件核对评测源码与提交一致。本机实测及 Git 交付：见 [Round 02 验收报告](ROUND_02_ACCEPTANCE.md) 与 [结构化结果](evidence/ROUND_02_RESULTS.json)。报告逐项区分代码、真实 Ollama/SciFact、单元测试与未验证范围；旧 Round 01 测试计数不替代本轮结果。
 
 ## 尚未完成 / 未验证
 

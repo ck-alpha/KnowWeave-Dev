@@ -75,3 +75,5 @@ README 增加 VS Code Remote SSH 的 `code --openExternal` 与本机 13000 端�
 最终全量评测 16:22:35–16:27:02 完成：5183/300/339，900 条排名由 Python 独立重算一致。Hybrid Recall/nDCG/MRR 为 0.822722/0.703476/0.670402；纯向量为 0.843556/0.703265/0.666762。Hybrid 召回更低、nDCG 差异很小，无显著性检验，不宣传全面优胜。首次完整建库后因源码审阅修复中断了部分查询，保留记录，正式重跑使用模型/内容指纹复用全部向量；没有采纳部分指标。
 
 工程验证为 266 项 JS/TS + 36 项 Python 通过、1 项云端 smoke 跳过，typecheck/lint/build 成功；2 条历史 React Hooks 警告仍在。真实 3 模式 Qwen 问答引用 ALDH1 并回到 corpus45638119，语义无词面查询和无关问题路径均通过；8 项真实 Ollama 生命周期通过，可用 `scripts/verify-retrieval.mts` 复跑。Chromium Hybrid 问答到完整原文点击链通过、0 浏览器错误。首次浏览器脚本选中隐藏导航 details 导致等待超时，修正脚本后完整重跑通过；未将脚本故障当成应用缺陷。详见 Round 02 验收和公开 JSON 摘要。
+
+Round 02 实现与首版验收提交 `94464cce3859203a574527df5e7bac560be7b040`。提交后逐文件核对评测 source manifest 与 Git blob，全部一致；后续文档提交仅补记此实现 SHA，不冒充新的实验运行。所有新增文件均经过提交范围检查，未包含数据集、模型、数据库或本地证据原件。

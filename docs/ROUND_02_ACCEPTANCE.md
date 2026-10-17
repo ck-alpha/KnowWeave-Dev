@@ -4,7 +4,7 @@
 
 ## 版本与证据
 
-实现基线：`92ba903bfb230caabc2ac0458827a1257ca5fbcd`。测试和实验运行在其上的未提交实现工作树；评测源码指纹为 `8307895a7535d4af7fe6e74dc684b8a7c568f721b80b19a1a227da1e9538d446`，运行期间未变化，文件级 SHA256 保存在 [结构化结果](evidence/ROUND_02_RESULTS.json)。最终交付 SHA 在实现提交后补记，不能把工作树实测误写成当时已存在的 commit 上的运行。
+实现基线：`92ba903bfb230caabc2ac0458827a1257ca5fbcd`。测试和实验运行在其上的未提交实现工作树；评测源码指纹为 `8307895a7535d4af7fe6e74dc684b8a7c568f721b80b19a1a227da1e9538d446`，运行期间未变化，文件级 SHA256 保存在 [结构化结果](evidence/ROUND_02_RESULTS.json)。实现提交为 [`94464cce3859203a574527df5e7bac560be7b040`](https://github.com/ck-alpha/KnowWeave/commit/94464cce3859203a574527df5e7bac560be7b040)，已逐文件核对提交内容与上述评测指纹一致。其后的文档提交补记此 SHA；这不是重新运行实验，也不把工作树实测误写成当时已存在的 commit 上的运行。
 
 仓库：[ck-alpha/KnowWeave](https://github.com/ck-alpha/KnowWeave)，private，交付分支 main；未设置或推送第三方远端。MIT LICENSE 原文保留，继承与独立改造边界见 [NOTICE](../NOTICE.md)。模型、原始数据、向量缓存、数据库、个人配置和完整本地证据不入 Git。
 
@@ -108,3 +108,7 @@ python3 scripts/demo_retrieval.py
 - 语义近邻没有校准相关性阈值，引用检查只证明引用来自实际供给正文，不证明科学结论。Hybrid 未全面超过纯 Embedding；若后续比较其他参数，应使用独立开发集或新基准，不能追着 test 标签调参。
 - 完整正文超过 Qwen 预算会明确拒绝。更长文档需要下一轮设计可追溯的分块取证，而非恢复隐藏截断。
 - Ingest 与 Chat 继续使用 BM25，本轮三模式接入独立 Query；云端 OpenRouter 路径未重新验证。
+
+## Git 交付核对
+
+实现与首版验收在上述实现提交中；后续文档提交记录该不可变 SHA。读取仓库时以 main 当前 HEAD 为交付入口，可执行 `git rev-parse HEAD` 与 `git ls-remote origin refs/heads/main` 核对本地/远端一致性。
