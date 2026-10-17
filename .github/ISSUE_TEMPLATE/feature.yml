@@ -1,0 +1,15 @@
+name: Feature request
+description: Propose a focused KnowWaeve improvement
+title: "[Feature] "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: User problem and expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope and validation
+      description: Explain how it fits the current round in docs/PROGRESS.md.

@@ -1,0 +1,15 @@
+name: Bug report
+description: Report a reproducible KnowWaeve problem
+title: "[Bug] "
+body:
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps, expected behavior and actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment and redacted error output
+      description: Include commit, Node/pnpm/Ollama versions, exact model tag and OS. Do not include private documents or keys.
