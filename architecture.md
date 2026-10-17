@@ -1,6 +1,6 @@
 # KnowWeave 项目架构
 
-最后核对：2026-10-17（Asia/Shanghai）。当前实现范围：Round 01–03。
+最后核对：2026-10-17（Asia/Shanghai，含公开前检查）。当前实现范围：Round 01–03。
 本文件是当前架构的统一入口；模块、调用链、接口、数据格式、检索/模型协议或部署入口变化时，随代码在同一次提交中更新核对日期。当前名称 **KnowWeave**；既有 `KNOWWAEVE_*` 环境变量和内部包名为兼容保留。
 
 ## 技术栈与入口
@@ -8,6 +8,7 @@
 - Node.js 22、pnpm 10.12.1、TypeScript、Next.js 14 App Router、React 18。
 - Markdown 保存原文、Wiki 页面、索引和日志；每个 Wiki 的 `.llm-wiki/meta.sqlite` 保存元数据、FTS5、向量、来源关系、用量和响应缓存。
 - `scripts/local.mjs` 启动应用，默认监听 `127.0.0.1:3000`，Wiki 和配置隔离到仓库 `.local/`；Ollama 默认 `127.0.0.1:11434`。通过 VS Code Remote SSH 或 SSH 端口转发访问，无新增登录或云服务。
+- 项目诊断入口为 `pnpm run doctor`（`node scripts/local.mjs doctor`），核验 Ollama 服务与生成模型 tag；Nomic 状态由 Query 检索接口核验。`pnpm doctor` 是包管理器内置命令。
 - Python 标准库用于数据准备和真实 API 验收；TypeScript + tsx 用于调用同一检索核心的离线 benchmark，无新增常驻服务。
 
 ```mermaid
@@ -82,5 +83,6 @@ Round 02 历史检索结果与完整命令见 [Round 02 验收](docs/ROUND_02_AC
 
 | 日期（Asia/Shanghai） | 变更 |
 | --- | --- |
+| 2026-10-17 | 公开前核对诊断入口为 `pnpm run doctor`；仅修正文档，运行架构与 Round 02 检索协议未变。 |
 | 2026-10-17 | Round 03 补齐来源独立文件、Ingest 写入保护与正文索引一致性、Retry 审批、索引反馈及双层演示入口。 |
 | 2026-10-17 | Round 01 架构迁移至根目录统一入口；Round 02 同步三路检索、向量数据格式和生命周期、在线接口与原始语料评测调用链。 |

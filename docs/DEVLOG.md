@@ -94,3 +94,11 @@ API Demo 拒绝非空或路径不匹配 Wiki，逐步保留证据。模型是否
 最终验证、截图位置、残余限制、提交与推送事实见 [ROUND_03_ACCEPTANCE](ROUND_03_ACCEPTANCE.md)；公开摘要仅保留必要结果，完整原文、缓存、数据库、日志及失败运行证据留在 `.local/`。
 
 Round 03 实现与首版验收提交 `171f4ccc49a7b4cad8afd46b6d7e978b6007e47e` 已推送 origin/main，并核对首次远端HEAD一致、仓库仍private。25个变更源码文件逐一核对Git blob与实测SHA256一致；后续文档提交仅补记版本信息，最终远端HEAD见交付回复。
+
+## 2026-10-17（Asia/Shanghai）— 公开前最小检查
+
+起始本地与远端 main 均为 `45a59e941306caf91db581989a4a600edee5668f`，仓库 private。依用户要求只做公开前检查，无 Round 04 或功能扩展。扫描全部已跟踪文件与可达历史，修正 Round 01 复现中的个人绝对路径；保留 LICENSE/NOTICE 和 Git 历史。历史提交邮箱、旧路径及上游材料仍存在，作为所有者公开前确认项。本轮提交改用所有者 GitHub noreply 邮箱，避免新增私人邮箱披露，不修改全局配置。
+
+发现 `pnpm doctor` 在 pnpm 10.12.1 中调用内置命令，不能证明项目模型检查通过；正确入口 `pnpm run doctor` 已实跑成功。当前操作文档同步修正，Round 03 历史命令保留并勘误，不篡改历史验收。按 benchmark 调用链澄清延迟含 Ollama 问题向量 HTTP，不含产品 Query API/Next.js 同步/Qwen 回答；历史数值不变，简历补明独立 Query 范围。
+
+本次重新运行测试、类型检查、lint，并在相同源码的隔离副本构建，避免影响已运行服务。独立 3003 Wiki 真实 API Demo、浏览器新导入第三篇与三模式原文追溯、停止/重启均通过；新增运行产物仅留在忽略目录。实际计数、时间、残余隐私项和未跑专项统一记录于 [PRE_PUBLIC_CHECK](PRE_PUBLIC_CHECK.md)。本轮没有改应用代码、锁文件、检索参数或模型协议，不复跑/调优 Round 02 全量 benchmark，也不更改仓库可见性。

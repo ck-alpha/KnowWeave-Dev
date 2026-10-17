@@ -15,7 +15,7 @@ KnowWeave 基于 MIT 项目 LLM Wiki。Next.js UI/API、Wiki 编译/更新、Mar
 技术栈：TypeScript / Next.js / React / Node.js / SQLite FTS5 / Ollama / Qwen / Embedding / RRF / Python。
 
 - 在 MIT LLM Wiki 基础上完成本地 Qwen/Ollama 适配：校验实际模型 tag，使用原生 `/api/chat` 配置上下文与输出预算，结合 JSON Schema 校验和来源约束，贯通原文 → Wiki → 引用问答。
-- 扩展 BM25、Embedding 和 Hybrid 三路检索，采用 Nomic 向量、精确余弦扫描与固定等权 RRF；在各 Wiki 的 SQLite 中持久化内容/模型指纹，实现更新失效、增量刷新、删除清理和异常时显式拒绝。
+- 为独立 Query 扩展 BM25、Embedding 和 Hybrid 三路检索，采用 Nomic 向量、精确余弦扫描与固定等权 RRF；在各 Wiki 的 SQLite 中持久化内容/模型指纹，实现更新失效、增量刷新、删除清理和异常时显式拒绝。Ingest 与 Chat 的候选检索仍为 BM25。
 - 将检索页的实际正文供给 Qwen，记录正文 SHA256 与字节数，拒绝引用未供给的页面；保留回答 → Wiki → 原始来源链，并编写真实 API 演示与索引生命周期验证脚本。
 - 复用产品检索核心，在 SciFact 原始 **5,183 篇文献 / 300 条 test queries** 上进行可复现对比：BM25 / Embedding / Hybrid 的 Recall@10 为 **0.791889 / 0.843556 / 0.822722**；明确报告 Hybrid 召回较低、延迟与缓存口径，不按 test 标签调参。
 
@@ -65,7 +65,7 @@ KnowWeave 基于 MIT 项目 LLM Wiki。Next.js UI/API、Wiki 编译/更新、Mar
 | 来源可追溯能保证回答正确吗？ | 只能保证引用属于实际供给页面，并能沿来源关系核对原文。正文 SHA256 证明取证内容一致，不证明模型推理正确、资料真实或科学结论有效。 | [query.ts](../packages/core/src/query.ts)、[page-view.tsx](../apps/web/src/components/wiki/page-view.tsx)、[在线检查](../scripts/demo_retrieval.py) |
 | Recall、nDCG、MRR 各衡量什么？ | Recall@10 看相关文献覆盖；nDCG@10 看相关项的排名位置；MRR@10 看首个相关项的倒数排名。按 query 宏平均；qrels 表示相关性，不是支持/反驳标签，更不是答案事实准确率。 | [retrieval-metrics.ts](../scripts/retrieval-metrics.ts)、[benchmark-scifact.mts](../scripts/benchmark-scifact.mts)、[SCIFACT.md](SCIFACT.md) |
 | 为什么不用独立向量数据库？ | 当前约 5 千原文基准规模下，SQLite 同库便于本地部署和生命周期一致性；代价是每次读取、解码、精确扫描 O(Nd)。更大集合需先测瓶颈，再考虑 ANN 等改造。 | [retrieval.ts](../packages/core/src/retrieval.ts)、[Round 02 延迟](ROUND_02_ACCEPTANCE.md) |
-| 成本和延迟怎么量化？ | Round 02 检索 p50：BM25 28.483ms、Embedding 390.821ms、Hybrid 420.761ms；不含 Qwen/HTTP。增量构建复用未变页，查询只生成问题向量；本地运行也有硬件和电力成本，没有与云模型的同条件成本实验。 | [结果摘要](evidence/ROUND_02_RESULTS.json)、[检索核心](../packages/core/src/retrieval.ts) |
+| 成本和延迟怎么量化？ | Round 02 检索 p50：BM25 28.483ms、Embedding 390.821ms、Hybrid 420.761ms；含问题向量的 Ollama HTTP 调用，不含产品 Query API、Next.js 同步或 Qwen 回答生成。增量构建复用未变页，查询只生成问题向量；本地运行也有硬件和电力成本，没有与云模型的同条件成本实验。 | [结果摘要](evidence/ROUND_02_RESULTS.json)、[检索核心](../packages/core/src/retrieval.ts) |
 | 无证据、离线、长文档如何处理？ | BM25 零命中直接低置信返回，不调用生成模型；向量近邻不等于有证据，模型可低置信且无引用。索引或向量服务异常明确失败，用户可选 BM25；长正文超预算拒绝，避免隐藏截断。 | [query.ts](../packages/core/src/query.ts)、[retrieval API](../apps/web/src/app/api/retrieval/route.ts)、[ollama.ts](../packages/llm/src/ollama.ts) |
 | 如何证明项目不是静态演示？ | 查看原始导入 API、页面/来源落盘、三模式实际请求、正文指纹、更新失效与增量刷新，再用浏览器点击原文。验收报告与截图只是证据入口，独立审阅者仍应运行脚本。 | [最终 Demo](../scripts/demo_round03.py)、[Round 03 验收](ROUND_03_ACCEPTANCE.md)、[独立审阅指南](GPT_REVIEW_GUIDE.md) |
 

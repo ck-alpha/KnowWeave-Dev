@@ -30,7 +30,7 @@
 # 本机 Node 位于 /opt/knowwaeve-node/bin；其他环境使用自己的 Node 22。
 export PATH=/opt/knowwaeve-node/bin:$PATH
 pnpm install --frozen-lockfile
-pnpm doctor
+pnpm doctor  # 当时实际命令；触发 pnpm 内置检查，项目检查应使用 pnpm run doctor
 pnpm test
 pnpm test:data
 pnpm typecheck
@@ -40,7 +40,9 @@ python3 scripts/scifact.py download
 python3 scripts/scifact.py prepare
 ```
 
-冻结安装在现有依赖环境成功，未更新 lockfile或框架；提示 esbuild 安装脚本未批准，现有平台二进制实际通过测试和构建。未做全新操作系统/无缓存机器安装。独立复现需要按 README 安装 Ollama 与两个模型，`doctor` 不下载模型；注册表同名 tag 可更新，应记录实际 digest。
+冻结安装在现有依赖环境成功，未更新 lockfile或框架；提示 esbuild 安装脚本未批准，现有平台二进制实际通过测试和构建。未做全新操作系统/无缓存机器安装。独立复现需要按 README 安装 Ollama 与两个模型，`pnpm run doctor` 仅核验服务与生成模型 tag，不检查 Nomic 或下载模型；注册表同名 tag 可更新，应记录实际 digest。
+
+发布前勘误：上面历史执行的 `pnpm doctor` 不能作为项目模型检查证据；本次正确入口的实测另见 [公开前检查](PRE_PUBLIC_CHECK.md)，不改写本轮历史命令或测试事实。
 
 运行环境：Linux x64、Node 22.23.3、pnpm 10.12.1、Python 3.13.12、Ollama 0.34.4、Chromium 151.0.7922.34。GPU 系统报告 NVIDIA GeForce RTX 4090 / 49,140 MiB，驱动 580.178.04；这是本机报告，不作为通常硬件规格或延迟承诺。Qwen digest `aaee06c39dcf2437cde036998d960e1fc1494b8191be7cc9657d01e509097813`；Nomic digest `0a109f422b47e3a30ba2b10eca18548e944e8a23073ee3f3e947efcf3c45e59f`。`/api/ps` 实报 Qwen context32768、Nomic2048，两者均有 GPU 驻留；Nomic请求8192不等于实际生效8192。
 

@@ -88,7 +88,7 @@ pnpm lint
 NEXT_TELEMETRY_DISABLED=1 pnpm build
 ```
 
-具备 Ollama 和对应模型时，再按 README 的 `doctor → setup:local → start` 与 SciFact 演示流程检查真实闭环。记录自己的命令、HEAD、环境、退出码和输出；没有 GPU/Ollama/网络条件时，明确未验证的环节，不编造运行结果。复现演示会新增原文来源，宜使用独立 Wiki 目录。
+具备 Ollama 和对应模型时，再按 README 的 `pnpm run doctor` → `pnpm setup:local` → `pnpm start` 与 SciFact 演示流程检查真实闭环；`pnpm doctor` 为包管理器内置命令，不检查项目模型。记录自己的命令、HEAD、环境、退出码和输出；没有 GPU/Ollama/网络条件时，明确未验证的环节，不编造运行结果。复现演示会新增原文来源，宜使用独立 Wiki 目录。
 
 ## GPU 与数据范围
 

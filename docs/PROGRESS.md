@@ -44,6 +44,12 @@ Round 02 实现提交：[`94464cc`](https://github.com/ck-alpha/KnowWeave/commit
 
 本机最终实测：299项JS/TS与47项Python通过，1项云端跳过；typecheck/lint/build成功，2条继承Hooks警告。真实API、完整浏览器链路、8项索引生命周期、26项HTTP边界与服务重启均通过。具体实测结果、首次演示发现的问题与重跑、截图、环境和交付提交集中记录于 [Round 03 验收](ROUND_03_ACCEPTANCE.md)，不以历史测试计数代替当前验证。
 
+## 公开前最小检查
+
+2026-10-17 已完成本次检查，范围为文档勘误与回归，不是 Round 04。修正 Round 01 的个人路径、`pnpm run doctor` 项目诊断入口及检索延迟的 HTTP 口径，简历明确三模式仅用于独立 Query；应用源码、参数及历史指标未变。
+
+本次重新执行 299 项 JS/TS、47 项 Python 通过，1 项云端跳过；typecheck/lint/隔离生产 build 退出 0，保留两条 Hooks 警告。独立 Wiki 的真实 API Demo、Chromium 第三篇导入/三模式问答/原文追溯及停止重启通过。公开内容扫描未发现真实凭据，但历史提交邮箱和旧路径仍需所有者确认；当前路径修正不会清除 Git 历史。详细范围、未跑项及提交记录见 [公开前检查](PRE_PUBLIC_CHECK.md)。
+
 ## 尚未完成 / 未验证
 
 - 仓库保持 private；公开可见性需所有者最终确认，本轮不主动修改。

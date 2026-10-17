@@ -95,10 +95,10 @@ query51的声明为“ALDH1表达与更好的乳腺癌结局相关”；回答�
 ## 复现
 
 ```bash
-cd /home/linchengkai/KnowWeave
-export PATH=/opt/knowwaeve-node/bin:$PATH
+cd KnowWeave  # 从克隆仓库所在的父目录进入；已在仓库根目录则跳过
+# 先将本机 Node.js 22 和 pnpm 10.12.1 加入 PATH
 pnpm install --frozen-lockfile
-pnpm doctor
+pnpm run doctor
 pnpm setup:local
 NEXT_TELEMETRY_DISABLED=1 pnpm build
 pnpm start
@@ -107,6 +107,8 @@ python3 scripts/scifact.py download  # 干净环境先下载；Round 02 补正�
 python3 scripts/scifact.py prepare
 python3 scripts/demo_scifact.py --limit 2 --questions 1
 ```
+
+发布前修正了上面的通用路径与项目检查命令（`pnpm doctor` 实际为 pnpm 内置命令）；这是复现说明勘误，不代表重跑或改写本轮历史验收。
 
 默认浏览器地址 `http://127.0.0.1:3000`。测试命令见README。
 完整机器生成的本地日志、API 结果、驱动证据和截图在 `.local/evidence/`，不进入 Git；远端仓库阅读者不能直接访问该目录。

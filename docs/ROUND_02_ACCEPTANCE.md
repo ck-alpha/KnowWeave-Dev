@@ -35,7 +35,7 @@
 
 Hybrid 三项均高于本次 BM25，但**召回低于纯 Embedding**；相比 Embedding，nDCG 仅高约 0.000212，未做显著性检验，不能宣称可靠或普遍优势。逐 query 召回比较为提高 13 条、相同 266 条、降低 21 条。固定 RRF 会把同时有词面和语义命中的候选向前排，也可能把仅向量召回的相关论文挤出 top10；这是对排名机制的解释，不是经过调参验证的改善方案。
 
-延迟是独立进程中 `retrievePages` 的墙钟时间，Embedding/Hybrid 每次均实际生成问题向量，并读取/解码/扫描全部向量；复用模型元信息，不缓存问题向量。轮转三模式执行顺序；不含 Next.js 同步/HTTP 层或 Qwen 生成。精确扫描有明确代价，不能把这些数值直接当作在线回答延迟。
+延迟是独立进程中 `retrievePages` 的墙钟时间，Embedding/Hybrid 每次均实际生成问题向量（含 Ollama HTTP 调用），并读取/解码/扫描全部向量；复用模型元信息，不缓存问题向量。轮转三模式执行顺序；不含产品 Query API、Next.js 同步或 Qwen 回答生成。精确扫描有明确代价，不能把这些数值直接当作在线回答延迟。
 
 首次建库：BM25 **4.997s**，5,183 个文档向量 **48.916s**。该轮在代码复审修复后主动中断，保留完整索引和失败/中断记录，不采纳其部分查询指标。正式完整重跑：BM25 重建 **9.802s**，复用全部 5,183 个向量、生成 0 个新文档向量，刷新 **45.413ms**。两次耗时口径分开，缓存复用不是首次建库速度。
 
@@ -81,7 +81,7 @@ Node 22 / pnpm 10.12.1 / Python 3.10+、本地 Ollama 和既有 Qwen 模型准�
 export PATH=/opt/knowwaeve-node/bin:$PATH  # 仅本服务器；其他机器使用自己的 Node 22
 pnpm install --frozen-lockfile
 ollama pull nomic-embed-text:v1.5
-pnpm doctor
+pnpm run doctor
 pnpm setup:local
 python3 scripts/scifact.py download
 python3 scripts/scifact.py prepare
@@ -97,6 +97,8 @@ pnpm start
 python3 scripts/demo_scifact.py --limit 2 --questions 1
 python3 scripts/demo_retrieval.py
 ```
+
+发布前将复现入口修正为 `pnpm run doctor`（避免调用 pnpm 内置同名命令），并澄清延迟包含 Ollama 问题向量 HTTP 调用；未重跑或修改历史 benchmark 数字。
 
 在 Query 页面点击 **Build / refresh embedding index** 后选择模式，损坏缓存使用 **Rebuild all vectors**。HTTP 操作、隔离 Wiki 和远程端口转发见 [README](../README.md)。评测可用 `--data-dir`、`--cache-dir`、`--output-dir` 指定隔离路径；输出目录必须新建，以免覆盖失败证据。需要测首次建库时使用新的 `--cache-dir`；正常重复命令会复用有效向量。不要同时运行其他 GPU 请求来比较延迟。
 

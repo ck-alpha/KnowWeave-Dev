@@ -6,7 +6,7 @@ KnowWeave 将文档交给本地 Qwen 整理为 Markdown Wiki，支持 BM25、Emb
 
 这是基于 MIT 项目 [LLM Wiki](https://github.com/ddsyasas/llm-wiki) 的二次开发作品。本项目重点实现本地 Qwen/Ollama 适配、向量索引维护、混合检索、引用约束与可复现评测；继承能力和贡献边界见 [NOTICE](NOTICE.md)，原 [LICENSE](LICENSE) 保留。
 
-[最终轮验收](docs/ROUND_03_ACCEPTANCE.md) · [架构](architecture.md) · [求职展示与面试提纲](docs/CAREER_PRESENTATION.md) · [独立审阅指南](docs/GPT_REVIEW_GUIDE.md)
+[最终轮验收](docs/ROUND_03_ACCEPTANCE.md) · [公开前检查](docs/PRE_PUBLIC_CHECK.md) · [架构](architecture.md) · [求职展示与面试提纲](docs/CAREER_PRESENTATION.md) · [独立审阅指南](docs/GPT_REVIEW_GUIDE.md)
 
 ## 看一次实际使用
 
@@ -58,7 +58,7 @@ flowchart LR
 
 ## 最简启动
 
-需要 Node.js 22、pnpm 10.12.1、Python 3.10+，以及运行中的 [Ollama](https://ollama.com/download)。本项目使用官方提供的 [Qwen3.8 27B tag](https://ollama.com/library/qwen3.8:27b)。若本机使用其他 tag，设置 `OLLAMA_MODEL` 为 `ollama list` 中的准确名称；`doctor` 会核验模型，不会自动下载它。
+需要 Node.js 22、pnpm 10.12.1、Python 3.10+，以及运行中的 [Ollama](https://ollama.com/download)。本项目使用官方提供的 [Qwen3.8 27B tag](https://ollama.com/library/qwen3.8:27b)。若本机使用其他 tag，设置 `OLLAMA_MODEL` 为 `ollama list` 中的准确名称；`pnpm run doctor` 会核验 Ollama 服务与生成模型 tag，不检查 Nomic，也不会下载模型。
 
 在仓库根目录执行：
 
@@ -66,7 +66,7 @@ flowchart LR
 pnpm install --frozen-lockfile
 ollama pull qwen3.8:27b
 ollama pull nomic-embed-text:v1.5
-pnpm doctor
+pnpm run doctor
 pnpm setup:local
 pnpm dev
 ```
@@ -134,7 +134,7 @@ Round 02 的真实小样本中，第一个问题三模式均找到 ALDH1；第�
 | Embedding | 0.843556 | 0.703265 | 0.666762 | 390.821 / 429.459 |
 | Hybrid（RRF） | 0.822722 | 0.703476 | 0.670402 | 420.761 / 451.159 |
 
-**Hybrid 的 Recall 低于 Embedding；nDCG 差距极小，未做显著性检验，不能称为全面领先。** 延迟包含问题向量生成与精确扫描，不含 HTTP、Next.js 同步或 Qwen 生成；不能当成在线回答耗时。固定每路 100 候选、RRF `k=60`、最终 top10。硬件、模型 digest、索引代价和指标口径见 [Round 02 验收](docs/ROUND_02_ACCEPTANCE.md) 与 [结构化摘要](docs/evidence/ROUND_02_RESULTS.json)。
+**Hybrid 的 Recall 低于 Embedding；nDCG 差距极小，未做显著性检验，不能称为全面领先。** 延迟包含问题向量生成（含 Ollama HTTP 调用）与精确扫描，不含产品 Query API、Next.js 同步或 Qwen 回答生成；不能当成在线回答耗时。固定每路 100 候选、RRF `k=60`、最终 top10。硬件、模型 digest、索引代价和指标口径见 [Round 02 验收](docs/ROUND_02_ACCEPTANCE.md) 与 [结构化摘要](docs/evidence/ROUND_02_RESULTS.json)。
 
 复现原始语料 benchmark：
 
@@ -165,7 +165,7 @@ pnpm benchmark:scifact
 | `OLLAMA_EMBED_NUM_CTX` / `OLLAMA_EMBED_TIMEOUT_MS` | `8192` / `120000`，向量请求上下文与超时 |
 | `KNOWWAEVE_WIKI_PATH` / `KNOWWAEVE_CONFIG_DIR` | 默认 `.local/wiki` / `.local/config`，可设绝对路径隔离 |
 
-历史拼写 `KNOWWAEVE_*`、内部 `@llm-wiki/*` 包名与 `.llm-wiki/` 磁盘格式为兼容保留。模型异常先运行 `pnpm doctor` 并查看 Ollama 日志；GPU 历史修复只记录在验收报告，不是通用安装步骤。
+历史拼写 `KNOWWAEVE_*`、内部 `@llm-wiki/*` 包名与 `.llm-wiki/` 磁盘格式为兼容保留。模型异常先运行 `pnpm run doctor` 并查看 Ollama 日志；`pnpm doctor` 是 pnpm 内置命令，不执行本项目检查。GPU 历史修复只记录在验收报告，不是通用安装步骤。
 
 ```bash
 pnpm test

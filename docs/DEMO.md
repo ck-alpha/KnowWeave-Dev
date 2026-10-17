@@ -60,7 +60,7 @@ node scripts/demo-browser.mjs --base-url http://127.0.0.1:3001 \
 | 现象 | 处理 |
 | --- | --- |
 | Wiki 非空或路径不匹配 | 确认两个终端目录一致；完整重跑换新目录，保留已有 Wiki |
-| 模型未安装/离线 | 启动 Ollama，核对准确 tag，先 `pnpm doctor`；Nomic 缺失时仍可选择 BM25 |
+| 模型未安装/离线 | 启动 Ollama，核对准确 tag，先 `pnpm run doctor` 检查生成模型；Nomic 状态见 Query，缺失时仍可选择 BM25 |
 | 索引 pending / Hybrid 409 | 在 Query 刷新；API 为 `POST /api/retrieval`，空 body 或 `{}` |
 | Ingest 失败后出现 pending 来源 | 先看错误，修复后点击来源的 Retry，复用原文；再次 Ingest 会创建另一份来源 |
 | 上下文超限 | 减少材料长度或按硬件调整上下文；没有静默截断，也未实现复杂长文分块 |
