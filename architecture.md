@@ -1,6 +1,6 @@
 # KnowWeave 项目架构
 
-最后核对：2026-10-17（Asia/Shanghai，含公开前检查）。当前实现范围：Round 01–03。
+最后核对：2026-10-17（Asia/Shanghai，含公开源码仓库分离核对）。当前实现范围：Round 01–03。
 本文件是当前架构的统一入口；模块、调用链、接口、数据格式、检索/模型协议或部署入口变化时，随代码在同一次提交中更新核对日期。当前名称 **KnowWeave**；既有 `KNOWWAEVE_*` 环境变量和内部包名为兼容保留。
 
 ## 技术栈与入口
@@ -77,12 +77,19 @@ Query UI 提供模式解释、索引状态、构建/刷新按钮、取证页链�
 
 Round 02 历史检索结果与完整命令见 [Round 02 验收](docs/ROUND_02_ACCEPTANCE.md)；历史 Round 01 数据保留在其报告。大型运行产物、模型、数据库、私有文档与数据集不入 Git。当前精确扫描适合本地中小集合，尚未验证大型 Wiki、并发压力、中文/多语言专项及 PDF/OCR；无 MCP、GraphRAG、登录、微服务和云部署。
 
+## 源码仓库与发布入口
+
+私有开发与本架构文档位于 [KnowWeave-Dev](https://github.com/ck-alpha/KnowWeave-Dev)，保留历史及验收；独立 [KnowWeave](https://github.com/ck-alpha/KnowWeave) 为全新历史的公开源码快照。公开版不复制 docs/ 或开发指令，关键调用链与使用说明放在 README。两处 Git origin 完全分离，具体基线、文件范围和验证见 [发布记录](docs/PUBLIC_RELEASE.md)。
+
+公开版将相同演示脚本命名为 `scripts/demo_wiki.py` / `pnpm demo:wiki`，其对应的 Python 测试同步改名；演示结果使用不含轮次的本地路径。产品运行协议、模型、存储、检索核心与本文件描述一致，未因发布增加服务或改变部署边界。
+
 ## 持续维护
 
 重大决策写入 [DEVLOG](docs/DEVLOG.md)，实现范围写入 [PROGRESS](docs/PROGRESS.md)，区分已实现、实测与未验证。修改路径/接口时核对 README 和 [审阅指南](docs/GPT_REVIEW_GUIDE.md)。代码来源、MIT 与继承/改造边界见 [NOTICE](NOTICE.md)。`docs/PROJECT_OVERVIEW.md` 仅保留架构跳转，不再维护重复正文。
 
 | 日期（Asia/Shanghai） | 变更 |
 | --- | --- |
+| 2026-10-17 | 分离私有开发仓库与全新公开源码快照；记录公开演示入口命名及仓库边界，运行架构未变。 |
 | 2026-10-17 | 公开前核对诊断入口为 `pnpm run doctor`；仅修正文档，运行架构与 Round 02 检索协议未变。 |
 | 2026-10-17 | Round 03 补齐来源独立文件、Ingest 写入保护与正文索引一致性、Retry 审批、索引反馈及双层演示入口。 |
 | 2026-10-17 | Round 01 架构迁移至根目录统一入口；Round 02 同步三路检索、向量数据格式和生命周期、在线接口与原始语料评测调用链。 |

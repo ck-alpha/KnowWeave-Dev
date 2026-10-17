@@ -7,7 +7,7 @@
   "git": {
     "baseline": "7b5eb844c8cd0afc0b3bfac2f0dcd9630ae60205",
     "tested_state": "Worktree tests and demos; all verified source SHA256 values subsequently matched implementation commit blobs",
-    "repository": "https://github.com/ck-alpha/KnowWeave",
+    "repository": "https://github.com/ck-alpha/KnowWeave-Dev",
     "branch": "main",
     "private": true,
     "implementation_commit": "171f4ccc49a7b4cad8afd46b6d7e978b6007e47e",

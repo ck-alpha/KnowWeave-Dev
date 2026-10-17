@@ -42,7 +42,7 @@ Chromium真实提交问题、点击答案引用并打开原文，完整文本与
 
 README 增加 VS Code Remote SSH 的 `code --openExternal` 与本机 13000 端口 SSH 转发方式，移除历史归档路径引用。源码归属与继承/改造范围集中在 NOTICE，未宣称全部从零原创。
 
-个人仓库 [ck-alpha/KnowWeave](https://github.com/ck-alpha/KnowWeave) 已创建为 private 独立仓库，配置 `origin` 指向该仓库，`main` 用于交付代码与文档；没有 Fork 关系或 upstream 远端。需求文档整理为 `THREE_ROUND_PLAN.md` 和 `ROUND_01_REQUIREMENTS.md`；保留要求实质，名称与来源说明引用统一到当前文档。本次文档整理不产生新的检索指标或 GPU 性能结论；Round 02 的 Embedding / Hybrid / RRF / 全量评测仍未实现。
+个人仓库 [ck-alpha/KnowWeave-Dev](https://github.com/ck-alpha/KnowWeave-Dev) 已创建为 private 独立仓库，配置 `origin` 指向该仓库，`main` 用于交付代码与文档；没有 Fork 关系或 upstream 远端。需求文档整理为 `THREE_ROUND_PLAN.md` 和 `ROUND_01_REQUIREMENTS.md`；保留要求实质，名称与来源说明引用统一到当前文档。本次文档整理不产生新的检索指标或 GPU 性能结论；Round 02 的 Embedding / Hybrid / RRF / 全量评测仍未实现。
 
 ### 2026-10-17 15:42（Asia/Shanghai）— 交付前再次验证
 
@@ -102,3 +102,9 @@ Round 03 实现与首版验收提交 `171f4ccc49a7b4cad8afd46b6d7e978b6007e47e` 
 发现 `pnpm doctor` 在 pnpm 10.12.1 中调用内置命令，不能证明项目模型检查通过；正确入口 `pnpm run doctor` 已实跑成功。当前操作文档同步修正，Round 03 历史命令保留并勘误，不篡改历史验收。按 benchmark 调用链澄清延迟含 Ollama 问题向量 HTTP，不含产品 Query API/Next.js 同步/Qwen 回答；历史数值不变，简历补明独立 Query 范围。
 
 本次重新运行测试、类型检查、lint，并在相同源码的隔离副本构建，避免影响已运行服务。独立 3003 Wiki 真实 API Demo、浏览器新导入第三篇与三模式原文追溯、停止/重启均通过；新增运行产物仅留在忽略目录。实际计数、时间、残余隐私项和未跑专项统一记录于 [PRE_PUBLIC_CHECK](PRE_PUBLIC_CHECK.md)。本轮没有改应用代码、锁文件、检索参数或模型协议，不复跑/调优 Round 02 全量 benchmark，也不更改仓库可见性。
+
+## 2026-10-17（Asia/Shanghai）— 私有仓库改名与独立公开快照发布
+
+依本次要求，原私有仓库已改名为 [ck-alpha/KnowWeave-Dev](https://github.com/ck-alpha/KnowWeave-Dev)，仓库 ID `1423077083`、private 可见性、`main` 分支与原有提交历史保留；本地 `origin` 更新为 `https://github.com/ck-alpha/KnowWeave-Dev.git`。改名前后本地与远端基线均为 `29a34ff6bc76a68ba727f628727d5493d7102bfe`。
+
+当前 README 与已跟踪文档中的私有仓库地址同步为新地址，包括历史提交链接和结构化证据中的地址；历史提交 SHA、实测指标和验收结论不变。产品展示名继续为 KnowWeave。独立公开快照位于相邻 `KnowWeave-Public` 工作区，已发布为非 Fork 的 Public KnowWeave，初始提交 `0db60428e3a65eab79c222fb46e5c68f690202da`，共 226 文件且只有一个无父提交。此次私有工作区仅维护文档，运行架构与源码不变；公开副本只整理展示文案、演示命名和非功能元数据。公开副本实际重跑安装、299 项 JS/TS、47 项 Python、typecheck/lint/build；匿名独立克隆也完成安装/生产构建，公开 HTTP 200、私有匿名 HTTP 404，原 10 个私有历史提交对象均不在公开克隆；完整范围、隐私/历史隔离与匿名复现见 [发布记录](PUBLIC_RELEASE.md)。

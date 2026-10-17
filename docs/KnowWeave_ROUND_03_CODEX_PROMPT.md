@@ -2,7 +2,7 @@
 
 ## 你的任务与目标
 
-你是 KnowWeave 的主要开发 Agent。项目仓库：`https://github.com/ck-alpha/KnowWeave`，在当前本地工作区继续开发，个人 `main` 分支是交付入口。
+你是 KnowWeave 的主要开发 Agent。项目仓库：`https://github.com/ck-alpha/KnowWeave-Dev`，在当前本地工作区继续开发，个人 `main` 分支是交付入口。
 
 **这是面向实习投递的最后一轮，不再扩张技术栈。目标是把已有的 LLM Wiki + 本地 Qwen + BM25/Embedding/Hybrid 项目打磨为“能稳定演示、他人能复现、README 一眼看懂、用户能据此讲清楚技术方案和个人贡献”的作品。**
 
@@ -46,7 +46,7 @@ Round 02 已有全量 SciFact 三路评测。不要为了追求更好看的数�
 - 执行与改动相匹配的测试、类型检查、lint、生产构建，至少完成一次真实端到端演示，并记录能否正常启动、关闭和重新启动；如有相关指标变化，说明是由哪项真实改变引起，不默默替换 Round 02 历史结果。
 - 持续维护 `docs/DEVLOG.md`、`docs/PROGRESS.md`，并新增 `docs/ROUND_03_ACCEPTANCE.md`，明确写出：当前功能、逐项验收结果、实际运行命令及环境、截图/演示文件位置、残余问题、未验证能力、Git commit SHA。若有结构化摘要，存放在既有 `docs/evidence/`，不要上传海量本地运行证据。
 - 检查 `.gitignore`、Git 已跟踪文件、LICENSE/NOTICE 和仓库依赖，确保不提交密钥、模型、SciFact 原始数据、向量索引/SQLite 数据库、用户私有文档、机器级临时日志、带敏感信息的截图或其他本地私有信息。
-- 提交和推送到用户的 `ck-alpha/KnowWeave` 仓库 `main`，保持目前 **private**，不要推送到任何第三方远端。准备好可公开的版本，但**不要未经用户最终确认主动修改 GitHub 仓库可见性**。最后记录提交与远端 HEAD，便于下一轮最终验收。
+- 提交和推送到用户的 `ck-alpha/KnowWeave-Dev` 仓库 `main`，保持目前 **private**，不要推送到任何第三方远端。准备好可公开的版本，但**不要未经用户最终确认主动修改 GitHub 仓库可见性**。最后记录提交与远端 HEAD，便于下一轮最终验收。
 
 ## 最终验收标准
 

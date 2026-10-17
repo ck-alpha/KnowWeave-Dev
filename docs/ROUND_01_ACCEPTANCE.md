@@ -127,7 +127,7 @@ Embedding、Hybrid、RRF尚未实现。PDF/OCR与多语种检索未专项验证�
 实现与首版验收提交：`395747308fb0f888702f224c6be5e3eeefa491ca`。
 历史验收补充提交：`4620b8c34040be64404541ffd8160f95310fec6f`，记录浏览器操作链、真实停止/重启结果和上述实现 SHA。使用 `git show <SHA>` 可分别检查这两次历史提交；历史提交时未配置个人远端、未推送。
 
-本次后续整理将当前展示名统一为 KnowWeave，并准备个人仓库及 GPT 审阅文档。个人仓库 [ck-alpha/KnowWeave](https://github.com/ck-alpha/KnowWeave) 为 private 独立仓库，`main` 是代码与文档交付入口。私有仓库需读取授权或由用户提供源码包，参见审阅指南。
+本次后续整理将当前展示名统一为 KnowWeave，并准备个人仓库及 GPT 审阅文档。个人仓库 [ck-alpha/KnowWeave-Dev](https://github.com/ck-alpha/KnowWeave-Dev) 为 private 独立仓库，`main` 是代码与文档交付入口。私有仓库需读取授权或由用户提供源码包，参见审阅指南。
 
 交付版本可用以下命令核对；本地 HEAD 应与远端 main 相同：
 

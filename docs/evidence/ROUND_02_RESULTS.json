@@ -9,7 +9,7 @@
     "measurement_worktree_dirty": true,
     "note": "Measurements ran on the uncommitted implementation; every evaluated source file was subsequently checked against implementation_commit and matched. The following documentation commit records this SHA without claiming a second experiment.",
     "implementation_commit": "94464cce3859203a574527df5e7bac560be7b040",
-    "implementation_url": "https://github.com/ck-alpha/KnowWeave/commit/94464cce3859203a574527df5e7bac560be7b040",
+    "implementation_url": "https://github.com/ck-alpha/KnowWeave-Dev/commit/94464cce3859203a574527df5e7bac560be7b040",
     "committed_evaluated_sources_match": true
   },
   "benchmark": {

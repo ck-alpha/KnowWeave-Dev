@@ -181,4 +181,4 @@ Round 03 本机代码检查：299 项 JS/TS 与 47 项 Python 通过，1 项云�
 - [Round 01 验收](docs/ROUND_01_ACCEPTANCE.md) · [Round 02 验收](docs/ROUND_02_ACCEPTANCE.md) · [Round 03 要求](docs/KnowWeave_ROUND_03_CODEX_PROMPT.md)
 - [Agent 开发 / AI 产品经理简历描述与面试材料](docs/CAREER_PRESENTATION.md)
 
-交付仓库为 [ck-alpha/KnowWeave](https://github.com/ck-alpha/KnowWeave)，保持 **private**，分支 `main`。审阅私有仓库需要读取授权或源码包。数据、模型、缓存、SQLite、密钥、个人文档与完整本地运行日志不提交；仓库保留必要证据摘要和经检查的公开样本截图。
+私有开发仓库已改名为 [ck-alpha/KnowWeave-Dev](https://github.com/ck-alpha/KnowWeave-Dev)，保持 **private**，分支 `main`，原有提交历史保留。审阅私有仓库需要读取授权或源码包。独立公开源码已发布到 [ck-alpha/KnowWeave](https://github.com/ck-alpha/KnowWeave)，使用全新历史；范围、版本、文件清单和验证见 [发布记录](docs/PUBLIC_RELEASE.md)。产品展示名继续使用 KnowWeave。数据、模型、缓存、SQLite、密钥、个人文档与完整本地运行日志不提交；仓库保留必要证据摘要和经检查的公开样本截图。

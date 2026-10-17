@@ -1,6 +1,6 @@
 # KnowWeave — 对外公开前的最小检查（交给 Codex）
 
-你是 KnowWeave 的开发 Agent，当前仓库为 `ck-alpha/KnowWeave`。**三轮正式开发已经完成，此任务只是发布前检查，不是 Round 04，不得扩充功能范围。**
+你是 KnowWeave 的开发 Agent，当前仓库为 `ck-alpha/KnowWeave-Dev`。**三轮正式开发已经完成，此任务只是发布前检查，不是 Round 04，不得扩充功能范围。**
 
 请先确认本地 Git HEAD、远端 `main` 一致，并阅读 `README.md`、`architecture.md`、`docs/PROGRESS.md`、`docs/ROUND_03_ACCEPTANCE.md` 和 `docs/CAREER_PRESENTATION.md`。
 

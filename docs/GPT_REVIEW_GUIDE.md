@@ -6,7 +6,7 @@
 
 ## 获取仓库与阅读顺序
 
-个人仓库：[ck-alpha/KnowWeave](https://github.com/ck-alpha/KnowWeave)，为 private 独立仓库，`main` 是代码与文档交付入口。审阅方必须具有读取授权；仅提供普通 URL 不保证 GPT 能读取。可为审阅工具授权读取私有仓库，或向审阅者提供不含数据、密钥和本地配置的源码包。
+个人仓库：[ck-alpha/KnowWeave-Dev](https://github.com/ck-alpha/KnowWeave-Dev)，为 private 独立仓库，`main` 是代码与文档交付入口。审阅方必须具有读取授权；仅提供普通 URL 不保证 GPT 能读取。可为审阅工具授权读取私有仓库，或向审阅者提供不含数据、密钥和本地配置的源码包。
 
 建议按以下顺序阅读：
 

@@ -4,7 +4,7 @@
 
 ## 版本与范围
 
-开发基线：`7b5eb844c8cd0afc0b3bfac2f0dcd9630ae60205`。测试和真实演示在其上的工作树执行；实现提交为 [`171f4ccc49a7b4cad8afd46b6d7e978b6007e47e`](https://github.com/ck-alpha/KnowWeave/commit/171f4ccc49a7b4cad8afd46b6d7e978b6007e47e)，25个变更源码文件的提交blob与实测记录SHA256逐一一致。代码、架构、进度和本报告一起提交，随后仅补充实现 SHA 的交付记录。仓库 [ck-alpha/KnowWeave](https://github.com/ck-alpha/KnowWeave) 保持 private，交付 main，不设置第三方远端。
+开发基线：`7b5eb844c8cd0afc0b3bfac2f0dcd9630ae60205`。测试和真实演示在其上的工作树执行；实现提交为 [`171f4ccc49a7b4cad8afd46b6d7e978b6007e47e`](https://github.com/ck-alpha/KnowWeave-Dev/commit/171f4ccc49a7b4cad8afd46b6d7e978b6007e47e)，25个变更源码文件的提交blob与实测记录SHA256逐一一致。代码、架构、进度和本报告一起提交，随后仅补充实现 SHA 的交付记录。仓库 [ck-alpha/KnowWeave-Dev](https://github.com/ck-alpha/KnowWeave-Dev) 保持 private，交付 main，不设置第三方远端。
 
 必要公开结果见 [结构化摘要](evidence/ROUND_03_RESULTS.json)，完整运行证据留在忽略目录 `.local/evidence/round03/`。历史检索结果继续引用 [Round 02 验收](ROUND_02_ACCEPTANCE.md) 的 94464cc 实现及其源码指纹，不把本次稳定性修复写成新 benchmark。
 

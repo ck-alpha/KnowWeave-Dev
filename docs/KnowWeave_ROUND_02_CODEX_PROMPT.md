@@ -2,7 +2,7 @@
 
 ## 你的角色与本轮目标
 
-你是 KnowWeave 项目的主要开发 Agent。仓库：`https://github.com/ck-alpha/KnowWeave`，当前工作基于私有 `main` 分支。本轮在 Round 01 已跑通的“原文 → Qwen Ingest → Wiki → Query → 来源追溯”基础上，**用最小合理改动实现真正进入实际问答路径的本地混合检索，并跑出可信的 SciFact 全量检索评测**。
+你是 KnowWeave 项目的主要开发 Agent。仓库：`https://github.com/ck-alpha/KnowWeave-Dev`，当前工作基于私有 `main` 分支。本轮在 Round 01 已跑通的“原文 → Qwen Ingest → Wiki → Query → 来源追溯”基础上，**用最小合理改动实现真正进入实际问答路径的本地混合检索，并跑出可信的 SciFact 全量检索评测**。
 
 请先阅读 `README.md`、`architecture.md`、`docs/PROGRESS.md`、`docs/DEVLOG.md`、`docs/ROUND_01_ACCEPTANCE.md`、`docs/SCIFACT.md` 与现有关键检索代码，再自主决定最简单稳健的实现方案。**不要按照固定的函数/文件/数据表设计机械照做；根据真实代码自行设计、实现、测试。** 不必反复询问小的技术决策。优先可用、可信、可复现，不追求过度工程化。
 
@@ -41,7 +41,7 @@
 - 实现过程中持续更新 `docs/DEVLOG.md`，记录实际技术选择、遇到的问题、取舍及修复方式。
 - 更新 `docs/PROGRESS.md`、根目录 `architecture.md`、`README.md`（安装、模型下载、检索模式、索引构建及评测复现），以及确有必要的已有文档。
 - 新增 `docs/ROUND_02_ACCEPTANCE.md`，清楚区分“代码已实现 / 本机实测 / 未验证 / 未完成”。保留可核查的评测结果、运行命令、当前 commit、模型信息、主要代码入口、限制和下轮建议。如记录结构化 JSON，优先把可公开的简明摘要纳入 `docs/evidence/`，大文件和个人环境信息继续留在 `.local/`。
-- 进行适当的 Git commit，并推送到用户独立的 `ck-alpha/KnowWeave` **私有**仓库 `main`；不要推送第三方仓库。保留现有 MIT `LICENSE` 和 `NOTICE.md`；不要把模型、SciFact 原始数据、向量缓存、数据库、token、私人文档提交 Git。
+- 进行适当的 Git commit，并推送到用户独立的 `ck-alpha/KnowWeave-Dev` **私有**仓库 `main`；不要推送第三方仓库。保留现有 MIT `LICENSE` 和 `NOTICE.md`；不要把模型、SciFact 原始数据、向量缓存、数据库、token、私人文档提交 Git。
 
 ## 验收口径
 

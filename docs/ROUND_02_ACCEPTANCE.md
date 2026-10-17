@@ -4,9 +4,9 @@
 
 ## 版本与证据
 
-实现基线：`92ba903bfb230caabc2ac0458827a1257ca5fbcd`。测试和实验运行在其上的未提交实现工作树；评测源码指纹为 `8307895a7535d4af7fe6e74dc684b8a7c568f721b80b19a1a227da1e9538d446`，运行期间未变化，文件级 SHA256 保存在 [结构化结果](evidence/ROUND_02_RESULTS.json)。实现提交为 [`94464cce3859203a574527df5e7bac560be7b040`](https://github.com/ck-alpha/KnowWeave/commit/94464cce3859203a574527df5e7bac560be7b040)，已逐文件核对提交内容与上述评测指纹一致。其后的文档提交补记此 SHA；这不是重新运行实验，也不把工作树实测误写成当时已存在的 commit 上的运行。
+实现基线：`92ba903bfb230caabc2ac0458827a1257ca5fbcd`。测试和实验运行在其上的未提交实现工作树；评测源码指纹为 `8307895a7535d4af7fe6e74dc684b8a7c568f721b80b19a1a227da1e9538d446`，运行期间未变化，文件级 SHA256 保存在 [结构化结果](evidence/ROUND_02_RESULTS.json)。实现提交为 [`94464cce3859203a574527df5e7bac560be7b040`](https://github.com/ck-alpha/KnowWeave-Dev/commit/94464cce3859203a574527df5e7bac560be7b040)，已逐文件核对提交内容与上述评测指纹一致。其后的文档提交补记此 SHA；这不是重新运行实验，也不把工作树实测误写成当时已存在的 commit 上的运行。
 
-仓库：[ck-alpha/KnowWeave](https://github.com/ck-alpha/KnowWeave)，private，交付分支 main；未设置或推送第三方远端。MIT LICENSE 原文保留，继承与独立改造边界见 [NOTICE](../NOTICE.md)。模型、原始数据、向量缓存、数据库、个人配置和完整本地证据不入 Git。
+仓库：[ck-alpha/KnowWeave-Dev](https://github.com/ck-alpha/KnowWeave-Dev)，private，交付分支 main；未设置或推送第三方远端。MIT LICENSE 原文保留，继承与独立改造边界见 [NOTICE](../NOTICE.md)。模型、原始数据、向量缓存、数据库、个人配置和完整本地证据不入 Git。
 
 ## 代码已实现
 
