@@ -40,6 +40,8 @@ Round 02 实现提交：[`94464cc`](https://github.com/ck-alpha/KnowWeave/commit
 - 安全隔离的 SciFact API Demo 与真实 Chromium 导入、三模式问答、引用至原文的截图脚本；分别记录 LLM 更新与手工阅读列表更新。
 - README 门面、真实项目截图、双岗位简历与讲解材料、审阅指南，保留继承贡献和 Round 02 指标边界。
 
+实现提交：[`171f4cc`](https://github.com/ck-alpha/KnowWeave/commit/171f4ccc49a7b4cad8afd46b6d7e978b6007e47e)，已推送个人main；后续文档提交仅补记SHA。
+
 本机最终实测：299项JS/TS与47项Python通过，1项云端跳过；typecheck/lint/build成功，2条继承Hooks警告。真实API、完整浏览器链路、8项索引生命周期、26项HTTP边界与服务重启均通过。具体实测结果、首次演示发现的问题与重跑、截图、环境和交付提交集中记录于 [Round 03 验收](ROUND_03_ACCEPTANCE.md)，不以历史测试计数代替当前验证。
 
 ## 尚未完成 / 未验证

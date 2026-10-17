@@ -92,3 +92,5 @@ UI/API 补齐空/异常输入400、重复 Retry/Apply409、Retry审批预览、O
 API Demo 拒绝非空或路径不匹配 Wiki，逐步保留证据。模型是否自动跨文档更新单独记录；稳定的增量验证由明确标注的手工阅读列表执行。Chromium 脚本使用真实 UI 与直接截图，不替换 DOM、不模拟模型响应；截图仅使用公开 SciFact 内容。README/面试材料分别归属继承和二次开发，强调 Hybrid Recall 低于 Embedding、nDCG差异极小及离线指标不是答案正确率。
 
 最终验证、截图位置、残余限制、提交与推送事实见 [ROUND_03_ACCEPTANCE](ROUND_03_ACCEPTANCE.md)；公开摘要仅保留必要结果，完整原文、缓存、数据库、日志及失败运行证据留在 `.local/`。
+
+Round 03 实现与首版验收提交 `171f4ccc49a7b4cad8afd46b6d7e978b6007e47e` 已推送 origin/main，并核对首次远端HEAD一致、仓库仍private。25个变更源码文件逐一核对Git blob与实测SHA256一致；后续文档提交仅补记版本信息，最终远端HEAD见交付回复。

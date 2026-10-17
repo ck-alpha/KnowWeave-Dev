@@ -4,7 +4,7 @@
 
 ## 版本与范围
 
-开发基线：`7b5eb844c8cd0afc0b3bfac2f0dcd9630ae60205`。测试和真实演示在其上的工作树执行；实现提交在提交后补记。代码、架构、进度和本报告一起提交，随后仅补充实现 SHA 的交付记录。仓库 [ck-alpha/KnowWeave](https://github.com/ck-alpha/KnowWeave) 保持 private，交付 main，不设置第三方远端。
+开发基线：`7b5eb844c8cd0afc0b3bfac2f0dcd9630ae60205`。测试和真实演示在其上的工作树执行；实现提交为 [`171f4ccc49a7b4cad8afd46b6d7e978b6007e47e`](https://github.com/ck-alpha/KnowWeave/commit/171f4ccc49a7b4cad8afd46b6d7e978b6007e47e)，25个变更源码文件的提交blob与实测记录SHA256逐一一致。代码、架构、进度和本报告一起提交，随后仅补充实现 SHA 的交付记录。仓库 [ck-alpha/KnowWeave](https://github.com/ck-alpha/KnowWeave) 保持 private，交付 main，不设置第三方远端。
 
 必要公开结果见 [结构化摘要](evidence/ROUND_03_RESULTS.json)，完整运行证据留在忽略目录 `.local/evidence/round03/`。历史检索结果继续引用 [Round 02 验收](ROUND_02_ACCEPTANCE.md) 的 94464cc 实现及其源码指纹，不把本次稳定性修复写成新 benchmark。
 
@@ -86,4 +86,4 @@ API 演示首先导入 corpus45638119 与16322674，每篇核验来源原文SHA2
 
 没有新增检索算法或改变Round02参数/数字。Hybrid Recall低于Embedding，nDCG差异极小，无显著性检验；本轮小样本不能证明答案正确率。中文/多语言、复杂长文分块、PDF/OCR、大型Wiki、多进程并发与压力未验证。进程内写入保护不构成跨文件/SQLite事务；极端磁盘故障、外部编辑器并发仍需备份。不存在MCP、GraphRAG、登录、多租户或云部署。
 
-提交检查保留LICENSE原文与NOTICE归属，不提交模型、原始数据、数据库、配置、密钥和完整本地运行证据。`.gitignore`继续隔离 `.local/`、`data/`、环境文件和SQLite；公开JSON只保留必要摘要。最终SHA和远端HEAD在完成提交推送后核对。
+提交检查保留LICENSE原文与NOTICE归属，不提交模型、原始数据、数据库、配置、密钥和完整本地运行证据。`.gitignore`继续隔离 `.local/`、`data/`、环境文件和SQLite；公开JSON只保留必要摘要。实现提交 `171f4ccc49a7b4cad8afd46b6d7e978b6007e47e` 已推送 origin/main，首次交付远端HEAD核对一致。随后仅以文档提交补记此SHA，不改变实测代码或重新声称跑过测试；最终文档提交与远端HEAD由交付回复记录，可用 `git ls-remote origin refs/heads/main` 核对。

@@ -6,10 +6,13 @@
   "scope": "Round 03 product stability, real SciFact Wiki demo, browser screenshots and reproducible presentation; historical Round 02 retrieval metrics unchanged",
   "git": {
     "baseline": "7b5eb844c8cd0afc0b3bfac2f0dcd9630ae60205",
-    "tested_state": "worktree, implementation SHA to be pinned after commit",
+    "tested_state": "Worktree tests and demos; all verified source SHA256 values subsequently matched implementation commit blobs",
     "repository": "https://github.com/ck-alpha/KnowWeave",
     "branch": "main",
-    "private": true
+    "private": true,
+    "implementation_commit": "171f4ccc49a7b4cad8afd46b6d7e978b6007e47e",
+    "remote_implementation_head_verified": "171f4ccc49a7b4cad8afd46b6d7e978b6007e47e",
+    "delivery_note": "A subsequent documentation-only commit pins this implementation SHA. Final remote HEAD is reported in the delivery response."
   },
   "environment": {
     "node": "22.23.3",
