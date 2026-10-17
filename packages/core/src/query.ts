@@ -1,20 +1,29 @@
-import { callLLM, estimateCostCents, type LlmClient } from "@llm-wiki/llm";
+import { createHash } from "node:crypto";
+import { callLLM, estimateCostCents, type Embedder, type LlmClient } from "@llm-wiki/llm";
 
 import type { Db } from "./db";
-import { searchPages } from "./db-pages";
+import { indexPageForSearch, unindexPageFromSearch } from "./db-pages";
 import { insertUsage } from "./db-usage";
 import { uniqueLinkedSlugs } from "./links";
 import { buildQueryPrompt } from "./prompts/query";
 import type { ExistingPageSnippet } from "./prompts/ingest";
 import { QueryResponseSchema, type QueryResponse } from "./schema";
 import { readIndex, readPage, readSchema } from "./wiki";
+import { retrievePages, RetrievalError, type RetrievalMode, type RetrievalResult } from "./retrieval";
+import { retrievalContentHash } from "./retrieval-store";
 
 const TOP_K_RELEVANT_PAGES = 10;
 
 export type QueryProgressEvent =
   | { phase: "context"; message: string }
   | { phase: "llm"; message: string }
-  | { phase: "done"; result: QueryResponse };
+  | { phase: "done"; result: QueryWikiResult };
+
+export type QueryWikiResult = QueryResponse & {
+  retrieval: RetrievalResult & {
+    suppliedPages: Array<{ slug: string; title: string; contentHash: string; contentBytes: number; documentHash: string }>;
+  };
+};
 
 export type QueryWikiOptions = {
   question: string;
@@ -23,6 +32,8 @@ export type QueryWikiOptions = {
   client: LlmClient;
   /** Per docs/05, use the query model slot (defaults to a smart model). */
   model: string;
+  retrievalMode?: RetrievalMode;
+  embedder?: Embedder;
   onProgress?: (event: QueryProgressEvent) => void;
 };
 
@@ -30,7 +41,7 @@ export type QueryWikiOptions = {
  * Answers a one-off question against the wiki. Pure read path — never writes
  * pages. The caller decides whether to promote suggestedNewPage via createPage.
  */
-export async function queryWiki(opts: QueryWikiOptions): Promise<QueryResponse> {
+export async function queryWiki(opts: QueryWikiOptions): Promise<QueryWikiResult> {
   if (!opts.question.trim()) {
     throw new Error("queryWiki: question must be non-empty");
   }
@@ -43,16 +54,28 @@ export async function queryWiki(opts: QueryWikiOptions): Promise<QueryResponse> 
   ]);
 
   opts.onProgress?.({ phase: "context", message: "Searching for relevant pages..." });
-  const relevantPages = await loadRelevantPages(opts.wikiPath, opts.db, opts.question);
+  const ranking = await retrievePages({ db: opts.db, question: opts.question,
+    mode: opts.retrievalMode ?? "bm25", embedder: opts.embedder, limit: TOP_K_RELEVANT_PAGES });
+  const relevantPages = await loadRelevantPages(opts.wikiPath, opts.db, ranking);
+  const retrieval: QueryWikiResult["retrieval"] = {
+    ...ranking,
+    suppliedPages: relevantPages.map((page) => ({
+      slug: page.slug, title: page.title,
+      contentHash: createHash("sha256").update(page.excerpt).digest("hex"),
+      contentBytes: Buffer.byteLength(page.excerpt),
+      documentHash: retrievalContentHash(page.title, page.excerpt),
+    })),
+  };
 
   if (relevantPages.length === 0) {
-    const response: QueryResponse = {
+    const response: QueryWikiResult = {
       answer:
         "No matching Wiki evidence was found. Import relevant sources or try more specific keywords.",
       pagesUsed: [],
       suggestedNewPage: null,
       confidence: "low",
       caveats: ["No relevant page content was retrieved; no model answer was generated."],
+      retrieval,
     };
     opts.onProgress?.({ phase: "done", result: response });
     return response;
@@ -103,8 +126,9 @@ export async function queryWiki(opts: QueryWikiOptions): Promise<QueryResponse> 
     );
   }
   result.data.pagesUsed = [...cited];
-  opts.onProgress?.({ phase: "done", result: result.data });
-  return result.data;
+  const response: QueryWikiResult = { ...result.data, retrieval };
+  opts.onProgress?.({ phase: "done", result: response });
+  return response;
 }
 
 // ---- internals ------------------------------------------------------------
@@ -128,27 +152,28 @@ async function readIndexOrDefault(wikiPath: string): Promise<string> {
 async function loadRelevantPages(
   wikiPath: string,
   db: Db,
-  question: string,
+  ranking: RetrievalResult,
 ): Promise<ExistingPageSnippet[]> {
-  let hits: Array<{ slug: string; title: string }> = [];
-  try {
-    hits = searchPages(db, question, TOP_K_RELEVANT_PAGES);
-  } catch {
-    hits = [];
-  }
-
   const snippets: ExistingPageSnippet[] = [];
-  for (const hit of hits) {
+  for (const hit of ranking.hits) {
     try {
       const page = await readPage(wikiPath, hit.slug);
+      const indexed = db.prepare("SELECT content_hash FROM retrieval_documents WHERE slug=?").get(hit.slug) as { content_hash: string } | undefined;
+      if (indexed?.content_hash !== retrievalContentHash(page.frontmatter.title, page.content)) {
+        indexPageForSearch(db, { slug: page.slug, title: page.frontmatter.title,
+          content: page.content, tags: page.frontmatter.tags ?? [] });
+        if (ranking.mode !== "bm25") throw new RetrievalError("INDEX_NOT_READY", "Wiki content changed before evidence loading. Refresh the embedding index or select BM25.");
+      }
       snippets.push({
         slug: page.slug,
         title: page.frontmatter.title,
         type: page.frontmatter.type,
         excerpt: page.content,
       });
-    } catch {
+    } catch (error) {
+      if (error instanceof RetrievalError) throw error;
       // FTS5 row but missing on disk — drift; skip.
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") unindexPageFromSearch(db, hit.slug);
     }
   }
   return snippets;

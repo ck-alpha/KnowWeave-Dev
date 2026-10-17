@@ -1,6 +1,6 @@
-# KnowWeave 独立审阅与 Round 01 验收指南
+# KnowWeave 独立审阅指南
 
-本指南帮助审阅者从源码、测试、运行产物和需求逐项判断 Round 01 是否满足要求。**不能仅凭 README、验收报告或本指南中的“通过”就直接判定通过。** 文档是待核对的项目陈述，结论应说明已经检查的证据、缺口和无法验证的部分。
+本指南帮助审阅者从源码、测试、运行产物和需求逐项判断交付是否满足要求。Round 01 历史记录与 Round 02 新增证据分开核对。**不能仅凭 README、验收报告或本指南中的“通过”就直接判定通过。** 文档是待核对的项目陈述，结论应说明已经检查的证据、缺口和无法验证的部分。
 
 当前展示名与目标个人仓库名为 **KnowWeave**。历史名称兼容说明见 README；`KNOWWAEVE_*` 环境变量、内部包名和已有磁盘路径为兼容保留。需求文档已归档并统一当前名称，原有验收要求实质不变。
 
@@ -11,11 +11,11 @@
 建议按以下顺序阅读：
 
 1. [README](../README.md)：产品范围、启动、远程访问和复现命令。
-2. [三轮计划](THREE_ROUND_PLAN.md) 与 [Round 01 需求](ROUND_01_REQUIREMENTS.md)：核对本轮验收边界；当前项目名以最新说明为准。
+2. [三轮计划](THREE_ROUND_PLAN.md) 、[Round 01 需求](ROUND_01_REQUIREMENTS.md) 与 [Round 02 要求](KnowWeave_ROUND_02_CODEX_PROMPT.md)：核对各轮验收边界；当前项目名以最新说明为准。
 3. [NOTICE](../NOTICE.md) 与 [LICENSE](../LICENSE)：区分继承能力、本轮独立改造及许可，不把已有 UI/Ingest 等说成完全原创。
 4. [工程架构](../architecture.md)：真实调用链与检索接入位置，再沿下表阅读源码。
 5. [SciFact 数据流程](SCIFACT.md)：原始数据、固定选择规则、manifest、数据许可和样本边界。
-6. [验收报告](ROUND_01_ACCEPTANCE.md) 与 [历史证据摘要](evidence/ROUND_01_RESULTS.json)：核对运行日期、模型、样本、结果和原始产物哈希。
+6. [Round 01 验收](ROUND_01_ACCEPTANCE.md)、[历史证据摘要](evidence/ROUND_01_RESULTS.json) 与 [Round 02 验收](ROUND_02_ACCEPTANCE.md)：分别核对运行日期、模型、样本、结果和原始产物哈希。
 7. [开发日志](DEVLOG.md)、[当前进度](PROGRESS.md) 及 Git 历史：查阅决策、故障、修复、未实现事项，并确认当前代码相对历史验收提交的变化。
 
 历史实现提交为 `395747308fb0f888702f224c6be5e3eeefa491ca`；历史验收补充提交为 `4620b8c34040be64404541ffd8160f95310fec6f`。提交标题中的旧名属于历史事实。审阅新 checkout 时应记录 `git rev-parse HEAD`，不能默认它与历史验收提交完全相同。
@@ -73,7 +73,7 @@ GPU 历史证据需综合查看 `nvidia-before.txt`、`nvidia-after.txt`、`olla
 
 原始 SciFact 包含 5,183 篇 corpus、1,109 条 queries，test split 为 300 条 query、339 条 qrels。固定规则准备 3 篇文献，历史实际导入前 2 篇。query 51 的声明应被证据反驳；正相关 qrel 不等于文献支持该声明。应读原文验证回答，而不是只看 `confidence`、引用数量或模型自述。
 
-本轮没有全量 nDCG@10、Recall@10、MRR@10，没有检索提升比例，也没有公平比较 BM25/Embedding/Hybrid。将来比较必须使用同一原始 corpus/queries/qrels，不能用模型重写的小型 Wiki 代替 SciFact 原始基准。
+Round 01 历史验收没有全量 nDCG@10、Recall@10、MRR@10，也没有公平比较三种检索模式。Round 02 使用同一原始 corpus/queries/qrels 完成对比，证据入口见下节；不能用模型重写的小型 Wiki 代替 SciFact 原始基准。
 
 ## 独立审阅应输出什么
 
@@ -83,4 +83,12 @@ GPU 历史证据需综合查看 `nvidia-before.txt`、`nvidia-after.txt`、`olla
 - 对源码来源、许可证、数据许可和原创范围单独核对，不把继承能力计作本项目完全独立开发成果。
 - 将本轮缺陷与下一轮计划分开，避免因文档写了计划就声称功能已实现。
 
-**Round 02 尚未实现**：Embedding、向量索引及更新、RRF、Hybrid 检索与公平全量评测。MCP、GraphRAG、复杂多 Agent、登录、云服务和微服务不属于本轮交付。只有审阅者确认 Round 01 的必要条件满足后，才应进入下一轮开发。
+## Round 02 审阅入口
+
+先读 [第二轮要求](KnowWeave_ROUND_02_CODEX_PROMPT.md)、[Round 02 验收](ROUND_02_ACCEPTANCE.md) 与 [当前架构](../architecture.md)。上面的 Round 01 测试数与“没有全量指标”是历史范围，不代表当前 Round 02。
+
+- 向量协议与模型指纹：[embedding.ts](../packages/llm/src/embedding.ts)。核对实际 digest、前缀、上下文、`truncate:false`、超时与向量验证。
+- 三路共享核心：[retrieval.ts](../packages/core/src/retrieval.ts)、[retrieval-store.ts](../packages/core/src/retrieval-store.ts)。核对固定 RRF、缓存失效、未就绪拒绝、不同 Wiki 隔离与异常路径。
+- 真实在线路径：[query.ts](../packages/core/src/query.ts)、[Query API](../apps/web/src/app/api/query/route.ts)、[索引 API](../apps/web/src/app/api/retrieval/route.ts)、[在线验收脚本](../scripts/demo_retrieval.py)。检查排名确实转为模型正文、正文 hash 和可点击来源链，不能只看额外返回的排名。
+- 离线对比：[评测脚本](../scripts/benchmark-scifact.mts)、[评价指标](../scripts/retrieval-metrics.ts)。核对 5,183 原文、300 test、同一 qrels、宏平均规则、参数与延迟口径，不能用 3 页 Wiki 的问答代替基准。
+- 结构化结果：[Round 02 结果](evidence/ROUND_02_RESULTS.json)，其机器实测仍需独立复核。未验证的多语言、大规模并发、PDF/OCR和 Round 03 内容不应计入本轮完成项。

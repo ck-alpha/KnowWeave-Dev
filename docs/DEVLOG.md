@@ -57,3 +57,21 @@ README 增加 VS Code Remote SSH 的 `code --openExternal` 与本机 13000 端�
 将原 `PROJECT_OVERVIEW.md` 架构正文整理为根目录 `architecture.md`，旧文件保留跳转入口。补充模块职责、服务器访问边界与同提交更新的维护约定；README、GPT 审阅指南、贡献说明和开发指引统一引用该文件，并新增 `AGENTS.md` 供后续开发代理读取维护要求。本次只调整文档，未改变应用代码或运行配置。
 
 源码核对发现原文将 SQLite 元数据笼统描述为“可重建”不够准确：同步仅重建页面元数据、FTS5 和同步状态，不能恢复全部来源关联、用量等记录。架构文档已明确数据库应随 Wiki 备份。
+
+## 2026-10-17（Asia/Shanghai）— Round 02 开发
+
+基线 `92ba903bfb230caabc2ac0458827a1257ca5fbcd`，用户明确要求实现并推送私有仓库 main。启动前读取当前架构及历史验收，确认现有 Wiki 3 页、2 个来源与 Ollama `qwen3.8:27b` 可用。基线回归实跑 210 项通过、1 项云端 smoke 跳过，Python 30 项通过；SciFact download/prepare 再校验为 5,183 篇、300 条 test queries、339 条 qrels。
+
+纠正 README 和历史报告复现命令：`prepare` 只读取已下载数据，干净环境必须先执行 `download`，不修改已经清晰分工的脚本语义。
+
+技术选择：保留 SQLite FTS5/BM25，使用同一个 Wiki 数据库保存文档指纹和向量；先精确余弦扫描，再按固定 k=60、每路 100 候选做等权 RRF。此规模不引入独立向量数据库。索引使用模型 digest、前缀与内容 hash 判定有效性；文档变更即时失效，显式增量刷新，查询只生成问题向量。默认 BM25 保持无需 Embedding 模型的原流程，用户可在 Query 中切换三种模式。原始 SciFact benchmark 直接调用同一检索核心，完全独立于 Qwen Wiki 编译。
+
+模型选择 `nomic-embed-text:v1.5`，通过 Ollama `/api/embed`，按[官方模型卡](https://huggingface.co/nomic-ai/nomic-embed-text-v1.5)区分 `search_document:` 与 `search_query:`。按 [Ollama API](https://docs.ollama.com/api/embed) 显式禁用静默截断。执行环境为 Ollama 0.34.4、Node 22.23.3、pnpm 10.12.1，GPU 驱动仍为 580.178.04。本节记录设计与过程；最终实现细节、真实运行结果及未验证范围在 Round 02 验收报告。
+
+审阅修复：原 `buildQueryPrompt` 会隐藏截断正文到 1,000 词，而新增取证字段记录完整正文，二者不能同时宣称“实际上下文”。本轮移除这处截断，沿用 Qwen 上下文预算显式拒绝机制；新增尾部证据回归。向量索引提供 `{force:true}` 全量重建入口与 UI 按钮，修复损坏缓存时仅增量刷新无法恢复的问题；同 Wiki 构建锁按数据库路径隔离，避免每个 HTTP 请求独立数据库连接绕开锁。
+
+实机 Embedding 探针返回 768 维；Ollama `/api/ps` 仍报告有效上下文 2,048，即使请求 `num_ctx=8192`。因此文档与评测保留请求参数和实际 runner 值，不宣称请求参数已生效。完整 5,183 篇摘要用 `truncate:false` 构建成功，无需分块、截断或丢弃长文。
+
+最终全量评测 16:22:35–16:27:02 完成：5183/300/339，900 条排名由 Python 独立重算一致。Hybrid Recall/nDCG/MRR 为 0.822722/0.703476/0.670402；纯向量为 0.843556/0.703265/0.666762。Hybrid 召回更低、nDCG 差异很小，无显著性检验，不宣传全面优胜。首次完整建库后因源码审阅修复中断了部分查询，保留记录，正式重跑使用模型/内容指纹复用全部向量；没有采纳部分指标。
+
+工程验证为 266 项 JS/TS + 36 项 Python 通过、1 项云端 smoke 跳过，typecheck/lint/build 成功；2 条历史 React Hooks 警告仍在。真实 3 模式 Qwen 问答引用 ALDH1 并回到 corpus45638119，语义无词面查询和无关问题路径均通过；8 项真实 Ollama 生命周期通过，可用 `scripts/verify-retrieval.mts` 复跑。Chromium Hybrid 问答到完整原文点击链通过、0 浏览器错误。首次浏览器脚本选中隐藏导航 details 导致等待超时，修正脚本后完整重跑通过；未将脚本故障当成应用缺陷。详见 Round 02 验收和公开 JSON 摘要。

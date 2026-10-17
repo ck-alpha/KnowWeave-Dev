@@ -1,6 +1,6 @@
 # KnowWeave SciFact 数据流程
 
-本轮仅用少量 SciFact 原文演示 Source → Ingest → Wiki → 问答与引用。完整语料、查询及 qrels 留作 Round 02 检索评测输入；小型 Wiki 演示不代表完整 benchmark，也不计算或宣称检索性能提升。
+Round 01 用少量 SciFact 原文演示 Source → Ingest → Wiki → 问答与引用。Round 02 使用相同官方数据的全部原始标题/摘要进行三路检索评测；小型 Wiki 演示与全量 benchmark 分开运行、分开报告，见 [Round 02 验收](ROUND_02_ACCEPTANCE.md)。
 
 ## 获取与复现
 
@@ -71,7 +71,7 @@ SciFact queries 是待核查的科学声明，不能自动当作已证实事实�
 
 根据 [SciFact 官方 LICENSE.md](https://github.com/allenai/scifact/blob/master/LICENSE.md)（2026-10-17 核对）：claims 与 evidence annotations 采用 **CC BY 4.0**，corpus abstracts 来自 Semantic Scholar S2ORC，采用 **ODC-By 1.0**；原始 SciFact 代码采用 Apache 2.0。数据许可与 KnowWeave 的 MIT 代码许可分开记录，不能将全部数据标作 MIT 或 Apache 2.0。项目仅提供获取脚本与溯源说明，下载的原始数据和生成的演示文件不进入代码仓库。[BEIR 数据说明](https://github.com/beir-cellar/beir/wiki/Datasets-available#disclaimer) 也要求使用者遵守原数据集许可并引用数据作者。
 
-正式发布评测时应同时引用 SciFact 论文及 [BEIR 论文](https://openreview.net/forum?id=wCu6T5xFjeJ)，保留原始 ID、版本指纹、split 和参数。Round 02 应直接索引原始 corpus 并使用同一套原始 queries/qrels 比较 BM25、Embedding、Hybrid，不把 Wiki 重写后的内容当作原始 SciFact 语料。
+正式发布评测时应同时引用 SciFact 论文及 [BEIR 论文](https://openreview.net/forum?id=wCu6T5xFjeJ)，保留原始 ID、版本指纹、split 和参数。Round 02 直接索引原始 corpus 并使用同一套原始 queries/qrels 比较 BM25、Embedding、Hybrid，不把 Wiki 重写后的内容当作原始 SciFact 语料。
 
 ## 验证范围
 
@@ -80,3 +80,7 @@ SciFact queries 是待核查的科学声明，不能自动当作已证实事实�
 2026-10-17 实测：14 项离线测试通过；使用 Python 标准库从官方地址下载成功，MD5 匹配，`download` 与 `prepare` 重复执行成功。实测完整数据为 5,183 篇 corpus、1,109 条 queries、300 条 test queries、339 条 test qrels。ZIP 大小为 2,816,079 字节，SHA256 为 `536e14446a0ba56ed1398ab1055f39fe852686ecad24a6306c80c490fa8e0165`。
 
 默认样例按顺序选中 `query_id=51 → corpus_id=45638119`、`179 → 16322674`、`185 → 18340282`，主题均涉及乳腺癌。query 179 的另外三篇相关文献未进入演示样本，manifest 中仍保留它们的 ID、分数及 `included=false`。这些结果只证明数据准备和溯源；LLM 导入与引用问答结果见 Round 01 验收报告。
+
+## Round 02 全量评测
+
+执行 `python3 scripts/scifact.py download` 后运行 `pnpm benchmark:scifact`。评测复用产品 `retrievePages`，固定每路 100 个候选、RRF k=60、最终 top10，不按 test 标签调参。使用同一官方 corpus/queries/qrels，完整输出、数据指纹、模型版本、索引与查询耗时见验收报告。`queries.jsonl` 共 1,109 条，只有出现在 `qrels/test.tsv` 的 300 条参与评分；不能把所有 queries 都称为 test。

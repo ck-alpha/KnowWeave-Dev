@@ -2,7 +2,7 @@
 
 本地优先的 Agent 知识管理项目：文档 → Qwen Ingest → 可维护的 Markdown Wiki → 检索问答 → 原始来源。
 
-当前完成 Round 01：使用 Ollama `qwen3.8:27b` 跑通文本导入、Wiki 生成与更新、带来源的问答；保留 SQLite FTS5/BM25 检索。Embedding、Hybrid、RRF 与全量评测尚未实现，属于 Round 02。
+当前已完成 Round 02：沿用 Ollama `qwen3.8:27b` 的文本导入、Wiki 生成与带来源问答，新增本地 Embedding、Hybrid（RRF）与 SciFact 原始语料评测。实现与本机实测范围见 [Round 02 验收报告](docs/ROUND_02_ACCEPTANCE.md)。
 
 代码许可与来源说明：[LICENSE](LICENSE) · [NOTICE](NOTICE.md)。项目继承能力及本轮独立改造范围以 NOTICE 为准。
 
@@ -56,11 +56,12 @@ ssh -N -L 13000:127.0.0.1:3000 <服务器账号>@<服务器地址>
 保持应用运行，在另一个终端执行：
 
 ```bash
+python3 scripts/scifact.py download
 python3 scripts/scifact.py prepare
 python3 scripts/demo_scifact.py --limit 2 --questions 1
 ```
 
-准备脚本自动下载并校验官方 ZIP，原始 5,183 篇 corpus、queries 和 qrels 保存在 `data/scifact`；按固定规则生成 3 篇乳腺癌相关样本到 `data/scifact-demo`。演示默认导入其中 2 篇，实际调用 Ingest 和 Query API，并核对页面落盘、引用、来源正文和原始 corpus ID。结果输出至 `.local/evidence/scifact-demo.json`；失败返回非零退出码并记录原因。
+`download` 下载并校验官方 ZIP，把原始 5,183 篇 corpus、queries 和 qrels 保存在 `data/scifact`；`prepare` 只读取已有数据，按固定规则生成 3 篇乳腺癌相关样本到 `data/scifact-demo`，不会自动下载。演示默认导入其中 2 篇，实际调用 Ingest 和 Query API，并核对页面落盘、引用、来源正文和原始 corpus ID。结果输出至 `.local/evidence/scifact-demo.json`；失败返回非零退出码并记录原因。
 
 重复运行会新增来源。需要隔离重跑时，用新的 Wiki 目录启动另一个端口：
 
@@ -72,6 +73,39 @@ python3 scripts/demo_scifact.py --base-url http://127.0.0.1:3001 --limit 2 --que
 
 这是小型 Wiki 闭环演示，不是 SciFact 检索 benchmark；qrels 表示相关性，不表示文献支持声明。来源、许可和固定选择规则见 [数据说明](docs/SCIFACT.md)。
 
+## 三种在线检索模式
+
+Qwen 继续负责 Ingest 和回答；Embedding 只生成向量。先下载本地模型：
+
+```bash
+ollama pull nomic-embed-text:v1.5
+```
+
+启动应用后进入 Query，点击 **Build / refresh embedding index** 构建当前 Wiki 的向量，再选择 **BM25 / Embedding / Hybrid** 提问。默认 BM25，无需 Embedding 模型；页面新增或更新后再次刷新，只处理变化或缺失的向量。服务每次打开 Wiki 时同步磁盘变更，删除页面会删除向量，旧内容向量不会继续参与检索。未准备、模型变化或服务故障会明确报错，可切回 BM25。
+
+等价 HTTP 操作（应用须已启动）：
+
+```bash
+curl --noproxy '*' http://127.0.0.1:3000/api/retrieval
+curl --noproxy '*' -X POST http://127.0.0.1:3000/api/retrieval
+curl --noproxy '*' http://127.0.0.1:3000/api/query \
+  -H 'Content-Type: application/json' \
+  -d '{"question":"Does ALDH1 predict favorable breast cancer outcomes?","mode":"hybrid"}'
+python3 scripts/demo_retrieval.py
+pnpm exec tsx scripts/verify-retrieval.mts
+```
+
+演示脚本使用现有、有来源的 Wiki，验证三模式回答、正文指纹、引用与原文。先完成上面的 SciFact 小样本导入，或使用 `--question` 提问自己的 Wiki。输出在 `.local/evidence/round02/online.json`；它不是检索 benchmark。向量与指纹保存在各 Wiki 的 `.llm-wiki/meta.sqlite`，普通查询只生成问题向量，不会重新生成文档向量。损坏索引可点击 **Rebuild all vectors**，或 POST `/api/retrieval` 并传 `{"force":true}` 全量重建。
+
+## SciFact 全量检索评测
+
+```bash
+python3 scripts/scifact.py download
+pnpm benchmark:scifact
+```
+
+脚本直接索引官方原始标题和摘要，使用全部 5,183 篇 corpus、300 条 test queries 和原始 qrels；三路共享核心检索逻辑与评价规则，不调用 Qwen。模型、内容 hash 和输入文件指纹用于复用已有索引。输出包含 Recall@10 / nDCG@10 / MRR@10、模型 digest、参数、索引耗时及查询 p50/p95；完整运行产物和缓存留在 `.local/`。具体参数、可公开结果及运行边界见 [Round 02 验收](docs/ROUND_02_ACCEPTANCE.md)。
+
 ## 配置与排错
 
 通过 shell 环境变量配置；`.env.example` 仅为示例，不会自动加载。
@@ -82,6 +116,9 @@ python3 scripts/demo_scifact.py --base-url http://127.0.0.1:3001 --limit 2 --que
 | `OLLAMA_MODEL` | `qwen3.8:27b`，setup/doctor 核验实际安装 tag |
 | `OLLAMA_NUM_CTX` | `32768`，每请求本地上下文长度 |
 | `OLLAMA_NUM_PREDICT` | `4096`，每请求最大生成长度 |
+| `OLLAMA_EMBED_MODEL` | `nomic-embed-text:v1.5`，本地检索向量模型 |
+| `OLLAMA_EMBED_NUM_CTX` | `8192`，Embedding 请求上下文；服务可能限制有效值，超长输入报错 |
+| `OLLAMA_EMBED_TIMEOUT_MS` | `120000`，单次 Embedding 请求超时 |
 | `KNOWWAEVE_WIKI_PATH` | 默认 `.local/wiki`，支持绝对路径覆盖 |
 | `KNOWWAEVE_CONFIG_DIR` | 默认 `.local/config`，支持绝对路径覆盖 |
 
@@ -91,7 +128,7 @@ python3 scripts/demo_scifact.py --base-url http://127.0.0.1:3001 --limit 2 --que
 
 若模型运行异常，先执行 `pnpm doctor`、`nvidia-smi` 并检查 Ollama 日志。本次服务器的驱动修复及 GPU 证据见 [验收报告](docs/ROUND_01_ACCEPTANCE.md)，不作为其他机器通用的操作指令。
 
-本轮验证文本导入。Ollama 不接受继承的 OpenRouter PDF 文件块协议；PDF 请先转换为文本/Markdown。引用约束可防止引用未提供的页面，生成内容仍需核对原文。
+文本导入已在 Round 01 验证，Round 02 专项验证检索。Ollama 不接受继承的 OpenRouter PDF 文件块协议；PDF 请先转换为文本/Markdown。引用约束可防止引用未提供的页面，生成内容仍需核对原文。
 
 ## 检查与文档
 
@@ -103,6 +140,8 @@ pnpm lint
 NEXT_TELEMETRY_DISABLED=1 pnpm build
 ```
 
+本轮实跑 266 项 JavaScript/TypeScript 测试、36 项 Python 测试通过，1 项云端测试跳过；typecheck/lint/build 退出 0，保留 2 条继承 React Hooks 警告。真实全量检索、在线引用和生命周期结果见 [Round 02 验收](docs/ROUND_02_ACCEPTANCE.md)。
+
 历史 Round 01 实测为 210 项 JavaScript/TypeScript 测试、30 项 Python 测试通过，1 项云端测试跳过；2026-10-17 15:42（Asia/Shanghai）命名整理后的交付前复测结果相同，typecheck/lint/build 均退出 0，lint 仍有 2 条继承警告。测试基线、两次验证范围和 GPU 小样本结果见验收报告；独立审阅者应针对自己的 checkout 执行以上命令。
 
 - [GPT / 独立审阅入口](docs/GPT_REVIEW_GUIDE.md)
@@ -110,9 +149,10 @@ NEXT_TELEMETRY_DISABLED=1 pnpm build
 - [当前进度](docs/PROGRESS.md)
 - [开发日志](docs/DEVLOG.md)
 - [Round 01 验收报告](docs/ROUND_01_ACCEPTANCE.md)
+- [Round 02 验收报告](docs/ROUND_02_ACCEPTANCE.md)
 - [数据来源与许可](docs/SCIFACT.md)
 
-需求文档已整理为 [三轮计划](docs/THREE_ROUND_PLAN.md) 与 [Round 01 需求](docs/ROUND_01_REQUIREMENTS.md)，保留原有要求实质并统一当前名称。
+需求文档已整理为 [三轮计划](docs/THREE_ROUND_PLAN.md) 、[Round 01 需求](docs/ROUND_01_REQUIREMENTS.md) 与 [Round 02 要求](docs/KnowWeave_ROUND_02_CODEX_PROMPT.md)，保留原有要求实质并统一当前名称。
 
 ## 仓库与提交边界
 

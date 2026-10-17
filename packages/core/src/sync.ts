@@ -7,6 +7,7 @@ import type { Db } from "./db";
 import {
   deletePage,
   indexPageForSearch,
+  listPageRows,
   unindexPageFromSearch,
   upsertPage,
 } from "./db-pages";
@@ -57,12 +58,13 @@ async function syncPageFile(
   }
 
   const prior = getSyncState(db, relPath);
-  if (prior && prior.mtime_ms === s.mtimeMs && prior.size_bytes === s.size) {
+  const slug = slugFromPagePath(relPath);
+  const indexed = db.prepare("SELECT 1 FROM retrieval_documents WHERE slug=?").get(slug);
+  if (prior && prior.mtime_ms === s.mtimeMs && prior.size_bytes === s.size && indexed) {
     result.skipped.push(slugFromPagePath(relPath));
     return;
   }
 
-  const slug = slugFromPagePath(relPath);
   let page;
   try {
     page = await readPage(wikiPath, slug);
@@ -129,6 +131,15 @@ export async function syncWikiToDb(wikiPath: string, db: Db): Promise<SyncResult
     if (!fileSlugs.has(slug)) {
       removePageBySlug(db, slug, relPath);
       result.deleted.push(slug);
+    }
+  }
+
+  // An ingest can write DB rows before sync_state exists; startup must also
+  // remove those rows if their files were deleted while the app was stopped.
+  for (const page of listPageRows(db)) {
+    if (!fileSlugs.has(page.slug)) {
+      removePageBySlug(db, page.slug, `${PAGE_PREFIX}${page.slug}.md`);
+      if (!result.deleted.includes(page.slug)) result.deleted.push(page.slug);
     }
   }
 

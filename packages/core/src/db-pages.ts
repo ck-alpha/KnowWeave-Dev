@@ -1,5 +1,6 @@
 import type { Db } from "./db";
 import { PAGE_TYPES, type PageRow, type PageType } from "./types";
+import { indexRetrievalDocument, removeRetrievalDocument } from "./retrieval-store";
 
 type PageRowDb = {
   slug: string;
@@ -72,6 +73,7 @@ export function getPage(db: Db, slug: string): PageRow | null {
 
 export function deletePage(db: Db, slug: string): void {
   db.prepare(`DELETE FROM pages WHERE slug = ?`).run(slug);
+  unindexPageFromSearch(db, slug);
 }
 
 export function listPageRows(db: Db): PageRow[] {
@@ -117,13 +119,15 @@ export function indexPageForSearch(
     args.content,
     args.tags.join(" "),
   );
+  indexRetrievalDocument(db, args.slug, args.title, args.content);
 }
 
 export function unindexPageFromSearch(db: Db, slug: string): void {
   db.prepare(`DELETE FROM pages_fts WHERE slug = ?`).run(slug);
+  removeRetrievalDocument(db, slug);
 }
 
-export type SearchHit = { slug: string; title: string; snippet: string };
+export type SearchHit = { slug: string; title: string; snippet: string; score: number };
 
 // Natural-language questions rarely share EVERY word with a page. Use an
 // OR over literal tokens, ranked by FTS5's default BM25. Bound the token count
@@ -147,10 +151,10 @@ export function searchPages(db: Db, query: string, limit = 20): SearchHit[] {
   if (sanitized.length === 0) return [];
   const rows = db
     .prepare(
-      `SELECT slug, title, snippet(pages_fts, 2, '[', ']', '...', 16) AS snippet
+      `SELECT slug, title, snippet(pages_fts, 2, '[', ']', '...', 16) AS snippet, -rank AS score
          FROM pages_fts
         WHERE pages_fts MATCH ?
-        ORDER BY rank
+        ORDER BY rank, slug
         LIMIT ?`,
     )
     .all(sanitized, limit) as SearchHit[];

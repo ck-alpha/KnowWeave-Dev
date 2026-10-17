@@ -1,107 +1,81 @@
 # KnowWeave 项目架构
 
-最后核对：2026-10-17（Asia/Shanghai）。当前实现范围：Round 01。
-本文件是当前架构的统一入口；实现、接口或部署方式变化时，随代码在同一次提交中更新。
-当前产品名与项目目录统一为 **KnowWeave**。`KNOWWAEVE_*` 环境变量及既有内部兼容名继续保留。
+最后核对：2026-10-17（Asia/Shanghai）。当前实现范围：Round 01 + Round 02。
+本文件是当前架构的统一入口；模块、调用链、接口、数据格式、检索/模型协议或部署入口变化时，随代码在同一次提交中更新核对日期。当前名称 **KnowWeave**；既有 `KNOWWAEVE_*` 环境变量和内部包名为兼容保留。
 
 ## 技术栈与入口
 
 - Node.js 22、pnpm 10.12.1、TypeScript、Next.js 14 App Router、React 18。
-- Markdown 保存原文、Wiki 页面、索引和日志；SQLite（better-sqlite3）保存来源/页面/会话元数据、来源关联、用量与响应缓存。其中页面元数据与 FTS5 索引可由 Markdown 同步重建，数据库应随 Wiki 一起备份。
-- `apps/web` 是 UI 和 API；`packages/core` 是 Wiki 操作；`packages/ingestion` 是输入解析；`packages/llm` 是模型传输和响应校验。
-- Python 3 标准库只用于数据准备和验收脚本，无常驻 Python 服务。
-- `scripts/local.mjs` 是本项目启动入口，绑定 127.0.0.1，默认隔离到仓库 `.local/wiki` 与 `.local/config`。
+- Markdown 保存原文、Wiki 页面、索引和日志；每个 Wiki 的 `.llm-wiki/meta.sqlite` 保存元数据、FTS5、向量、来源关系、用量和响应缓存。
+- `scripts/local.mjs` 启动应用，默认监听 `127.0.0.1:3000`，Wiki 和配置隔离到仓库 `.local/`；Ollama 默认 `127.0.0.1:11434`。通过 VS Code Remote SSH 或 SSH 端口转发访问，无新增登录或云服务。
+- Python 标准库用于数据准备和真实 API 验收；TypeScript + tsx 用于调用同一检索核心的离线 benchmark，无新增常驻服务。
 
 ```mermaid
 flowchart LR
-  A[SciFact 原始 corpus / queries / qrels] --> B[确定性小样本和 manifest]
-  B --> C[POST /api/ingest]
-  C --> D[core ingest + prompt + JSON schema]
-  D --> E[Ollama qwen3.8:27b]
-  E --> F[Markdown Wiki + SQLite FTS5 + page_sources]
-  Q[用户问题] --> R[POST /api/query]
-  F --> R
-  R --> S[BM25 检索相关正文]
-  S --> E
-  E --> T[回答及 Wiki 引用]
-  T --> U[Wiki sources → 原文 → SciFact corpus ID]
+  D[原文] --> I[Ingest + Qwen3.8]
+  I --> W[Markdown Wiki / 来源关系]
+  W --> S[SQLite FTS5 / 文档指纹]
+  S --> B[显式增量构建]
+  B --> N[Ollama nomic-embed-text]
+  N --> V[SQLite Float32 向量]
+  Q[Query + mode] --> R[BM25 / Embedding / RRF]
+  S --> R
+  V --> R
+  R --> C[实际页面正文 + 指纹]
+  C --> A[Qwen 回答 + 引用校验]
+  A --> O[Wiki → 原始来源]
+  F[SciFact 原始标题摘要 / test queries] --> E[独立 benchmark 数据库]
+  E --> R
 ```
 
-## 模块职责与依赖
+## 模块职责与真实调用链
 
-| 模块 | 职责 | 主要入口 |
-| --- | --- | --- |
-| `apps/web` | 页面、HTTP API、当前 Wiki 和模型配置选择 | [API 路由](apps/web/src/app/api)、[Wiki 配置入口](apps/web/src/lib/server-wiki.ts) |
-| `packages/core` | Ingest、Wiki 更新、检索问答、来源关系和持久化 | [ingest.ts](packages/core/src/ingest.ts)、[query.ts](packages/core/src/query.ts)、[db.ts](packages/core/src/db.ts) |
-| `packages/ingestion` | 文本、URL 和文件解析，向核心流程提供输入 | [源码目录](packages/ingestion/src) |
-| `packages/llm` | 模型调用、Ollama 协议适配、响应解析和错误处理 | [client.ts](packages/llm/src/client.ts)、[ollama.ts](packages/llm/src/ollama.ts) |
-| `scripts` | 本地启动、SciFact 数据准备与真实 API 验收 | [local.mjs](scripts/local.mjs)、[scifact.py](scripts/scifact.py)、[demo_scifact.py](scripts/demo_scifact.py) |
+| 模块 | 职责与入口 |
+| --- | --- |
+| `apps/web` | UI、HTTP 输入校验、模型槽和当前 Wiki 选择；[server-wiki.ts](apps/web/src/lib/server-wiki.ts) 每次请求打开数据库并同步 Markdown |
+| `packages/core` | [ingest.ts](packages/core/src/ingest.ts) Wiki 编译；[query.ts](packages/core/src/query.ts) 检索取证和回答；[retrieval.ts](packages/core/src/retrieval.ts) 三模式检索/增量向量构建；[retrieval-store.ts](packages/core/src/retrieval-store.ts) 文档和模型指纹 |
+| `packages/llm` | [client.ts](packages/llm/src/client.ts) JSON/重试/响应校验；[ollama.ts](packages/llm/src/ollama.ts) Qwen 原生 chat；[embedding.ts](packages/llm/src/embedding.ts) 原生 embed、模型身份与向量验证 |
+| `packages/ingestion` | 文本、URL、文件解析，向 Ingest 提供输入 |
+| `scripts` | [scifact.py](scripts/scifact.py) 下载/校验/小样本；[benchmark-scifact.mts](scripts/benchmark-scifact.mts) 原始语料全量评测；[demo_retrieval.py](scripts/demo_retrieval.py) 三模式真实 Qwen/来源核对 |
 
-Web 层调用工作区包完成业务；核心流程调用解析与模型模块。数据准备和演示脚本不是独立后端服务，演示脚本通过应用 HTTP API 验证完整流程。
+导入：`POST /api/ingest` → `ingestPastedText` / `ingestSource` → prompt → `callLLM` → `IngestResponseSchema` → `applyIngestResponse`。写入 `raw/`、`wiki/*.md`、`index.md`、`log.md`，维护 `pages`、`pages_fts`、`sources`、`page_sources`；来源 UUID 同时存于 frontmatter。
 
-## 已审阅的真实调用链
+问答：`POST /api/query` → `queryWiki` → `retrievePages` → 从磁盘 `readPage` → `buildQueryPrompt` → Qwen → `QueryResponseSchema` → 校验引用属于实际供给正文。返回 `pagesUsed` 和 `retrieval`，后者含模式、排名、模型、参数、耗时以及 `suppliedPages` 的正文 SHA256/UTF8 字节数。排名本身不作为模型证据，真正供给的是当前页面正文。无命中直接返回低置信证据不足；低置信模型回答可无引用，其他回答必须有引用。引用存在性不证明科学结论正确。
 
-导入：`apps/web/src/app/api/ingest/route.ts` → `ingestPastedText` / `ingestSource`
-（`packages/core/src/ingest.ts`）→ `buildIngestPrompt` → `callLLM` →
-Zod `IngestResponseSchema` → `applyIngestResponse`。
-写入 `raw/`、`wiki/*.md`、`index.md`、`log.md`；更新 `pages`、`pages_fts`、
-`sources`、`page_sources`，来源 UUID 同时存入 Markdown frontmatter。
+UI 的 `[[slug]]` 跳到 Wiki，再经 Sources 链接进入原文；读取 API 仍为 `/api/pages/[slug]` 与 `/api/sources/[id]`。Round 02 不改变 Ingest 与聊天的候选检索策略，它们继续使用 BM25；三模式明确用于独立 Query。
 
-问答：`apps/web/src/app/api/query/route.ts` → `queryWiki`
-（`packages/core/src/query.ts`）→ `searchPages` → `readPage` → `buildQueryPrompt` →
-`callLLM` → `QueryResponseSchema` → 校验回答引用必须来自实际提供的正文。
-API 返回 `pagesUsed`，UI 中 `[[slug]]` 可跳到 Wiki 页面，页面来源链接跳到原始文档。
-原始内容 API 是 `/api/sources/[id]`，页面 API 是 `/api/pages/[slug]`。
+## 检索、模型与持久化协议
 
-模型：API 根据 `defaultModels` 的操作槽选择 provider/model；本轮默认全部为
-`ollama` / `qwen3.8:27b`。`packages/llm/src/client.ts` 继续提供共享 OpenAI SDK 接口，
-`ollama.ts` 将本地请求转换为 `/api/chat`，以支持每请求 `num_ctx=32768`、
-`num_predict=4096`、`think=false`、`temperature=0`。保留真实模型 tag，无额外模型下载。
-文本输入按UTF-8字节上界加输出预算检查，超过上下文时拒绝，避免静默截断证据。
-JSON 仍经过已有解析、Zod 校验与重试逻辑；无付费 API 强制依赖。
-OpenRouter 为继承的可选入口，必须显式设置对应 provider 与 Key 才使用。
+- BM25：沿用 FTS5 默认 tokenizer/权重，最多 64 个转义词项 OR，按 BM25 和 slug 稳定排序；无额外分词或 stemming。
+- Embedding：原始 `title + "\n\n" + content`，Nomic 文档前缀 `search_document: `、问题前缀 `search_query: `，经 L2 归一化后以 little-endian Float32 BLOB 保存。精确余弦扫描全部有效向量；不引入 ANN 或外部数据库。
+- Hybrid：每路最多 100 候选、等权 RRF `sum(1/(60 + rank))`，rank 从 1 开始，最终最多 10 页；相同分数以 slug 排序。参数在看 test 结果前固定。纯向量总会给出最近邻，不能把正相似度当作证据充分性阈值，最终由问答判断是否足以回答。
+- `retrieval_documents` 保存 slug/title/content/content_hash；`page_embeddings` 保存 slug、content_hash、model_key、模型 JSON、维度、vector、updated_at，外键删除级联。模型键包含实际模型 tag/digest、前缀、请求上下文和输入格式版本，避免不同模型/文本空间混用。
+- `indexPageForSearch` 同步 FTS 与检索文档并使变化向量立即失效；`unindexPageFromSearch` / 删除清理文档与向量。创建、Ingest、手工编辑、软删除、恢复和磁盘同步复用这些入口。
+- `syncWikiToDb` 迁移时为旧页补齐检索文档，清理磁盘上已消失的页面；每请求同步会发现启动前或应用外修改，不自动调用 Embedding。SQLite 中来源关系、用量并非全部可从 Markdown 恢复，数据库仍应随 Wiki 备份。
+- 索引构建是显式、可重试的增量任务。每批独立提交，写回前再次比较内容 hash，期间删除/修改的旧向量不落库。普通查询只生成问题向量；缺失、失效、模型不匹配时清晰拒绝，不静默返回不完整的 Hybrid。
 
-## 运行与部署边界
+Qwen 仍使用 `qwen3.8:27b`，`/api/chat` 请求级 `num_ctx=32768`、`num_predict=4096`、`think=false`、`temperature=0`，按 UTF8 字节上界加完整输出预算拒绝过长证据。Embedding 使用 `nomic-embed-text:v1.5` 的 `/api/embed`，`truncate:false`，请求 `num_ctx=8192`、默认 120 秒超时，校验数量、有限非零向量与维度。实际服务可能限制有效上下文；请求值不保证 Ollama 采用同样长度，超长输入会明确失败。协议依据 [Ollama embed API](https://docs.ollama.com/api/embed) 与 [Nomic 模型卡](https://huggingface.co/nomic-ai/nomic-embed-text-v1.5)。
 
-当前部署中，Next.js 应用与 Ollama 运行在同一服务器。应用默认监听 `127.0.0.1:3000`，Ollama 默认监听 `127.0.0.1:11434`。电脑上的浏览器通过 VS Code Remote SSH 或 SSH 本地端口转发访问应用，具体操作见 [README](README.md)。
+## HTTP 与操作入口
 
-项目默认 Wiki 为 `.local/wiki`，隔离配置为 `.local/config`；它们以及下载数据、模型和个人运行证据不进入 Git。兼容配置变量、模型上下文预算与 PDF 限制见 README。当前应用没有用户登录与远程访问控制，端口转发是当前访问方式。
+| 接口 | 行为 |
+| --- | --- |
+| `POST /api/query` | `{question, mode?: "bm25"\|"embedding"\|"hybrid", model?}`；省略 mode 为 BM25；响应 `response.retrieval` 记录实际取证 |
+| `GET /api/retrieval` | 当前 Wiki 的 total/indexed/pending/ready、模型状态与提示；模型不可用仍可查看本地状态 |
+| `POST /api/retrieval` | 空 body 或 `{force:false}` 刷新变化向量，`{force:true}` 全量重建；同 Wiki 同进程构建互斥；成功返回构建数量/耗时，冲突或未就绪为 409，Embedding 故障为 503 |
 
-[`sync.ts`](packages/core/src/sync.ts) 的重建范围是页面元数据、FTS5 和同步状态；它不能恢复所有来源关联或用量记录。因此，不能将整个 SQLite 数据库视为可删除的缓存。
+Query UI 提供模式选择、索引状态、构建/刷新按钮、取证页链接。BM25 保持无需 Embedding 服务，错误不会冒充降级后的成功。所有 Wiki 数据库相互隔离，无全局向量池。
 
-本机已验证 `qwen3.8:27b` 使用 GPU，驱动修复和测试摘要见 [验收报告](docs/ROUND_01_ACCEPTANCE.md) 与 [机器结果摘要](docs/evidence/ROUND_01_RESULTS.json)。这属于已验证部署环境，不能视为所有机器的硬件要求或性能承诺。
+## 评测和验证边界
 
-## 检索入口及 Round 02 接入点
+`pnpm benchmark:scifact` 使用官方 5,183 篇原始标题/摘要、300 条 test queries、339 条相关性标注，直接调用产品 `indexPageForSearch` / `refreshEmbeddings` / `retrievePages`。离线数据库与 Wiki 分离，未调用 Qwen 编译 corpus。使用相同输入和规则宏平均 Recall@10、nDCG@10、MRR@10，记录原文件 hash、模型 digest、参数、索引耗时、含问题向量生成的检索延迟和运行环境。qrels 只用于最终评分，不用于选择融合参数。
 
-- `packages/core/src/db.ts`：创建 `pages_fts`。
-- `packages/core/src/db-pages.ts::indexPageForSearch`：页面内容索引；`searchPages` 使用 MATCH 和默认 BM25 `rank`。
-- 本轮将全文问题的 AND 改成转义后的词项 OR，最多 64 个词，修复自然语言问题的空上下文问题；未引入向量检索。
-- `query.ts` 的 `loadRelevantPages`、`ingest.ts` 的同名函数，以及 `chat.ts` 中的检索调用是后续统一检索接口的候选接入点。
-- 更新/删除索引需覆盖 `ingest.ts`、`editor.ts`、`sync.ts` 的页面生命周期；后续向量索引必须同时覆盖这些入口。
-- Wiki 页面检索与 SciFact 原始 corpus 检索是两个集合。Round 02 基准须从原始 corpus/queries/qrels 独立建索引，保持三种方法的集合与参数一致。
+实际结果与完整命令见 [Round 02 验收](docs/ROUND_02_ACCEPTANCE.md)；历史 Round 01 数据保留在其报告。大型运行产物、模型、数据库、私有文档与数据集不入 Git。当前精确扫描适合本地中小集合，尚未验证大型 Wiki、并发压力、中文/多语言专项及 PDF/OCR；无 MCP、GraphRAG、登录、微服务和云部署。
 
-## 本轮边界与已知限制
+## 持续维护
 
-本轮不实现 Embedding、Hybrid、RRF 或全量评测，不新增 MCP、GraphRAG、登录、云部署和数据库服务。
-引用检查验证页面存在于模型上下文，不证明模型对文献的理解或科学结论正确，仍需阅读原文。
-英文 SciFact 可用 FTS5 原始 tokenizer；中文分词、多语种检索尚未专项优化。
-Qwen 的图片能力不等于接受 OpenRouter PDF 文件协议；本轮仅验证文本，小样本脚本不涉及 PDF/OCR。
-模型导入不是事务性编译：网络失败会保留待重试的原始来源；重复演示会再新增来源。
-项目通过仓库中的 `scripts/local.mjs` 启动；旧版 CLI/发布脚本已移出当前源码树。
-
-代码来源、继承能力和独立改造范围见 [NOTICE](NOTICE.md)；本项目不宣称全部功能从零原创。
-当前源码审阅顺序与验收代码映射见 [GPT 审阅指南](docs/GPT_REVIEW_GUIDE.md)。历史报告只描述指定提交和当时机器上的实测，不替代对当前 checkout 的独立验证。
-
-## 持续维护约定
-
-- 更改模块职责、调用链、HTTP 接口、数据格式、检索策略、模型协议或部署入口时，在同一次代码提交中更新本文件，并更新“最后核对”日期。
-- 以当前源码为依据，列出真实入口；明确区分已实现行为、已知限制和未来接入点，不把计划写成现状。
-- 重大技术决策同步记入 [开发日志](docs/DEVLOG.md)，完成范围同步到 [进度](docs/PROGRESS.md)。测试结果记录到对应验收报告，保留历史结果的时间与版本边界。
-- 调整文件路径或接口后，核对本文件、README 与 [GPT 审阅指南](docs/GPT_REVIEW_GUIDE.md) 的链接和描述；架构变更的 PR 应说明影响与验证。
-- `docs/PROJECT_OVERVIEW.md` 仅保留兼容入口，不维护第二份架构正文，避免两份描述不一致。
-
-## 文档更新记录
+重大决策写入 [DEVLOG](docs/DEVLOG.md)，实现范围写入 [PROGRESS](docs/PROGRESS.md)，区分已实现、实测与未验证。修改路径/接口时核对 README 和 [审阅指南](docs/GPT_REVIEW_GUIDE.md)。代码来源、MIT 与继承/改造边界见 [NOTICE](NOTICE.md)。`docs/PROJECT_OVERVIEW.md` 仅保留架构跳转，不再维护重复正文。
 
 | 日期（Asia/Shanghai） | 变更 |
 | --- | --- |
-| 2026-10-17 | 从工程概览迁移为根目录 `architecture.md`，整理模块职责、服务器访问边界和持续维护约定；当前业务范围仍为 Round 01。 |
+| 2026-10-17 | Round 01 架构迁移至根目录统一入口；Round 02 同步三路检索、向量数据格式和生命周期、在线接口与原始语料评测调用链。 |

@@ -15,7 +15,7 @@
     "lint": "pnpm -r lint",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "pnpm -r typecheck",
+    "typecheck": "pnpm -r typecheck && tsc --noEmit -p scripts/tsconfig.json",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,css}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,css}\"",
     "start": "node scripts/local.mjs start",
@@ -23,12 +23,14 @@
     "setup:local": "node scripts/local.mjs setup",
     "data:scifact": "python3 scripts/scifact.py prepare",
     "demo:scifact": "python3 scripts/demo_scifact.py",
+    "benchmark:scifact": "tsx scripts/benchmark-scifact.mts",
     "test:data": "python3 -m unittest discover -s tests -v"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",
     "eslint": "^8.57.0",
     "prettier": "^3.3.3",
+    "tsx": "^4.23.15",
     "typescript": "^5.5.4",
     "vitest": "^2.0.5"
   },

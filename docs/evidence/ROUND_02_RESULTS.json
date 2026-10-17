@@ -1,0 +1,747 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-17",
+  "timezone": "Asia/Shanghai",
+  "status": "passed",
+  "scope": "Round 02 local implementation and real SciFact/Ollama verification; not an independent external review",
+  "git": {
+    "measurement_base_commit": "92ba903bfb230caabc2ac0458827a1257ca5fbcd",
+    "measurement_worktree_dirty": true,
+    "note": "Measurements ran on the uncommitted implementation. Evaluated source hashes below identify the exact retrieval code. Delivery SHA is recorded after the implementation commit."
+  },
+  "benchmark": {
+    "started_at": "2026-10-17T08:22:35.059Z",
+    "finished_at": "2026-10-17T08:27:02.415Z",
+    "dataset": {
+      "name": "BEIR SciFact",
+      "split": "test",
+      "representation": "original corpus title and complete abstract; no Qwen/Wiki rewriting",
+      "corpus_documents": 5183,
+      "queries_total": 1109,
+      "test_queries": 300,
+      "test_qrels": 339,
+      "input_sha256": {
+        "corpus.jsonl": "dec31c8182f3d744c7d2c09423756fd1d17cbef75808db13ba01cc0aab4d1ac6",
+        "queries.jsonl": "8ff84a7c903f722981cd8d595c022660140c51867b27608a6d4910db86080313",
+        "qrels/test.tsv": "0864bb985e0ca2367ba217977e72004d549054b2b06666ed9d4825ac7c21284c"
+      },
+      "archive_md5": "5f7d1de60b170fc8027bb7898e2efca1",
+      "archive_sha256": "536e14446a0ba56ed1398ab1055f39fe852686ecad24a6306c80c490fa8e0165",
+      "verification": "scripts/scifact.py download: official archive checksum and extracted file byte comparison"
+    },
+    "model": {
+      "model": "nomic-embed-text:v1.5",
+      "digest": "0a109f422b47e3a30ba2b10eca18548e944e8a23073ee3f3e947efcf3c45e59f",
+      "documentPrefix": "search_document: ",
+      "queryPrefix": "search_query: ",
+      "numCtx": 8192
+    },
+    "parameters": {
+      "cutoff": 10,
+      "candidate_limit": 100,
+      "rrf_k": 60,
+      "batch_size": 16,
+      "bm25": "SQLite FTS5 default BM25; production literal-token OR query; maximum 64 terms",
+      "vector": "production exact cosine scan over normalized Float32 vectors",
+      "fusion": "unweighted reciprocal rank fusion; rank starts at 1; 1/(rrf_k + rank)",
+      "parameter_selection": "Fixed before test evaluation; no label-guided tuning"
+    },
+    "metric_definition": {
+      "averaging": "macro over every test query",
+      "positive_relevance": "score > 0",
+      "unjudged_gain": 0,
+      "recall": "relevant retrieved in top 10 / all positive qrels for the query",
+      "ndcg": "sum(relevance/log2(rank+1)) / ideal DCG@10; linear gain (trec_eval convention)",
+      "mrr": "reciprocal rank of first positive qrel within top 10, or 0"
+    },
+    "latency_definition": "wall time per retrievePages call, including actual query embedding HTTP request for embedding/hybrid, model lookup and full vector scan; no cached query vectors; sequential runs with rotating mode order; model warmed by indexing; nearest-rank percentiles; excludes Qwen answer generation",
+    "environment": {
+      "node": "v22.23.3",
+      "pnpm": "10.12.1",
+      "platform": "linux",
+      "architecture": "x64",
+      "kernel": "6.8.0-142-generic",
+      "cpu_model": "INTEL(R) XEON(R) GOLD 6530",
+      "logical_cpus": 16,
+      "memory_bytes": 33650929664,
+      "ollama": {
+        "version": "0.34.4"
+      },
+      "gpu": "NVIDIA GeForce RTX 4090, 580.178.04, 49140 MiB"
+    },
+    "indexing": {
+      "bm25_ms": 9801.767260999999,
+      "vector_wall_ms": 45.412701999999626,
+      "total": 5183,
+      "indexed": 5183,
+      "pending": 0,
+      "ready": true,
+      "model": {
+        "model": "nomic-embed-text:v1.5",
+        "digest": "0a109f422b47e3a30ba2b10eca18548e944e8a23073ee3f3e947efcf3c45e59f",
+        "documentPrefix": "search_document: ",
+        "queryPrefix": "search_query: ",
+        "numCtx": 8192
+      },
+      "modelKey": "b6d3ac75cf14f224b8e0aa96c0505dd40f841964a08a805d2c723fe3d87214ff",
+      "dimensions": 768,
+      "embedded": 0,
+      "skipped": 5183,
+      "elapsedMs": 44.95936400000028
+    },
+    "results": {
+      "bm25": {
+        "queries": 300,
+        "recall@10": 0.7918888888888889,
+        "ndcg@10": 0.6616250129559815,
+        "mrr@10": 0.6246772486772487,
+        "query_latency_ms": {
+          "p50": 28.483466999983648,
+          "p95": 41.04926600001636,
+          "mean": 28.561304450000115,
+          "total": 8568.391335000035
+        }
+      },
+      "embedding": {
+        "queries": 300,
+        "recall@10": 0.8435555555555555,
+        "ndcg@10": 0.7032645580064154,
+        "mrr@10": 0.6667619047619046,
+        "query_latency_ms": {
+          "p50": 390.82050200001686,
+          "p95": 429.45898899999884,
+          "mean": 404.2076924366673,
+          "total": 121262.30773100018
+        }
+      },
+      "hybrid": {
+        "queries": 300,
+        "recall@10": 0.8227222222222222,
+        "ndcg@10": 0.7034761535456394,
+        "mrr@10": 0.6704021164021164,
+        "query_latency_ms": {
+          "p50": 420.7612870000012,
+          "p95": 451.15939499999513,
+          "mean": 423.01544828333436,
+          "total": 126904.63448500031
+        }
+      }
+    },
+    "total_wall_ms": 267355.520877,
+    "source_unchanged_during_run": true,
+    "rankings_sha256": "f78bb1f3ab6f98e0800b59152a7902f90b131313e5073494bc2ae5d850b677e9",
+    "ollama_runtime": [
+      {
+        "name": "nomic-embed-text:v1.5",
+        "digest": "0a109f422b47e3a30ba2b10eca18548e944e8a23073ee3f3e947efcf3c45e59f",
+        "size_vram": 323150151,
+        "context_length": 2048
+      }
+    ]
+  },
+  "evaluated_source": {
+    "sha256": "8307895a7535d4af7fe6e74dc684b8a7c568f721b80b19a1a227da1e9538d446",
+    "files": {
+      "package.json": "31e48f3eee872e7d383039f6210989cd9b900787889e1827271238370506970c",
+      "packages/core/src/db-pages.ts": "26d535a79036802cd92e519a6714f36477944610e74e6dfa32e345345b79b6a9",
+      "packages/core/src/db.ts": "95b27ef036dbd998d58c840a9e4c1babde1fdc4cbc2ae4ddd716913ac8eb1f1f",
+      "packages/core/src/retrieval-store.ts": "5b7d694f09110de16c0eaea4af3c12e85c2fdd2472580edb02ee27a7d13389af",
+      "packages/core/src/retrieval.ts": "f4556550db452b4786371bf83e0ece48ba47817ae07ac31081a8580b4148879d",
+      "packages/core/src/wiki.ts": "79539038158c93c48cafad27de690ba700f8b71c7358d4910b219628662f2888",
+      "packages/llm/src/embedding.ts": "46b6a28b60c0ccfe980c4954fdadf59c86ae70ca971574d1e0c5bf40a1dafdce",
+      "pnpm-lock.yaml": "5466fd946ecfd9b4365d6f62fea18bfdb574e0df21ba1d0d928a994a39fb1fef",
+      "scripts/benchmark-scifact.mts": "384f21af590430c85725fd789d63d4df24aefa7d7f415171044893cb4d895fb7",
+      "scripts/retrieval-metrics.ts": "1b04046a091647216debc4e7f0633d73ec11332784704bf0e14a48f66cbfce57",
+      "scripts/scifact-dataset.ts": "84fb3164cdeff330d1520e6188bb13e3c6b6dabb9d58ba356e0cca76708788e5",
+      "scripts/scifact.py": "ea0b1c56824ac5b6d62e2a485cda8aa93aaf786b0c33955ab60596c5dc19b0ea"
+    }
+  },
+  "initial_index_build": {
+    "run_status": "interrupted",
+    "note": "First run interrupted after source review fixes; complete document index retained by verified content/model fingerprints. Partial query metrics are not accepted.",
+    "indexing": {
+      "bm25_ms": 4996.875499,
+      "vector_wall_ms": 48915.728585000004,
+      "total": 5183,
+      "indexed": 5183,
+      "pending": 0,
+      "ready": true,
+      "model": {
+        "model": "nomic-embed-text:v1.5",
+        "digest": "0a109f422b47e3a30ba2b10eca18548e944e8a23073ee3f3e947efcf3c45e59f",
+        "documentPrefix": "search_document: ",
+        "queryPrefix": "search_query: ",
+        "numCtx": 8192
+      },
+      "modelKey": "b6d3ac75cf14f224b8e0aa96c0505dd40f841964a08a805d2c723fe3d87214ff",
+      "dimensions": 768,
+      "embedded": 5183,
+      "skipped": 0,
+      "elapsedMs": 48915.404913
+    }
+  },
+  "independent_metric_recomputation": {
+    "status": "passed",
+    "verification": "Independent Python stdlib recomputation against official qrels; checks every per-query metric, every macro average, p50/p95, full split coverage, unique original corpus IDs, and unchanged evaluated source hashes.",
+    "mode_query_pairs": 900,
+    "report": ".local/benchmarks/scifact/runs/2026-10-17T08-22-35-059Z/results.json",
+    "report_sha256": "3fe4eda2d7a8de69d70b514567955a87a62605f80a57709193ff134ef2959feb",
+    "rankings_sha256": "f78bb1f3ab6f98e0800b59152a7902f90b131313e5073494bc2ae5d850b677e9",
+    "results": {
+      "bm25": {
+        "queries": 300,
+        "recall@10": 0.7918888888888889,
+        "ndcg@10": 0.661625012955982,
+        "mrr@10": 0.6246772486772486
+      },
+      "embedding": {
+        "queries": 300,
+        "recall@10": 0.8435555555555555,
+        "ndcg@10": 0.703264558006416,
+        "mrr@10": 0.6667619047619048
+      },
+      "hybrid": {
+        "queries": 300,
+        "recall@10": 0.8227222222222222,
+        "ndcg@10": 0.7034761535456396,
+        "mrr@10": 0.6704021164021164
+      }
+    }
+  },
+  "online": {
+    "status": "passed",
+    "started_at": "2026-10-17T08:28:24.230773+00:00",
+    "finished_at": "2026-10-17T08:28:34.089047+00:00",
+    "question": "Does elevated aldehyde dehydrogenase in breast tumours predict a favorable patient outcome?",
+    "build": {
+      "ok": true,
+      "total": 3,
+      "indexed": 3,
+      "pending": 0,
+      "ready": true,
+      "model": {
+        "model": "nomic-embed-text:v1.5",
+        "digest": "0a109f422b47e3a30ba2b10eca18548e944e8a23073ee3f3e947efcf3c45e59f",
+        "documentPrefix": "search_document: ",
+        "queryPrefix": "search_query: ",
+        "numCtx": 8192
+      },
+      "modelKey": "b6d3ac75cf14f224b8e0aa96c0505dd40f841964a08a805d2c723fe3d87214ff",
+      "dimensions": 768,
+      "embedded": 3,
+      "skipped": 0,
+      "elapsedMs": 42.74663899999996
+    },
+    "repeat_build": {
+      "ok": true,
+      "total": 3,
+      "indexed": 3,
+      "pending": 0,
+      "ready": true,
+      "model": {
+        "model": "nomic-embed-text:v1.5",
+        "digest": "0a109f422b47e3a30ba2b10eca18548e944e8a23073ee3f3e947efcf3c45e59f",
+        "documentPrefix": "search_document: ",
+        "queryPrefix": "search_query: ",
+        "numCtx": 8192
+      },
+      "modelKey": "b6d3ac75cf14f224b8e0aa96c0505dd40f841964a08a805d2c723fe3d87214ff",
+      "dimensions": 768,
+      "embedded": 0,
+      "skipped": 3,
+      "elapsedMs": 6.3527869999998074
+    },
+    "modes": [
+      {
+        "mode": "bm25",
+        "seconds": 7.412693202029914,
+        "model": "qwen3.8:27b",
+        "answer": "No, elevated aldehyde dehydrogenase (specifically [[aldh1]]) in breast tumours does not predict a favorable outcome. Instead, high ALDH activity identifies the tumorigenic cell fraction capable of self-renewal, and immunostaining for ALDH1 expression in breast carcinomas has been correlated with **poor prognosis**.",
+        "confidence": "high",
+        "pagesUsed": [
+          "aldh1"
+        ],
+        "retrieval": {
+          "mode": "bm25",
+          "hits": [
+            {
+              "slug": "aldh1",
+              "title": "ALDH1",
+              "score": 6.58142122903894e-06,
+              "bm25Rank": 1
+            },
+            {
+              "slug": "mammary-stem-cells",
+              "title": "Mammary Stem Cells",
+              "score": 5.9040428161678625e-06,
+              "bm25Rank": 2
+            },
+            {
+              "slug": "birth-size-breast-cancer-risk",
+              "title": "Birth Size and Breast Cancer Risk",
+              "score": 4.637210662741577e-06,
+              "bm25Rank": 3
+            }
+          ],
+          "parameters": {
+            "limit": 10,
+            "candidateLimit": 100,
+            "rrfK": 60
+          },
+          "elapsedMs": 1.6049300000004223,
+          "suppliedPages": [
+            {
+              "slug": "aldh1",
+              "title": "ALDH1",
+              "contentHash": "99eb7eb607953ac13bf5dbf279e8c5a32282cd579f46d70b1526454c36c8ff5e",
+              "contentBytes": 582,
+              "documentHash": "af65199f6f4c84915f455957ef8095672793bbdf1e76aee94fa8d1cf650e465b"
+            },
+            {
+              "slug": "mammary-stem-cells",
+              "title": "Mammary Stem Cells",
+              "contentHash": "a3a87b0bfc2918c6c3de0126447042090535acacb8043c1a9265dcf2e2ac172f",
+              "contentBytes": 653,
+              "documentHash": "f101142170126cc0769a3ac57c9915c7374e3df896105c35d69010b11e12b8f9"
+            },
+            {
+              "slug": "birth-size-breast-cancer-risk",
+              "title": "Birth Size and Breast Cancer Risk",
+              "contentHash": "9709409874c082dd38f24812eb145d989f4f07e4251dc5786708f5acdf82e57c",
+              "contentBytes": 846,
+              "documentHash": "3a60eec5e28bc2ccfb75219fa4aac4f09f011f4de346ec0922fd7e8689a8518d"
+            }
+          ]
+        },
+        "source_evidence": [
+          {
+            "slug": "aldh1",
+            "source_id": "0bfe3bbc-7b3a-4d9d-92c3-08d69c5d6f55",
+            "raw_sha256": "28a9e390bd936984a99cab1cf71db70a36e4419e423ff862a0484042e564bca7",
+            "corpus_ids": [
+              "45638119"
+            ],
+            "page_url": "/wiki/aldh1",
+            "source_url": "/sources/0bfe3bbc-7b3a-4d9d-92c3-08d69c5d6f55"
+          }
+        ]
+      },
+      {
+        "mode": "embedding",
+        "seconds": 1.1910412649740465,
+        "model": "qwen3.8:27b",
+        "answer": "No, elevated aldehyde dehydrogenase (specifically [[aldh1]]) in breast tumours does not predict a favorable outcome. Instead, high ALDH activity identifies the tumorigenic cell fraction capable of self-renewal, and immunostaining for ALDH1 expression in breast carcinomas has been correlated with **poor prognosis**.",
+        "confidence": "high",
+        "pagesUsed": [
+          "aldh1"
+        ],
+        "retrieval": {
+          "mode": "embedding",
+          "hits": [
+            {
+              "slug": "aldh1",
+              "title": "ALDH1",
+              "score": 0.7883167144417464,
+              "embeddingRank": 1
+            },
+            {
+              "slug": "mammary-stem-cells",
+              "title": "Mammary Stem Cells",
+              "score": 0.7206119142637603,
+              "embeddingRank": 2
+            },
+            {
+              "slug": "birth-size-breast-cancer-risk",
+              "title": "Birth Size and Breast Cancer Risk",
+              "score": 0.5780405969914726,
+              "embeddingRank": 3
+            }
+          ],
+          "model": {
+            "model": "nomic-embed-text:v1.5",
+            "digest": "0a109f422b47e3a30ba2b10eca18548e944e8a23073ee3f3e947efcf3c45e59f",
+            "documentPrefix": "search_document: ",
+            "queryPrefix": "search_query: ",
+            "numCtx": 8192
+          },
+          "parameters": {
+            "limit": 10,
+            "candidateLimit": 100,
+            "rrfK": 60
+          },
+          "elapsedMs": 13.791182000000845,
+          "suppliedPages": [
+            {
+              "slug": "aldh1",
+              "title": "ALDH1",
+              "contentHash": "99eb7eb607953ac13bf5dbf279e8c5a32282cd579f46d70b1526454c36c8ff5e",
+              "contentBytes": 582,
+              "documentHash": "af65199f6f4c84915f455957ef8095672793bbdf1e76aee94fa8d1cf650e465b"
+            },
+            {
+              "slug": "mammary-stem-cells",
+              "title": "Mammary Stem Cells",
+              "contentHash": "a3a87b0bfc2918c6c3de0126447042090535acacb8043c1a9265dcf2e2ac172f",
+              "contentBytes": 653,
+              "documentHash": "f101142170126cc0769a3ac57c9915c7374e3df896105c35d69010b11e12b8f9"
+            },
+            {
+              "slug": "birth-size-breast-cancer-risk",
+              "title": "Birth Size and Breast Cancer Risk",
+              "contentHash": "9709409874c082dd38f24812eb145d989f4f07e4251dc5786708f5acdf82e57c",
+              "contentBytes": 846,
+              "documentHash": "3a60eec5e28bc2ccfb75219fa4aac4f09f011f4de346ec0922fd7e8689a8518d"
+            }
+          ]
+        },
+        "source_evidence": [
+          {
+            "slug": "aldh1",
+            "source_id": "0bfe3bbc-7b3a-4d9d-92c3-08d69c5d6f55",
+            "raw_sha256": "28a9e390bd936984a99cab1cf71db70a36e4419e423ff862a0484042e564bca7",
+            "corpus_ids": [
+              "45638119"
+            ],
+            "page_url": "/wiki/aldh1",
+            "source_url": "/sources/0bfe3bbc-7b3a-4d9d-92c3-08d69c5d6f55"
+          }
+        ]
+      },
+      {
+        "mode": "hybrid",
+        "seconds": 1.1399197940481827,
+        "model": "qwen3.8:27b",
+        "answer": "No, elevated aldehyde dehydrogenase (specifically [[aldh1]]) in breast tumours does not predict a favorable outcome. Instead, high ALDH activity identifies the tumorigenic cell fraction capable of self-renewal, and immunostaining for ALDH1 expression in breast carcinomas has been correlated with **poor prognosis**.",
+        "confidence": "high",
+        "pagesUsed": [
+          "aldh1"
+        ],
+        "retrieval": {
+          "mode": "hybrid",
+          "hits": [
+            {
+              "slug": "aldh1",
+              "title": "ALDH1",
+              "score": 0.03278688524590164,
+              "bm25Rank": 1,
+              "embeddingRank": 1
+            },
+            {
+              "slug": "mammary-stem-cells",
+              "title": "Mammary Stem Cells",
+              "score": 0.03225806451612903,
+              "bm25Rank": 2,
+              "embeddingRank": 2
+            },
+            {
+              "slug": "birth-size-breast-cancer-risk",
+              "title": "Birth Size and Breast Cancer Risk",
+              "score": 0.031746031746031744,
+              "bm25Rank": 3,
+              "embeddingRank": 3
+            }
+          ],
+          "model": {
+            "model": "nomic-embed-text:v1.5",
+            "digest": "0a109f422b47e3a30ba2b10eca18548e944e8a23073ee3f3e947efcf3c45e59f",
+            "documentPrefix": "search_document: ",
+            "queryPrefix": "search_query: ",
+            "numCtx": 8192
+          },
+          "parameters": {
+            "limit": 10,
+            "candidateLimit": 100,
+            "rrfK": 60
+          },
+          "elapsedMs": 14.786951000000045,
+          "suppliedPages": [
+            {
+              "slug": "aldh1",
+              "title": "ALDH1",
+              "contentHash": "99eb7eb607953ac13bf5dbf279e8c5a32282cd579f46d70b1526454c36c8ff5e",
+              "contentBytes": 582,
+              "documentHash": "af65199f6f4c84915f455957ef8095672793bbdf1e76aee94fa8d1cf650e465b"
+            },
+            {
+              "slug": "mammary-stem-cells",
+              "title": "Mammary Stem Cells",
+              "contentHash": "a3a87b0bfc2918c6c3de0126447042090535acacb8043c1a9265dcf2e2ac172f",
+              "contentBytes": 653,
+              "documentHash": "f101142170126cc0769a3ac57c9915c7374e3df896105c35d69010b11e12b8f9"
+            },
+            {
+              "slug": "birth-size-breast-cancer-risk",
+              "title": "Birth Size and Breast Cancer Risk",
+              "contentHash": "9709409874c082dd38f24812eb145d989f4f07e4251dc5786708f5acdf82e57c",
+              "contentBytes": 846,
+              "documentHash": "3a60eec5e28bc2ccfb75219fa4aac4f09f011f4de346ec0922fd7e8689a8518d"
+            }
+          ]
+        },
+        "source_evidence": [
+          {
+            "slug": "aldh1",
+            "source_id": "0bfe3bbc-7b3a-4d9d-92c3-08d69c5d6f55",
+            "raw_sha256": "28a9e390bd936984a99cab1cf71db70a36e4419e423ff862a0484042e564bca7",
+            "corpus_ids": [
+              "45638119"
+            ],
+            "page_url": "/wiki/aldh1",
+            "source_url": "/sources/0bfe3bbc-7b3a-4d9d-92c3-08d69c5d6f55"
+          }
+        ]
+      }
+    ]
+  },
+  "semantic_and_no_evidence": {
+    "status": "passed",
+    "cases": [
+      {
+        "case": "semantic-rephrasing",
+        "mode": "bm25",
+        "http_status": null,
+        "answer": "No matching Wiki evidence was found. Import relevant sources or try more specific keywords.",
+        "confidence": "low",
+        "pages_used": [],
+        "retrieved_slugs": []
+      },
+      {
+        "case": "semantic-rephrasing",
+        "mode": "embedding",
+        "http_status": null,
+        "answer": "The wiki does not contain a specific page or detailed section on \"unfavourable survival\" as a standalone concept. However, it notes that high ALDH1 expression in breast carcinomas is correlated with poor prognosis, which implies an unfavourable survival outcome [[aldh1]].",
+        "confidence": "low",
+        "pages_used": [
+          "aldh1"
+        ],
+        "retrieved_slugs": [
+          "mammary-stem-cells",
+          "birth-size-breast-cancer-risk",
+          "aldh1"
+        ]
+      },
+      {
+        "case": "semantic-rephrasing",
+        "mode": "hybrid",
+        "http_status": null,
+        "answer": "The wiki does not contain a specific page or detailed section on \"unfavourable survival\" as a standalone concept. However, it notes that high ALDH1 expression in breast carcinomas is correlated with poor prognosis, which implies an unfavourable survival outcome [[aldh1]].",
+        "confidence": "low",
+        "pages_used": [
+          "aldh1"
+        ],
+        "retrieved_slugs": [
+          "mammary-stem-cells",
+          "birth-size-breast-cancer-risk",
+          "aldh1"
+        ]
+      },
+      {
+        "case": "unrelated-question-no-evidence",
+        "mode": null,
+        "http_status": null,
+        "answer": "The wiki does not contain information about Neptune's orbital period. The available pages focus on breast cancer risk factors and mammary stem cells.",
+        "confidence": "low",
+        "pages_used": [],
+        "retrieved_slugs": [
+          "birth-size-breast-cancer-risk",
+          "mammary-stem-cells",
+          "aldh1"
+        ]
+      },
+      {
+        "case": "invalid-input",
+        "mode": null,
+        "http_status": 400,
+        "answer": null,
+        "confidence": null,
+        "pages_used": null,
+        "retrieved_slugs": []
+      },
+      {
+        "case": "invalid-input",
+        "mode": null,
+        "http_status": 400,
+        "answer": null,
+        "confidence": null,
+        "pages_used": null,
+        "retrieved_slugs": []
+      },
+      {
+        "case": "invalid-input",
+        "mode": null,
+        "http_status": 400,
+        "answer": null,
+        "confidence": null,
+        "pages_used": null,
+        "retrieved_slugs": []
+      }
+    ]
+  },
+  "lifecycle": {
+    "status": "passed",
+    "command": "pnpm exec tsx scripts/verify-retrieval.mts",
+    "script_sha256": "1bb218652ff1ff8f44fdd25bb8ae8c0a12d0807d4bc3d32bdf034fd2f6d4effe",
+    "model": {
+      "model": "nomic-embed-text:v1.5",
+      "digest": "0a109f422b47e3a30ba2b10eca18548e944e8a23073ee3f3e947efcf3c45e59f",
+      "documentPrefix": "search_document: ",
+      "queryPrefix": "search_query: ",
+      "numCtx": 8192
+    },
+    "checks": [
+      {
+        "name": "initial_build_real_ollama",
+        "passed": true,
+        "elapsed_ms": 26.96921900000001
+      },
+      {
+        "name": "semantic_rewording",
+        "passed": true,
+        "elapsed_ms": 30.873040000000003
+      },
+      {
+        "name": "restart_reuses_persistent_vectors",
+        "passed": true,
+        "elapsed_ms": 5.50491199999999
+      },
+      {
+        "name": "update_invalidates_then_embeds_one_page",
+        "passed": true,
+        "elapsed_ms": 21.942223000000013
+      },
+      {
+        "name": "delete_removes_vectors_and_retrieval_hits",
+        "passed": true,
+        "elapsed_ms": 14.522790999999984
+      },
+      {
+        "name": "startup_sync_external_edit",
+        "passed": true,
+        "elapsed_ms": 29.233626000000072
+      },
+      {
+        "name": "different_wiki_same_slug_stays_isolated",
+        "passed": true,
+        "elapsed_ms": 27.759840000000054
+      },
+      {
+        "name": "offline_and_missing_models_keep_bm25_usable",
+        "passed": true,
+        "elapsed_ms": 3.7051969999999983
+      }
+    ],
+    "observed_counts": {
+      "initial_embedded": 2,
+      "restart_embedded": 0,
+      "restart_reused": 2,
+      "update_pending": 1,
+      "update_embedded": 1,
+      "external_edit_embedded": 1
+    }
+  },
+  "browser": {
+    "status": "passed",
+    "started_at": "2026-10-17T08:29:28.626Z",
+    "finished_at": "2026-10-17T08:29:38.388Z",
+    "browser": {
+      "protocolVersion": "1.3",
+      "product": "Chrome/151.0.7922.34",
+      "revision": "@782af9cb30a53f54487e5d2e44738645a8ec457c",
+      "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36",
+      "jsVersion": "15.1.206.8"
+    },
+    "mode": "hybrid",
+    "pages_used": [
+      "aldh1"
+    ],
+    "errors": [],
+    "full_original_input_visible": true,
+    "source_id": "0bfe3bbc-7b3a-4d9d-92c3-08d69c5d6f55",
+    "corpus_id": "45638119",
+    "note": "First browser harness attempt selected a hidden mobile navigation details element; corrected selector and reran successfully. Initial harness failure is retained locally."
+  },
+  "checks": {
+    "javascript_typescript": {
+      "passed": 266,
+      "skipped": 1,
+      "passed_files": 24,
+      "skip_reason": "Optional inherited cloud smoke requires OpenRouter key"
+    },
+    "python": {
+      "passed": 36
+    },
+    "typecheck_exit": 0,
+    "lint_exit": 0,
+    "inherited_react_hook_warnings": 2,
+    "build_exit": 0,
+    "frozen_offline_install_exit": 0,
+    "benchmark_audit": "900 mode/query rankings independently recomputed using Python stdlib"
+  },
+  "artifacts": [
+    {
+      "path": ".local/benchmarks/scifact/runs/2026-10-17T08-22-35-059Z/results.json",
+      "sha256": "3fe4eda2d7a8de69d70b514567955a87a62605f80a57709193ff134ef2959feb"
+    },
+    {
+      "path": ".local/benchmarks/scifact/runs/2026-10-17T08-19-55-927Z/results.json",
+      "sha256": "072f94cd5b31a62eb99edfdb3e5b176ef9a959d885e4b3eff1f42fcb3db93a04"
+    },
+    {
+      "path": ".local/evidence/round02-benchmark-audit.json",
+      "sha256": "ab730241ee30da480f1c23504b3b8965f6a1fff90e106439e5c62245681f5475"
+    },
+    {
+      "path": ".local/evidence/round02/online.json",
+      "sha256": "407c0aec0ffe9eca8e0ddd86aca3666bb379515ba2325990e33ca1acebb03447"
+    },
+    {
+      "path": ".local/evidence/round02/extra-online.json",
+      "sha256": "346a5555d897cca1004ddac74e64baa61c2424b3020ce78546b3e24146c4ca8e"
+    },
+    {
+      "path": ".local/evidence/round02/lifecycle.json",
+      "sha256": "5afcac3f20ac9e2c858338ac87ee132c60ead96e0c7eb833d5fc928a2cd77095"
+    },
+    {
+      "path": ".local/evidence/round02/browser/browser-ui-chain.json",
+      "sha256": "558b10ca6b430af6ad15412526b3a649e336ba42fa94b4abb0aa81e151bc6a47"
+    },
+    {
+      "path": ".local/evidence/round02/final-test.log",
+      "sha256": "5df7cafc7a952bec86465e27b724c7d54460c2a6e3a97e7deb2a36c36893f5c6"
+    },
+    {
+      "path": ".local/evidence/round02/final-python.log",
+      "sha256": "08d27b6763910922ebad45113006e029990c609db53f3db3922972ff8c13f498"
+    },
+    {
+      "path": ".local/evidence/round02/final-typecheck.log",
+      "sha256": "1e6e17e19cb5723f89c2fb3c5dc8cbd3106ea79d355bfe17cbd2e97c77379d4b"
+    },
+    {
+      "path": ".local/evidence/round02/final-lint.log",
+      "sha256": "5b5efdd075120ca16e5877158fc8c46ccdb4864011c69940eece173ac18bc38d"
+    },
+    {
+      "path": ".local/evidence/round02/final-build.log",
+      "sha256": "2bcce03dd4516b06865328f15ee38449a28e50770d400600df989587cf8ba4eb"
+    },
+    {
+      "path": ".local/evidence/round02/frozen-install.log",
+      "sha256": "ff8fe92f535971780f9cb75a1f6a058fa60b39b1ac1f00bf4d9969c0070efa5a"
+    },
+    {
+      "path": ".local/evidence/round02/final-model-ps.json",
+      "sha256": "6e8a3801eaa37c7670b81221617ad9780c1cbfffcf281877970067bfae87f8ae"
+    }
+  ],
+  "limitations": [
+    "Hybrid recall is lower than Embedding; tiny nDCG difference has not been tested for statistical significance.",
+    "Exact vector scan and decoding are O(Nd); larger Wiki and concurrent load have not been benchmarked.",
+    "nomic context requested 8192; actual Ollama runner reports 2048. truncate:false; all official abstracts succeeded without truncation.",
+    "Semantic nearest neighbours have no calibrated relevance threshold. Citations ensure supplied-page membership, not scientific correctness.",
+    "Chinese/multilingual retrieval and PDF/OCR were not specifically validated.",
+    "Same-process per-Wiki build lock; cross-process concurrent builds are not coordinated.",
+    "Round 03 product stability/demo/public-release work remains planned."
+  ]
+}

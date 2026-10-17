@@ -4,6 +4,8 @@ export * from "./templates";
 export * from "./wiki";
 export * from "./db";
 export * from "./db-pages";
+export * from "./retrieval";
+export * from "./retrieval-store";
 export * from "./db-sources";
 export { getChat, insertChat, updateChat, listChatRows } from "./db-chats";
 export * from "./db-usage";

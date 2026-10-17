@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+
+import type { QueryWikiResult } from "@llm-wiki/core";
 
 import { CostPreview } from "@/components/cost-preview";
 import { PageContainer, PageHeader } from "@/components/page-shell";
@@ -11,28 +13,18 @@ import { MarkdownView } from "@/components/wiki/markdown-view";
 import { useWikiSettings } from "@/lib/use-wiki-settings";
 import { cn } from "@/lib/utils";
 
-type QueryResponse = {
-  answer: string;
-  pagesUsed: string[];
-  suggestedNewPage: null | {
-    slug: string;
-    title: string;
-    content: string;
-    reason: string;
-  };
-  confidence: "high" | "medium" | "low";
-  caveats: string[];
-};
+type RetrievalMode = "bm25" | "embedding" | "hybrid";
 
 type QuerySuccess = {
   ok: true;
   model: string;
-  response: QueryResponse;
+  mode: RetrievalMode;
+  response: QueryWikiResult;
 };
 
 type QueryFailure = { ok?: false; error: string; type?: string };
 
-const CONFIDENCE_STYLES: Record<QueryResponse["confidence"], string> = {
+const CONFIDENCE_STYLES: Record<QueryWikiResult["confidence"], string> = {
   high: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
   medium: "bg-amber-500/10 text-amber-700 dark:text-amber-300",
   low: "bg-destructive/10 text-destructive",
@@ -45,12 +37,35 @@ export function QueryView() {
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<QuerySuccess | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [mode, setMode] = useState<RetrievalMode>("bm25");
+  const [indexStatus, setIndexStatus] = useState<string>("Checking embedding index…");
+  const [indexError, setIndexError] = useState<string | null>(null);
+  const [indexBusy, setIndexBusy] = useState(false);
 
   const [promoting, setPromoting] = useState(false);
   const [promoteResult, setPromoteResult] = useState<{ slug: string } | null>(null);
   const [promoteError, setPromoteError] = useState<string | null>(null);
 
+  const refreshIndexStatus = useCallback(async () => {
+    try {
+      const res = await fetch("/api/retrieval", { cache: "no-store" });
+      const data = (await res.json()) as {
+        ok?: boolean;
+        summary?: string;
+        error?: string;
+        modelError?: string;
+      };
+      if (!res.ok || !data.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+      setIndexStatus(data.summary ?? "Embedding index status unavailable.");
+      setIndexError(data.modelError ?? null);
+    } catch (err) {
+      setIndexStatus("Embedding index status unavailable.");
+      setIndexError((err as Error).message);
+    }
+  }, []);
+
   useEffect(() => {
+    void refreshIndexStatus();
     void (async () => {
       try {
         const res = await fetch("/api/pages", { cache: "no-store" });
@@ -61,11 +76,30 @@ export function QueryView() {
         // non-fatal — wikilinks just render conservatively
       }
     })();
-  }, []);
+  }, [refreshIndexStatus]);
+
+  async function onBuildIndex(force = false) {
+    setIndexBusy(true);
+    setIndexError(null);
+    try {
+      const res = await fetch("/api/retrieval", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ force }),
+      });
+      const data = (await res.json()) as { ok?: boolean; error?: string };
+      if (!res.ok || !data.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+      await refreshIndexStatus();
+    } catch (err) {
+      setIndexError((err as Error).message);
+    } finally {
+      setIndexBusy(false);
+    }
+  }
 
   async function onAsk(e: React.FormEvent) {
     e.preventDefault();
-    if (!question.trim()) return;
+    if (!question.trim() || busy || indexBusy) return;
     setBusy(true);
     setResult(null);
     setError(null);
@@ -75,7 +109,7 @@ export function QueryView() {
       const res = await fetch("/api/query", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ question }),
+        body: JSON.stringify({ question, mode }),
       });
       const json = (await res.json()) as QuerySuccess | QueryFailure;
       if (!res.ok || !("ok" in json) || json.ok !== true) {
@@ -83,6 +117,7 @@ export function QueryView() {
         throw new Error(msg);
       }
       setResult(json);
+      setKnownSlugs((prev) => [...new Set([...prev, ...json.response.pagesUsed])]);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -110,6 +145,7 @@ export function QueryView() {
       if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
       setPromoteResult({ slug: s.slug });
       setKnownSlugs((prev) => (prev.includes(s.slug) ? prev : [...prev, s.slug]));
+      void refreshIndexStatus();
     } catch (err) {
       setPromoteError((err as Error).message);
     } finally {
@@ -126,6 +162,52 @@ export function QueryView() {
       />
 
       <form onSubmit={onAsk} className="space-y-3">
+        <div className="rounded-lg border border-border p-3 text-sm">
+          <div className="flex flex-wrap items-center gap-3">
+            <label htmlFor="retrieval-mode" className="font-medium">
+              Retrieval
+            </label>
+            <select
+              id="retrieval-mode"
+              value={mode}
+              onChange={(e) => setMode(e.target.value as RetrievalMode)}
+              disabled={busy}
+              className="rounded-md border border-input bg-background px-2 py-1"
+            >
+              <option value="bm25">BM25 · keywords</option>
+              <option value="embedding">Embedding · semantic</option>
+              <option value="hybrid">Hybrid · BM25 + semantic (RRF)</option>
+            </select>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={busy || indexBusy}
+              onClick={() => onBuildIndex()}
+            >
+              {indexBusy ? "Building…" : "Build / refresh embedding index"}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={busy || indexBusy}
+              onClick={() => onBuildIndex(true)}
+            >
+              Rebuild all vectors
+            </Button>
+          </div>
+          <p className="mt-2 text-xs text-muted-foreground" role="status">
+            {indexStatus}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Build once before semantic or hybrid search; refresh after page changes. BM25 works
+            without an embedding model.
+          </p>
+          {indexError ? (
+            <p role="alert" className="mt-2 text-xs text-destructive">
+              {indexError}
+            </p>
+          ) : null}
+        </div>
         <label className="block text-ui font-medium" htmlFor="question">
           Your question
         </label>
@@ -145,7 +227,7 @@ export function QueryView() {
           }}
         />
         <div className="flex items-center gap-2">
-          <Button type="submit" disabled={!question.trim() || busy}>
+          <Button type="submit" disabled={!question.trim() || busy || indexBusy}>
             {busy ? "Asking…" : "Ask"}
           </Button>
           <p className="text-xs text-muted-foreground">
@@ -163,7 +245,10 @@ export function QueryView() {
       </form>
 
       {error ? (
-        <div className="mt-6 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+        <div
+          role="alert"
+          className="mt-6 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive"
+        >
           {error}
         </div>
       ) : null}
@@ -180,11 +265,40 @@ export function QueryView() {
               {result.response.confidence} confidence
             </span>
             <span className="text-muted-foreground">via {result.model}</span>
+            <span className="text-muted-foreground">· {result.mode.toUpperCase()} retrieval</span>
           </div>
 
           <article className="rounded-lg border border-border bg-card p-6 text-card-foreground">
             <MarkdownView content={result.response.answer} knownSlugs={knownSlugs} />
           </article>
+
+          <details className="rounded-lg border border-border p-3 text-sm">
+            <summary className="cursor-pointer font-medium">
+              Evidence supplied to the answer · {result.response.retrieval.suppliedPages.length}{" "}
+              pages
+            </summary>
+            <p className="mt-2 text-xs text-muted-foreground">
+              {result.response.retrieval.mode.toUpperCase()} ·{" "}
+              {result.response.retrieval.elapsedMs.toFixed(0)} ms retrieval
+            </p>
+            <ol className="mt-2 list-decimal space-y-1 pl-5">
+              {result.response.retrieval.suppliedPages.map((page) => {
+                const hit = result.response.retrieval.hits.find((item) => item.slug === page.slug);
+                return (
+                  <li key={page.slug}>
+                    <Link href={`/wiki/${page.slug}`} className="underline">
+                      {page.title}
+                    </Link>
+                    <span className="ml-2 text-xs text-muted-foreground">
+                      {hit?.bm25Rank ? `BM25 #${hit.bm25Rank}` : ""}
+                      {hit?.bm25Rank && hit?.embeddingRank ? " · " : ""}
+                      {hit?.embeddingRank ? `Embedding #${hit.embeddingRank}` : ""}
+                    </span>
+                  </li>
+                );
+              })}
+            </ol>
+          </details>
 
           {result.response.caveats.length > 0 ? (
             <div>

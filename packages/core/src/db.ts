@@ -39,6 +39,24 @@ CREATE VIRTUAL TABLE IF NOT EXISTS pages_fts USING fts5(
   tags
 );
 
+-- Independent of pages so the same retrieval engine can index original
+-- benchmark documents without manufacturing Wiki pages or calling a model.
+CREATE TABLE IF NOT EXISTS retrieval_documents (
+  slug TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  content TEXT NOT NULL,
+  content_hash TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS page_embeddings (
+  slug TEXT PRIMARY KEY REFERENCES retrieval_documents(slug) ON DELETE CASCADE,
+  content_hash TEXT NOT NULL,
+  model_key TEXT NOT NULL,
+  model_json TEXT NOT NULL,
+  dimensions INTEGER NOT NULL,
+  vector BLOB NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS page_sources (
   page_slug TEXT NOT NULL,
   source_id TEXT NOT NULL,

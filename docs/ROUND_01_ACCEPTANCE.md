@@ -103,6 +103,7 @@ pnpm setup:local
 NEXT_TELEMETRY_DISABLED=1 pnpm build
 pnpm start
 # 另一个终端
+python3 scripts/scifact.py download  # 干净环境先下载；Round 02 补正复现步骤
 python3 scripts/scifact.py prepare
 python3 scripts/demo_scifact.py --limit 2 --questions 1
 ```

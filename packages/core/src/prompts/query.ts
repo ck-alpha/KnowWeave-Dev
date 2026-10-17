@@ -57,7 +57,7 @@ export function buildQueryPrompt(opts: BuildQueryPromptOpts): { system: string; 
       ? opts.relevantPages
           .map(
             (p) =>
-              `### ${p.title} (slug: ${p.slug}, type: ${p.type})\n${truncateToWords(p.excerpt, 1000)}`,
+              `### ${p.title} (slug: ${p.slug}, type: ${p.type})\n${p.excerpt}`,
           )
           .join("\n\n---\n\n")
       : "(no pages currently match this question — the wiki may not cover this topic yet)";
@@ -80,12 +80,6 @@ export function buildQueryPrompt(opts: BuildQueryPromptOpts): { system: string; 
   const user = `User question:\n\n${opts.question.trim()}`;
 
   return { system, user };
-}
-
-function truncateToWords(text: string, maxWords: number): string {
-  const words = text.split(/\s+/);
-  if (words.length <= maxWords) return text;
-  return `${words.slice(0, maxWords).join(" ")}\n\n[truncated: ${words.length - maxWords} more words]`;
 }
 
 function fenceMarkdown(text: string): string {

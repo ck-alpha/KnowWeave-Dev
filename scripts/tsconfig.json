@@ -1,0 +1,10 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": { "noEmit": true },
+  "include": [
+    "benchmark-scifact.mts",
+    "retrieval-metrics.ts",
+    "scifact-dataset.ts",
+    "verify-retrieval.mts"
+  ]
+}

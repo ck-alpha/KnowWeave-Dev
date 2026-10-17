@@ -11,9 +11,10 @@ Markdown 存储、SQLite FTS5、来源关系、多 Wiki 与初版 Ollama 支持�
 本轮改造：KnowWeave 品牌与本地运行入口；Qwen3.8 默认配置与实际 tag 检查；
 有界上下文的 Ollama 原生请求适配；自然语言 FTS 查询修复与问答引用约束；
 SciFact 自动获取、校验和确定性小样本；真实 API 验证脚本、回归测试及开发记录。
-Embedding、Hybrid、RRF 与全量检索评测尚未实现。
+Round 02 新增本地 Embedding 客户端、SQLite 向量索引生命周期、三模式在线检索及 RRF、
+复用检索核心的 SciFact 原始语料评测、在线取证验证及相关文档。
 
-用户提供的任务计划整理为 `docs/THREE_ROUND_PLAN.md` 与 `docs/ROUND_01_REQUIREMENTS.md`；项目名统一为 KnowWeave，需求实质保持不变。
+用户提供的任务计划整理为 `docs/THREE_ROUND_PLAN.md` 与 `docs/ROUND_01_REQUIREMENTS.md`，第二轮要求见 `docs/KnowWeave_ROUND_02_CODEX_PROMPT.md`；项目名统一为 KnowWeave，需求实质保持不变。
 兼容内部包名 `@llm-wiki/*` 和 Wiki 内部 `.llm-wiki/` 目录，避免无关迁移。
 
 第三方依赖保留各自许可证；版本以 `pnpm-lock.yaml` 为准。
