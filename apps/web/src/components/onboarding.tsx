@@ -241,7 +241,7 @@ function WelcomeStep({
       <p aria-hidden className="font-mono text-3xl leading-none text-primary">
         [[
       </p>
-      <h1 className="mt-4 font-display text-display font-semibold tracking-tight">KnowWaeve</h1>
+      <h1 className="mt-4 font-display text-display font-semibold tracking-tight">KnowWeave</h1>
       <p className="mx-auto mt-4 max-w-lg text-body font-serif text-muted-foreground">
         A local-first knowledge workspace. Add documents, generate linked wiki pages with Ollama and
         Qwen, and ask questions with sources you can inspect.
@@ -363,7 +363,7 @@ function KeyStep({
           Your model connection
         </h2>
         <p className="mt-3 text-body font-serif text-muted-foreground">
-          KnowWaeve defaults to local Ollama with <code>qwen3.8:27b</code>. Make sure Ollama is
+          KnowWeave defaults to local Ollama with <code>qwen3.8:27b</code>. Make sure Ollama is
           running and the exact model tag appears in
           <code> ollama list</code>. Local inference does not need an API key. Existing model
           settings are preserved.

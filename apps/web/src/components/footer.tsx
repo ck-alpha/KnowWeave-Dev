@@ -32,7 +32,7 @@ export async function Footer({ className = "" }: { className?: string }) {
       }
     >
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-3 gap-y-1">
-        <span>KnowWaeve</span>
+        <span>KnowWeave</span>
         <span aria-hidden>·</span>
         <span>v{APP_VERSION}</span>
         {activeTopic ? (
@@ -71,8 +71,8 @@ export async function Footer({ className = "" }: { className?: string }) {
           Developers
         </Link>
         <span aria-hidden>·</span>
-        <Link href="/about" className="hover:text-foreground">
-          MIT · Attribution
+        <Link href="/about#license" className="hover:text-foreground">
+          License
         </Link>
       </div>
     </footer>

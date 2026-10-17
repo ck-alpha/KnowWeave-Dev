@@ -1,10 +1,10 @@
-# AgentWiki — 三轮二次开发与验收计划
+# KnowWeave — 三轮二次开发与验收计划
 
 ## 项目定位
 
-AgentWiki：本地优先的 Agent 智能知识管理系统。基础能力包括文档 Ingest、LLM 自动维护 Wiki、知识组织与关联、检索问答、来源追溯；个人新增重点是本地模型接入、混合检索与可复现评测。
+KnowWeave：本地优先的 Agent 智能知识管理系统。基础能力包括文档 Ingest、LLM 自动维护 Wiki、知识组织与关联、检索问答、来源追溯；个人新增重点是本地模型接入、混合检索与可复现评测。
 
-- 源代码起点：https://github.com/ddsyasas/llm-wiki （MIT）
+- 代码来源与许可：[第三方说明](../NOTICE.md) 和 [MIT 许可](../LICENSE)
 - 唯一必选数据集：BEIR SciFact（官方仓库 https://github.com/beir-cellar/beir ；下载 https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/scifact.zip ）
 - 已有模型：本地 Ollama 上的 Qwen（运行时检查实际模型 tag）
 - Embedding 预选：Ollama `nomic-embed-text`（本地按需安装）
@@ -35,6 +35,6 @@ AgentWiki：本地优先的 Agent 智能知识管理系统。基础能力包括�
 
 ## 边界与诚信
 
-可建立不带 Fork 标识的独立个人 GitHub 仓库，并使用自己的产品名称；但复制或二次开发的开源代码必须保留原作者版权声明、MIT 许可和依法需要保留的第三方通知。 README/NOTICE 中应准确交代项目来源及独立开发的功能，面试时不能把原有 Ingest、UI 等功能说成完全自己从零实现。自定义改造成果、评测指标和调试证据才是简历核心。
+可建立不带 Fork 标识的独立个人 GitHub 仓库，并使用自己的产品名称；但复制或二次开发的开源代码必须保留原作者版权声明、MIT 许可和依法需要保留的第三方通知。 NOTICE 中应准确交代项目来源及独立开发的功能，面试时不能把原有 Ingest、UI 等功能说成完全自己从零实现。自定义改造成果、评测指标和调试证据才是简历核心。
 
 评测需在相同 corpus、queries、qrels 和固定参数下进行，报告原始数据和完整运行方式；不可填写未实际跑出的“提升 XX%”。小样例演示、子集评测与完整 SciFact 评测须明确分开。

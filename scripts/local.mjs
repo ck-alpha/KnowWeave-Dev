@@ -99,7 +99,7 @@ try {
     throw new Error("Usage: node scripts/local.mjs doctor|setup|dev|start [Next.js flags]");
   if (Number(process.versions.node.split(".")[0]) < 22)
     throw new Error("Use Node.js 22 LTS or newer.");
-  console.log(`KnowWaeve · Node ${process.versions.node}`);
+  console.log(`KnowWeave · Node ${process.versions.node}`);
   if (!explicitWikiPath) {
     const config = await readConfig();
     if (typeof config.activeWiki === "string" && config.activeWiki.length > 0)
@@ -147,6 +147,6 @@ try {
     });
   }
 } catch (error) {
-  console.error(`KnowWaeve: ${error.message}`);
+  console.error(`KnowWeave: ${error.message}`);
   process.exitCode = 1;
 }

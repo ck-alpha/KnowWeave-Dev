@@ -1,8 +1,8 @@
-# Contributing to KnowWaeve
+# Contributing to KnowWeave
 
-KnowWaeve 是本地优先的 Agent 知识管理系统，基于 MIT 开源项目 LLM Wiki 二次开发。当前范围是 Round 01：Ollama + Qwen 本地运行、SciFact 小样本导入、Wiki 生成和来源可追溯问答。
+KnowWeave 是本地优先的 Agent 知识管理系统。当前范围是 Round 01：Ollama + Qwen 本地运行、SciFact 小样本导入、Wiki 生成和来源可追溯问答。
 
-先阅读 [README](README.md) 和 `docs/` 中当前项目的架构、进度、开发日志及验收记录。`docs/upstream/` 只保存上游历史资料，不代表本项目已实现能力或开发计划。
+先阅读 [README](README.md) 和 [GPT 验收指南](docs/GPT_REVIEW_GUIDE.md)，再阅读当前项目的架构、进度、开发日志及验收记录。
 
 - 保留 TypeScript、Next.js、SQLite 和 Markdown 文件架构，优先修复实际用户路径。
 - 关键模型响应必须通过现有 schema 校验，保持来源链接与磁盘格式兼容。

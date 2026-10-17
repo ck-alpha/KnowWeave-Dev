@@ -1,4 +1,4 @@
-# KnowWaeve SciFact 数据流程
+# KnowWeave SciFact 数据流程
 
 本轮仅用少量 SciFact 原文演示 Source → Ingest → Wiki → 问答与引用。完整语料、查询及 qrels 留作 Round 02 检索评测输入；小型 Wiki 演示不代表完整 benchmark，也不计算或宣称检索性能提升。
 
@@ -69,7 +69,7 @@ SciFact queries 是待核查的科学声明，不能自动当作已证实事实�
 
 数据源于 Wadden 等人在 EMNLP 2020 发表的 [Fact or Fiction: Verifying Scientific Claims](https://arxiv.org/abs/2004.14974)，本项目使用 [BEIR](https://github.com/beir-cellar/beir) 整理的检索格式。
 
-根据 [SciFact 官方 LICENSE.md](https://github.com/allenai/scifact/blob/master/LICENSE.md)（2026-10-17 核对）：claims 与 evidence annotations 采用 **CC BY 4.0**，corpus abstracts 来自 Semantic Scholar S2ORC，采用 **ODC-By 1.0**；原始 SciFact 代码采用 Apache 2.0。数据许可与 KnowWaeve 的 MIT 代码许可分开记录，不能将全部数据标作 MIT 或 Apache 2.0。项目仅提供获取脚本与溯源说明，下载的原始数据和生成的演示文件不进入代码仓库。[BEIR 数据说明](https://github.com/beir-cellar/beir/wiki/Datasets-available#disclaimer) 也要求使用者遵守原数据集许可并引用数据作者。
+根据 [SciFact 官方 LICENSE.md](https://github.com/allenai/scifact/blob/master/LICENSE.md)（2026-10-17 核对）：claims 与 evidence annotations 采用 **CC BY 4.0**，corpus abstracts 来自 Semantic Scholar S2ORC，采用 **ODC-By 1.0**；原始 SciFact 代码采用 Apache 2.0。数据许可与 KnowWeave 的 MIT 代码许可分开记录，不能将全部数据标作 MIT 或 Apache 2.0。项目仅提供获取脚本与溯源说明，下载的原始数据和生成的演示文件不进入代码仓库。[BEIR 数据说明](https://github.com/beir-cellar/beir/wiki/Datasets-available#disclaimer) 也要求使用者遵守原数据集许可并引用数据作者。
 
 正式发布评测时应同时引用 SciFact 论文及 [BEIR 论文](https://openreview.net/forum?id=wCu6T5xFjeJ)，保留原始 ID、版本指纹、split 和参数。Round 02 应直接索引原始 corpus 并使用同一套原始 queries/qrels 比较 BM25、Embedding、Hybrid，不把 Wiki 重写后的内容当作原始 SciFact 语料。
 

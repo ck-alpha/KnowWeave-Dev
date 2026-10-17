@@ -32,7 +32,7 @@ export function AboutTab() {
   return (
     <div className="space-y-4 text-sm">
       <div>
-        <h2 className="text-lg font-medium">KnowWaeve</h2>
+        <h2 className="text-lg font-medium">KnowWeave</h2>
         <p className="mt-1 text-muted-foreground">
           Local-first knowledge management with document ingestion, linked Markdown wiki pages, and
           questions with inspectable sources.
@@ -53,12 +53,25 @@ export function AboutTab() {
           License and source
         </h3>
         <p className="mt-1 text-muted-foreground">
-          MIT-licensed derivative of LLM Wiki. See the repository LICENSE and third-party notice for
-          preserved copyright and the scope of local changes. The{" "}
-          <a href="/about" className="underline underline-offset-2 hover:text-foreground">
-            About page
+          KnowWeave is available under the MIT License. Read the{" "}
+          <a
+            href="https://github.com/ck-alpha/KnowWeave/blob/main/LICENSE"
+            target="_blank"
+            rel="noreferrer"
+            className="underline underline-offset-2 hover:text-foreground"
+          >
+            license
           </a>{" "}
-          has upstream attribution and the current project scope.
+          and{" "}
+          <a
+            href="https://github.com/ck-alpha/KnowWeave/blob/main/NOTICE.md"
+            target="_blank"
+            rel="noreferrer"
+            className="underline underline-offset-2 hover:text-foreground"
+          >
+            third-party notices
+          </a>{" "}
+          for copyright, code provenance, and the scope of project changes.
         </p>
       </div>
 

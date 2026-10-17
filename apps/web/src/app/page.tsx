@@ -71,7 +71,7 @@ export default async function HomePage({ searchParams }: { searchParams: { needs
           {isFresh ? "Welcome" : "Your wiki"}
         </p>
         <h1 className="mt-2 font-display text-display font-semibold">
-          {isFresh ? "Build your local knowledge wiki." : "KnowWaeve"}
+          {isFresh ? "Build your local knowledge wiki." : "KnowWeave"}
         </h1>
         <p className="mt-3 max-w-2xl text-body text-muted-foreground">
           {isFresh

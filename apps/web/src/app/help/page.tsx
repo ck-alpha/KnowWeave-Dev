@@ -6,7 +6,7 @@ export default function HelpPage() {
   return (
     <PageContainer width="lg">
       <PageHeader
-        eyebrow="KnowWaeve"
+        eyebrow="KnowWeave"
         title="Using your local knowledge workspace"
         description="Create a wiki, add evidence, ask questions, and check the sources."
       />
@@ -78,7 +78,7 @@ export default function HelpPage() {
         </Card>
         <div className="flex gap-6 text-ui">
           <Link href="/about" className="text-primary underline underline-offset-2">
-            About KnowWaeve
+            About KnowWeave
           </Link>
           <Link href="/developers" className="text-primary underline underline-offset-2">
             Developer overview

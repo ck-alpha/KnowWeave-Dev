@@ -7,7 +7,7 @@ import { THEME_INIT_SCRIPT, ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "KnowWaeve",
+  title: "KnowWeave",
   description: "Local-first knowledge base maintained by an LLM agent.",
   icons: { icon: "/favicon.svg" },
 };

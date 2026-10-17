@@ -1,15 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  KnowWaeve — hero wordmark (stacked layout)
+  KnowWeave — hero wordmark (stacked layout)
   Mirrors the first-run welcome screen (apps/web/src/components/onboarding.tsx
-  WelcomeStep). Large [[ above, KnowWaeve display-sized below. Use this for
+  WelcomeStep). Large [[ above, KnowWeave display-sized below. Use this for
   README hero images, GitHub social preview, npm package page.
 -->
 <svg xmlns="http://www.w3.org/2000/svg"
      viewBox="0 0 800 400"
      width="800" height="400"
      role="img"
-     aria-label="KnowWaeve">
+     aria-label="KnowWeave">
   <defs>
     <style>
       .bg     { fill: #fafaf9; }
@@ -26,6 +26,6 @@
   </defs>
   <rect class="bg" width="800" height="400" />
   <text class="mark" x="400" y="160" text-anchor="middle">[[</text>
-  <text class="word" x="400" y="280" text-anchor="middle">KnowWaeve</text>
+  <text class="word" x="400" y="280" text-anchor="middle">KnowWeave</text>
   <text class="tag" x="400" y="330" text-anchor="middle">Local knowledge. Linked evidence.</text>
 </svg>

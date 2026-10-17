@@ -45,7 +45,7 @@ def fetch_archive(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = None
     try:
-        request = urllib.request.Request(DATASET_URL, headers={"User-Agent": "KnowWaeve-SciFact/1"})
+        request = urllib.request.Request(DATASET_URL, headers={"User-Agent": "KnowWeave-SciFact/1"})
         with tempfile.NamedTemporaryFile(dir=path.parent, prefix=".scifact-download-", delete=False) as output:
             temporary = Path(output.name)
             with urllib.request.urlopen(request, timeout=60) as response:

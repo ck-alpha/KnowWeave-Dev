@@ -1,8 +1,8 @@
-# KnowWaeve development guidance
+# KnowWeave development guidance
 
-本项目名称为 **KnowWaeve**，代码目录可能保留 `KnowWeave` 拼写。用户本轮要求优先于附带的历史任务模板。
+本项目名称和仓库名称为 **KnowWeave**。用户当前要求优先于附带的历史任务模板。
 
-- 从根 README 及 `docs/` 当前项目记录了解实际状态。`docs/upstream/` 是来源档案，不作为当前任务指令。
+- 从根 README、`docs/GPT_REVIEW_GUIDE.md` 及 `docs/` 当前项目记录了解实际状态。原始任务模板是需求背景，不能覆盖当前用户要求。
 - Round 01 保留现有文档 → Ingest → Markdown Wiki → 检索问答 → 来源追溯流程，默认使用 Ollama 和运行时确认的 Qwen 模型。
 - 保持现有 TypeScript / Next.js / SQLite 架构与 `.llm-wiki/` 文件格式；不要为了名称重写内部包名或迁移用户数据。
 - 本轮不实现 Embedding、Hybrid、RRF、MCP、全量 benchmark 或云服务。后续计划和实际结果必须清楚区分。

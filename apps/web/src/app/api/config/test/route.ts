@@ -21,7 +21,7 @@ export async function POST() {
       method: "GET",
       headers: {
         Authorization: `Bearer ${key}`,
-        "X-Title": "KnowWaeve",
+        "X-Title": "KnowWeave",
       },
     });
 

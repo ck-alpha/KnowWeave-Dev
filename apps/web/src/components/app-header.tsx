@@ -40,7 +40,7 @@ export function AppHeader() {
         >
           [[
         </span>
-        <span className="font-display text-[17px] font-semibold tracking-tight">KnowWaeve</span>
+        <span className="font-display text-[17px] font-semibold tracking-tight">KnowWeave</span>
       </Link>
 
       {/* Active-wiki chip + dropdown. Sits next to the wordmark so the

@@ -6,7 +6,7 @@ export default function LocalModelsPage() {
   return (
     <PageContainer width="lg">
       <PageHeader
-        eyebrow="KnowWaeve setup"
+        eyebrow="KnowWeave setup"
         title="Ollama and local Qwen"
         description="Use your existing local model for document ingestion, questions, chat, and wiki checks."
       />

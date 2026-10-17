@@ -1,0 +1,473 @@
+{
+  "schema_version": 1,
+  "project": "KnowWeave",
+  "application_display_name": "KnowWeave",
+  "round": 1,
+  "source_implementation_commit": "395747308fb0f888702f224c6be5e3eeefa491ca",
+  "source_commit_basis": "Implementation commit recorded for the original Round 01 acceptance; local machine artifacts do not independently embed a Git commit.",
+  "prepared_at": "2026-10-17T15:43:48+08:00",
+  "check_date": "2026-10-17",
+  "timezone": "Asia/Shanghai",
+  "evidence_kind": "summary_extracted_from_existing_local_machine_artifacts",
+  "independent_rerun": false,
+  "scope": "Original Round 01 acceptance plus separately identified pre-delivery machine rechecks. This file is an extraction of retained logs and JSON; generating the summary itself does not execute the checks.",
+  "checks": {
+    "typescript_tests": {
+      "status": "passed",
+      "tests_passed": 210,
+      "tests_skipped": 1,
+      "test_files_passed": 19,
+      "test_files_skipped": 1,
+      "skipped_file": "packages/llm/src/smoke.test.ts",
+      "sources": [
+        "typescript_tests"
+      ]
+    },
+    "python_tests": {
+      "status": "passed",
+      "tests_passed": 30,
+      "sources": [
+        "python_tests"
+      ]
+    },
+    "typecheck": {
+      "status": "passed",
+      "workspace_packages_completed": [
+        "packages/llm",
+        "packages/core",
+        "packages/ingestion",
+        "apps/web"
+      ],
+      "sources": [
+        "typecheck"
+      ]
+    },
+    "production_build": {
+      "status": "passed",
+      "web_build": "next build",
+      "library_build_scripts": "Upstream no-op scripts; web production compilation completed.",
+      "sources": [
+        "production_build"
+      ]
+    },
+    "lint": {
+      "status": "passed_with_warnings",
+      "eslint_warnings": 2,
+      "warnings": [
+        {
+          "file": "apps/web/src/components/command-palette.tsx",
+          "line": 240,
+          "rule": "react-hooks/exhaustive-deps"
+        },
+        {
+          "file": "apps/web/src/components/graph/vault-graph.tsx",
+          "line": 139,
+          "rule": "react-hooks/exhaustive-deps"
+        }
+      ],
+      "scope": "Two ESLint diagnostics; runtime/deprecation notices are not counted as lint findings. Library lint scripts are upstream no-ops.",
+      "sources": [
+        "lint"
+      ]
+    },
+    "gpu": {
+      "status": "passed_for_recorded_probe",
+      "device": "NVIDIA GeForce RTX 4090",
+      "driver_version": "580.178.04",
+      "layers_offloaded": 66,
+      "layers_total": 66,
+      "processor": "100% GPU",
+      "recorded_early_probe_context_tokens": 8192,
+      "final_application_context": {
+        "status": "passed",
+        "context_tokens": 32768,
+        "processor": "100% GPU",
+        "checked_at": "2026-10-17T15:42:45.787667+08:00",
+        "verification_stage": "remote_delivery_recheck",
+        "sources": [
+          "remote_delivery_gpu",
+          "gpu_final_process"
+        ]
+      },
+      "sources": [
+        "gpu_driver",
+        "gpu_layers",
+        "gpu_early_process"
+      ]
+    },
+    "scifact_ingestion_and_query": {
+      "status": "passed",
+      "started_at": "2026-10-17T15:11:19.033584+08:00",
+      "finished_at": "2026-10-17T15:11:33.571000+08:00",
+      "model": "qwen3.8:27b",
+      "ingested_documents": 2,
+      "unique_persisted_pages": 3,
+      "page_slugs": [
+        "aldh1",
+        "birth-size-breast-cancer-risk",
+        "mammary-stem-cells"
+      ],
+      "query_id": "51",
+      "pages_used": [
+        "aldh1"
+      ],
+      "provenance_trace": [
+        {
+          "page_slug": "aldh1",
+          "corpus_id": "45638119",
+          "raw_source_sha256": "28a9e390bd936984a99cab1cf71db70a36e4419e423ff862a0484042e564bca7"
+        }
+      ],
+      "scope": "Two selected SciFact documents and one recorded query; this is not a full SciFact benchmark.",
+      "sources": [
+        "scifact_demo"
+      ]
+    },
+    "browser_page_smoke": {
+      "status": "passed",
+      "started_at": "2026-10-17T15:14:45.874000+08:00",
+      "finished_at": "2026-10-17T15:15:03.439000+08:00",
+      "browser": "Chrome/151.0.7922.34",
+      "pages_passed": 5,
+      "pages_total": 5,
+      "routes": [
+        "/",
+        "/sources",
+        "/wiki",
+        "/query",
+        "/sources/[id]"
+      ],
+      "browser_errors": 0,
+      "pending_requests": 0,
+      "sources": [
+        "browser_smoke"
+      ]
+    },
+    "browser_complete_ui_chain": {
+      "status": "passed",
+      "started_at": "2026-10-17T15:13:55.886000+08:00",
+      "finished_at": "2026-10-17T15:14:05.221000+08:00",
+      "steps": [
+        "UI question answered with inline citation",
+        "Inline citation opened Wiki page",
+        "Original source and complete SciFact text visible",
+        "Dashboard with generated Wiki content"
+      ],
+      "api_query_ok": true,
+      "cited_page_slug": "aldh1",
+      "source_corpus_id": "45638119",
+      "full_original_input_visible": true,
+      "rendered_raw_text_sha256": "6f0a29d46e37d1f5beb5336617e34fe2c428beeb0601cc014c0f9ecd5db8691a",
+      "browser_errors": 0,
+      "scope": "A real browser submitted a question, followed an inline Wiki citation, opened its original Source, and returned to the dashboard. No full rendered answers or source documents are included here.",
+      "prior_attempt": {
+        "status": "failed",
+        "failure": "Runtime.evaluate: Object reference chain is too long",
+        "superseded_by": "browser_ui_chain"
+      },
+      "sources": [
+        "browser_ui_chain",
+        "browser_ui_chain_prior_attempt"
+      ]
+    },
+    "launcher_stop": {
+      "status": "passed",
+      "signal": "SIGTERM",
+      "port_3000_released": true,
+      "elapsed_seconds": 0.022,
+      "remaining_listeners": false,
+      "sources": [
+        "launcher_stop"
+      ]
+    },
+    "launcher_restart": {
+      "status": "passed",
+      "http_checks": [
+        {
+          "route": "/",
+          "status": 200
+        },
+        {
+          "route": "/api/settings",
+          "status": 200
+        },
+        {
+          "route": "/api/pages",
+          "status": 200
+        },
+        {
+          "route": "/api/sources",
+          "status": 200
+        }
+      ],
+      "sources": [
+        "launcher_restart"
+      ]
+    }
+  },
+  "source_artifacts": [
+    {
+      "id": "typescript_tests",
+      "local_path": ".local/evidence/vitest.log",
+      "sha256": "2abb2cab101a5ee4caac71b1c266f3bbbb017b54e2df918bdbefc0b56f47b563",
+      "committed": false
+    },
+    {
+      "id": "python_tests",
+      "local_path": ".local/evidence/python-tests.log",
+      "sha256": "daa99d3e3157857752eb894c74da9077b96a2a12a9e5d11923554dbac628caca",
+      "committed": false
+    },
+    {
+      "id": "typecheck",
+      "local_path": ".local/evidence/typecheck.log",
+      "sha256": "82b78187e872a708d5169e5191540768b87c6fe5696dceda0564707c6bfb8cdc",
+      "committed": false
+    },
+    {
+      "id": "production_build",
+      "local_path": ".local/evidence/build.log",
+      "sha256": "b38738c3088b936bc03e5fe906926b4a173a9d9b3be26257b0b1674bdbd83e79",
+      "committed": false
+    },
+    {
+      "id": "lint",
+      "local_path": ".local/evidence/lint.log",
+      "sha256": "c9e66e3fe2eafbc1462f7b63975d952bc545db7d7a531d113f744d8f196738ed",
+      "committed": false
+    },
+    {
+      "id": "gpu_driver",
+      "local_path": ".local/evidence/nvidia-after.txt",
+      "sha256": "5ccb7e1bf56c6b2a19c26e2da2c5f816c76180e083bde7b017a4b41bcbd5852f",
+      "committed": false
+    },
+    {
+      "id": "gpu_layers",
+      "local_path": ".local/evidence/ollama-after-gpu-fix.log",
+      "sha256": "046a992ea2a1ac7288f88800014959abd37173c3dcb34611d228c9c0d4040793",
+      "committed": false
+    },
+    {
+      "id": "gpu_early_process",
+      "local_path": ".local/evidence/ollama-gpu-ps.txt",
+      "sha256": "d541a7a419e26013ee25e36eef9b9f60c9089a6d015aace55eec5a2f12a6425e",
+      "committed": false
+    },
+    {
+      "id": "scifact_demo",
+      "local_path": ".local/evidence/scifact-demo.json",
+      "sha256": "9a8c1557391a1f660c2ba259e5e74a1ee80568757abb85687a770de92a9839e3",
+      "committed": false
+    },
+    {
+      "id": "browser_smoke",
+      "local_path": ".local/evidence/browser-smoke.json",
+      "sha256": "3c38311d3a9832d534077df7c3bfb79ef8eb95ac9cbeaa653484f3114503087e",
+      "committed": false
+    },
+    {
+      "id": "browser_ui_chain",
+      "local_path": ".local/evidence/browser-ui-chain.json",
+      "sha256": "4d03bc6111e104815fc58b3a2319e95d4bf8def610c886915ee8b880e45fb9dc",
+      "committed": false
+    },
+    {
+      "id": "browser_ui_chain_prior_attempt",
+      "local_path": ".local/evidence/browser-ui-chain-attempt1.json",
+      "sha256": "53917783ade59c72daa3dd34151c4f5ea0f83672d5b4fd7e108fd4b541e3f843",
+      "committed": false
+    },
+    {
+      "id": "launcher_stop",
+      "local_path": ".local/evidence/launcher-stop.json",
+      "sha256": "863ce28f801b70af62fcc4e452e6b14b9f2cd13e953d69ed0d8a62c9a1908686",
+      "committed": false
+    },
+    {
+      "id": "launcher_restart",
+      "local_path": ".local/evidence/launcher-restart.json",
+      "sha256": "0e177554226f2f402d1b1df021164a9e4b61413f91a7cd5f595623c8e9c61320",
+      "committed": false
+    },
+    {
+      "id": "remote_delivery_gpu",
+      "local_path": ".local/evidence/remote-delivery-gpu.json",
+      "sha256": "ae1beecf89367429ed1791e46c68d63bf058dc955707e1b28ceb4e71e555c2a5",
+      "committed": false
+    },
+    {
+      "id": "gpu_final_process",
+      "local_path": ".local/evidence/ollama-final-ps.txt",
+      "sha256": "181968057174f7ca18c564f928d9da2f01fe235b24386c1bc64868bae2004c3c",
+      "committed": false
+    },
+    {
+      "id": "remote_delivery_typescript_tests",
+      "local_path": ".local/evidence/remote-delivery-vitest.log",
+      "sha256": "52ee2f4a1c301b33228ff2469655b9475f3a74172e518501d14c0c75255e46a1",
+      "committed": false
+    },
+    {
+      "id": "remote_delivery_python_tests",
+      "local_path": ".local/evidence/remote-delivery-python.log",
+      "sha256": "d64ed45f4936276fd1459e6fcac9946d6c114c5a13195d6fa078a966687fd84c",
+      "committed": false
+    },
+    {
+      "id": "remote_delivery_typecheck",
+      "local_path": ".local/evidence/remote-delivery-typecheck.log",
+      "sha256": "4180d5f3e0c879500822d764bbb12d993a32794bf60e0790eadbdeabc6dc5a83",
+      "committed": false
+    },
+    {
+      "id": "remote_delivery_lint",
+      "local_path": ".local/evidence/remote-delivery-lint.log",
+      "sha256": "94b6be47bfbe98c2c5ec937d14bb5c4c7d14b70360d09c003e4a8b4615bbb5f7",
+      "committed": false
+    },
+    {
+      "id": "remote_delivery_production_build",
+      "local_path": ".local/evidence/remote-delivery-build.log",
+      "sha256": "e216ca453449d6fb4d8b2d350b2d568f6121bda1666ac4a4fc08c99a42d37084",
+      "committed": false
+    },
+    {
+      "id": "remote_delivery_browser_smoke",
+      "local_path": ".local/evidence/remote-delivery-browser/browser-smoke.json",
+      "sha256": "a931877a7a77c54ef2912bf49a896d796cac6c73d7c3ff1ed719682cb38d7e05",
+      "committed": false
+    }
+  ],
+  "limitations": [
+    "Source artifact hashes identify retained local evidence; the source files themselves are intentionally not committed, so a remote reader cannot recompute those hashes from this repository alone.",
+    "This summary is derived evidence, not an independent execution transcript or a new verification of the current repository HEAD.",
+    "Full source documents, rendered page bodies, local usernames and absolute paths, service configuration, credentials, and live wiki data are excluded.",
+    "The original saved GPU probe used context 8192. The separate remote-delivery application query and GPU process capture verify context 32768 with 100% GPU; the older snapshot is not used to establish that later state."
+  ],
+  "historical_round_01_display_name": "KnowWaeve",
+  "remote_delivery_recheck": {
+    "status": "passed_with_lint_warnings",
+    "checked_at": "2026-10-17T15:42:45.787667+08:00",
+    "timezone": "Asia/Shanghai",
+    "application_display_name": "KnowWeave",
+    "execution_basis": "Fresh machine checks captured in remote-delivery artifacts, separate from the original Round 01 runs.",
+    "source_revision_basis": "Pre-delivery working tree after the display-name correction; these machine artifacts do not embed a Git commit. The top-level implementation commit identifies only the original Round 01 implementation.",
+    "typescript_tests": {
+      "status": "passed",
+      "tests_passed": 210,
+      "tests_skipped": 1,
+      "test_files_passed": 19,
+      "test_files_skipped": 1,
+      "sources": [
+        "remote_delivery_typescript_tests"
+      ]
+    },
+    "python_tests": {
+      "status": "passed",
+      "tests_passed": 30,
+      "sources": [
+        "remote_delivery_python_tests"
+      ]
+    },
+    "typecheck": {
+      "status": "passed",
+      "sources": [
+        "remote_delivery_typecheck"
+      ]
+    },
+    "production_build": {
+      "status": "passed",
+      "scope": "Web production build; library build scripts remain upstream no-ops.",
+      "sources": [
+        "remote_delivery_production_build"
+      ]
+    },
+    "lint": {
+      "status": "passed_with_warnings",
+      "eslint_warnings": 2,
+      "rules": [
+        "react-hooks/exhaustive-deps"
+      ],
+      "sources": [
+        "remote_delivery_lint"
+      ],
+      "scope": "The count covers ESLint diagnostics only. The retained log also includes a Node warning about inherited NODE_TLS_REJECT_UNAUTHORIZED=0; it is not counted as an ESLint warning."
+    },
+    "application_query_and_gpu": {
+      "status": "passed",
+      "checked_at": "2026-10-17T15:42:45.787667+08:00",
+      "model": "qwen3.8:27b",
+      "pages_used": [
+        "aldh1"
+      ],
+      "driver_version": "580.178.04",
+      "processor": "100% GPU",
+      "context_tokens": 32768,
+      "sources": [
+        "remote_delivery_gpu",
+        "gpu_final_process"
+      ]
+    },
+    "http_and_brand_checks": {
+      "status": "passed",
+      "routes": [
+        {
+          "route": "/",
+          "http_status": 200,
+          "new_title": true,
+          "old_brand_absent": true
+        },
+        {
+          "route": "/about",
+          "http_status": 200,
+          "new_title": true,
+          "old_brand_absent": true
+        },
+        {
+          "route": "/query",
+          "http_status": 200,
+          "new_title": true,
+          "old_brand_absent": true
+        },
+        {
+          "route": "/sources",
+          "http_status": 200,
+          "new_title": true,
+          "old_brand_absent": true
+        },
+        {
+          "route": "/wiki",
+          "http_status": 200,
+          "new_title": true,
+          "old_brand_absent": true
+        }
+      ],
+      "sources": [
+        "remote_delivery_gpu"
+      ]
+    },
+    "browser_page_smoke": {
+      "status": "passed",
+      "started_at": "2026-10-17T15:42:47.971000+08:00",
+      "finished_at": "2026-10-17T15:42:56.921000+08:00",
+      "browser": "Chrome/151.0.7922.34",
+      "pages_passed": 5,
+      "pages_total": 5,
+      "all_page_titles": "KnowWeave",
+      "routes": [
+        "/",
+        "/sources",
+        "/wiki",
+        "/query",
+        "/sources/[id]"
+      ],
+      "browser_errors": 0,
+      "pending_requests": 0,
+      "scope": "Current-brand five-page smoke. The full question-to-citation-to-source chain remains supported by the separately labeled original Round 01 run.",
+      "sources": [
+        "remote_delivery_browser_smoke"
+      ]
+    }
+  }
+}

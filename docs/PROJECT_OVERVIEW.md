@@ -1,7 +1,7 @@
-# KnowWaeve 工程现状与架构
+# KnowWeave 工程现状与架构
 
 更新日期：2026-10-17（Asia/Shanghai）。本轮范围为 Round 01。
-项目目录拼写是 `KnowWeave`，产品名称按用户要求是 **KnowWaeve**。
+当前产品名与项目目录统一为 **KnowWeave**。`KNOWWAEVE_*` 环境变量及既有内部兼容名继续保留。
 
 ## 技术栈与入口
 
@@ -64,6 +64,7 @@ OpenRouter 为继承的可选入口，必须显式设置对应 provider 与 Key 
 英文 SciFact 可用 FTS5 原始 tokenizer；中文分词、多语种检索尚未专项优化。
 Qwen 的图片能力不等于接受 OpenRouter PDF 文件协议；本轮仅验证文本，小样本脚本不涉及 PDF/OCR。
 模型导入不是事务性编译：网络失败会保留待重试的原始来源；重复演示会再新增来源。
-旧版 CLI/发布脚本仅为继承源文件，本项目不经原作者 npm 包启动或发布。
+项目通过仓库中的 `scripts/local.mjs` 启动；旧版 CLI/发布脚本已移出当前源码树。
 
-上游历史设计文档与截图在 `docs/upstream/`，不作为本项目当前实现或测试证据。
+代码来源、继承能力和独立改造范围见 [NOTICE](../NOTICE.md)；本项目不宣称全部功能从零原创。
+当前源码审阅顺序与验收代码映射见 [GPT 审阅指南](GPT_REVIEW_GUIDE.md)。历史报告只描述指定提交和当时机器上的实测，不替代对当前 checkout 的独立验证。

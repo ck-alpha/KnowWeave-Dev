@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  KnowWaeve favicon — just the [[ mark, square.
+  KnowWeave favicon — just the [[ mark, square.
   JetBrains Mono in primary red, no background.
   Renders crisp at 16x16, 32x32, 64x64, any size browsers ask for.
 -->
@@ -8,7 +8,7 @@
      viewBox="0 0 64 64"
      width="64" height="64"
      role="img"
-     aria-label="KnowWaeve">
+     aria-label="KnowWeave">
   <defs>
     <style>
       .mark { font: 700 56px "JetBrains Mono", Menlo, monospace; fill: #991b1b; }

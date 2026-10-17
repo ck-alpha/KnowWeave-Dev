@@ -43,7 +43,7 @@ prdocs/
 # not shipped to the public repo. Removed from tracking 2026-05-27.
 docs/15-publishing.md
 
-# KnowWaeve runtime, datasets, evidence and local credentials
+# KnowWeave runtime, datasets, evidence and local credentials
 .local/
 data/
 artifacts/

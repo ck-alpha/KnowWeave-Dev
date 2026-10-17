@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  KnowWaeve — horizontal wordmark
+  KnowWeave — horizontal wordmark
   Mirrors the in-app header (apps/web/src/components/app-header.tsx).
   [[ mark in JetBrains Mono / primary red, wordmark in Fraunces serif.
   Designed at 16px base; scales infinitely as SVG.
@@ -9,7 +9,7 @@
      viewBox="0 0 320 64"
      width="320" height="64"
      role="img"
-     aria-label="KnowWaeve">
+     aria-label="KnowWeave">
   <defs>
     <style>
       .mark   { font: 500 28px "JetBrains Mono", Menlo, monospace; fill: #991b1b; }
@@ -22,6 +22,6 @@
   </defs>
   <g transform="translate(12, 44)">
     <text class="mark" x="0" y="0">[[</text>
-    <text class="word" x="38" y="0">KnowWaeve</text>
+    <text class="word" x="38" y="0">KnowWeave</text>
   </g>
 </svg>

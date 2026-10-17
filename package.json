@@ -1,10 +1,10 @@
 {
-  "name": "knowwaeve",
+  "name": "knowweave",
   "version": "0.1.0",
   "private": true,
-  "description": "KnowWaeve — local-first agent knowledge management, based on LLM Wiki",
+  "description": "KnowWeave — local-first agent knowledge management with Qwen and traceable Wiki",
   "license": "MIT",
-  "author": "Yasas",
+  "author": "ck-alpha",
   "engines": {
     "node": ">=22.0.0"
   },
@@ -37,5 +37,13 @@
       "better-sqlite3",
       "keytar"
     ]
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ck-alpha/KnowWeave.git"
+  },
+  "homepage": "https://github.com/ck-alpha/KnowWeave#readme",
+  "bugs": {
+    "url": "https://github.com/ck-alpha/KnowWeave/issues"
   }
 }

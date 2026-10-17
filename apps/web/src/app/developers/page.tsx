@@ -6,7 +6,7 @@ export default function DevelopersPage() {
   return (
     <PageContainer width="lg">
       <PageHeader
-        eyebrow="KnowWaeve"
+        eyebrow="KnowWeave"
         title="Developer overview"
         description="The current local architecture and the entry points for the next round."
       />
@@ -18,8 +18,7 @@ packages/core/      Markdown storage, SQLite/FTS5, settings, wiki operations
 packages/llm/       Provider client, prompts, response schemas
 packages/ingestion/ Source extraction and ingest orchestration
 scripts/            Local setup and reproducible dataset workflow
-docs/               Architecture, progress, development log, acceptance evidence
-docs/upstream/      Archived upstream design documents`}</pre>
+docs/               Architecture, progress, development log, acceptance evidence`}</pre>
         </Card>
         <Card>
           <h2 className="font-display text-h2 font-semibold">The working path</h2>
@@ -63,11 +62,14 @@ pnpm typecheck
 pnpm build`}</pre>
         </Card>
         <p className="text-ui text-muted-foreground">
-          KnowWaeve is an MIT-licensed derivative. See the root LICENSE and third-party notice for
-          attribution; archived upstream documents are historical context.
+          KnowWeave is an MIT-licensed derivative. See the{" "}
+          <Link href="/about#license" className="text-primary underline underline-offset-2">
+            license and notices
+          </Link>{" "}
+          for code provenance and the scope of project changes.
         </p>
         <Link href="/about" className="inline-block text-primary underline underline-offset-2">
-          ← About KnowWaeve
+          ← About KnowWeave
         </Link>
       </div>
     </PageContainer>

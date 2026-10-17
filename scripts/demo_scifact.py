@@ -206,7 +206,7 @@ def main():
     args = parser.parse_args()
     args.base_url = args.base_url.rstrip("/")
     if urllib.parse.urlparse(args.base_url).hostname not in {"localhost", "127.0.0.1", "::1"}:
-        parser.error("Use a local KnowWaeve server")
+        parser.error("Use a local KnowWeave server")
     if min(args.limit, args.questions, args.timeout) < 1:
         parser.error("limit, questions and timeout must be positive")
     report = {"started_at": datetime.now(timezone.utc).isoformat(), "purpose": "small Wiki demo, not a retrieval benchmark", "model": args.model, "status": "running", "ingests": [], "queries": []}

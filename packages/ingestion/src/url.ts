@@ -2,7 +2,7 @@ import { extractHtml } from "./html";
 import type { ExtractedTextSource } from "./types";
 
 const USER_AGENT =
-  "Mozilla/5.0 (compatible; LLM-Wiki/0.1; +https://github.com/ddsyasas/llm-wiki)";
+  "Mozilla/5.0 (compatible; KnowWeave/0.1; +https://github.com/ck-alpha/KnowWeave)";
 
 export type FetchUrlOptions = {
   /** Override the default timeout (ms). */

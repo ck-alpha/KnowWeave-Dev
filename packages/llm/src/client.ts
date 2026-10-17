@@ -40,7 +40,7 @@ export function createClient(apiKey: string, provider?: "openrouter" | "ollama")
     defaultHeaders: {
       // OpenRouter attribution headers — visible to OpenRouter analytics
       // only; never include user content.
-      "X-Title": "KnowWaeve",
+      "X-Title": "KnowWeave",
     },
   });
 }

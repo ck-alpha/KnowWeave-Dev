@@ -1,12 +1,14 @@
-# KnowWaeve — Round 01 验收报告
+# KnowWeave — Round 01 验收报告
 
-日期：2026-10-17（Asia/Shanghai）。当前状态：**Round 01 本地验收通过**（范围及限制见下文）。
+日期：2026-10-17（Asia/Shanghai）。历史结果：**Round 01 本地验收通过**（范围及限制见下文）。
 
-范围：用户提供的 Round 01，产品名 KnowWaeve，模型固定为本机 Ollama `qwen3.8:27b`。
+范围：用户提供的 Round 01，模型固定为本机 Ollama `qwen3.8:27b`。当前展示名为 **KnowWeave**；名称兼容说明见 README；下面保留历史提交、命令、来源 ID 和测量值。
+
+本报告描述历史实现提交及当时本机的实测。后续命名和文档整理不等于重新执行全部验收；审阅当前代码时应按 [GPT 审阅指南](GPT_REVIEW_GUIDE.md) 检查差异并独立复现。
 
 ## 可核对交付
 
-- 项目代码、README、MIT LICENSE 与 NOTICE；上游基线 `e8dd69ebba0dc7c395c1b8217bb1c30c14e8c84c`。
+- 项目代码、README、MIT LICENSE 与 [NOTICE](../NOTICE.md)；具体来源基线与继承/改造边界集中记录于 NOTICE。
 - 本地启动/配置/实际模型检查；保留核心 Ingest、Wiki、来源、BM25/FTS5 流程。
 - SciFact 官方数据获取和确定性小样本；原始 corpus/queries/qrels 不提交。
 - 测试、数据完整性与真实 API 验收脚本；开发记录及后续接入点。
@@ -40,7 +42,7 @@ Ollama日志为66/66层GPU，`ollama ps`显示100%GPU。未重装驱动、未修
 | 本地配置/停止回归 | Wiki选择5项回归通过；launcher变更后2项定向回归通过；真实SIGTERM释放3000端口，重新启动后首页/设置/页面/来源API均200 |
 | LICENSE/忽略规则 | LICENSE与上游逐字节一致；数据/配置/SQLite/node_modules均被忽略 |
 
-Lint的两条非阻塞警告位于 `command-palette.tsx:240` 与 `graph/vault-graph.tsx:139`，留待后续UI稳定性整理。
+历史 lint 日志的两条非阻塞警告位于 `command-palette.tsx:240` 与 `graph/vault-graph.tsx:139`（后续修改可能改变行号），留待 UI 稳定性整理。云端 smoke 的跳过不计为通过，也不表示本轮验证了付费云端路径。
 
 ### 真实 GPU + SciFact API 运行
 
@@ -72,6 +74,24 @@ query51的声明为“ALDH1表达与更好的乳腺癌结局相关”；回答�
 本次GPU修复遵循实际模块/库版本与占用检查，背景说明可参见
 [Ubuntu驱动错配文档](https://ubuntu.com/server/docs/nvidia-drivers-installation/)。
 
+## 2026-10-17 15:42（Asia/Shanghai）交付前复测
+
+统一当前名称并整理个人仓库文档后，对当时待提交工作树执行了新的验证，与前述历史验收分开记录：
+
+| 本次检查 | 实际结果 |
+| --- | --- |
+| `pnpm test` | 210 项通过、1 项云端 smoke 跳过 |
+| Python 测试 | 30 项通过 |
+| typecheck / lint / build | 均退出 0；lint 仍为 2 条 React Hooks 警告 |
+| 新生产服务路由 | `/`、`/about`、`/query`、`/sources`、`/wiki` 均 HTTP 200，页面标题为 KnowWeave |
+| Chromium 页面复测 | 5 个页面通过，浏览器错误 0；这是页面检查，完整点击链见历史验收 |
+| 已有 Wiki 的真实 Query | 模型 `qwen3.8:27b`，引用 `aldh1` |
+| GPU 状态 | NVIDIA 驱动 580.178.04；Ollama `100% GPU`、上下文 32768 |
+
+原始业务复测证据为 `.local/evidence/remote-delivery-gpu.json`，时间 `2026-10-17T15:42:45.787667+08:00`；新测试日志采用 `remote-delivery-*` 前缀；浏览器页面复测产物为 `.local/evidence/remote-delivery-browser/browser-smoke.json`。仓库内证据 JSON 的 `remote_delivery_recheck` 汇总该轮结果和原始产物哈希。本次业务复测针对已有 Wiki 问答与 HTTP 页面；首次导入/更新和完整浏览器点击链仍依据上面的历史运行记录。
+
+这些是同一开发环境内的新实测，不是外部审阅者的独立复现，也不是全量检索评测。最终交付提交应由 Git 历史核对，不能将待提交工作树上的复测误标成某个尚未产生的 commit 上的运行。
+
 ## 复现
 
 ```bash
@@ -88,8 +108,8 @@ python3 scripts/demo_scifact.py --limit 2 --questions 1
 ```
 
 默认浏览器地址 `http://127.0.0.1:3000`。测试命令见README。
-完整机器生成的本地日志、API结果和驱动证据在 `.local/evidence/`，均不进入Git；
-本报告会保留必要的结果摘要和溯源ID，避免提交数据或个人运行目录。
+完整机器生成的本地日志、API 结果、驱动证据和截图在 `.local/evidence/`，不进入 Git；远端仓库阅读者不能直接访问该目录。
+仓库内的 [Round 01 证据摘要](evidence/ROUND_01_RESULTS.json) 保留必要的历史结果与原始产物 SHA256，供核对报告与追踪来源。该摘要是对已有运行产物的整理，不是独立重跑，也不单凭哈希证明报告中的结论。
 浏览器证据为`browser-smoke.json`、`browser-ui-chain.json`与对应截图；
 停止/重启证据为`launcher-stop.json`、`launcher-restart.json`。
 
@@ -102,5 +122,13 @@ Embedding、Hybrid、RRF尚未实现。PDF/OCR与多语种检索未专项验证�
 ## Git
 
 实现与首版验收提交：`395747308fb0f888702f224c6be5e3eeefa491ca`。
-后续文档提交补充浏览器操作链、真实停止/重启结果和上述实现SHA，可用`git log -2 --oneline`核对。
-当前没有个人远端，未执行推送；个人仓库的最少设置命令见README。
+历史验收补充提交：`4620b8c34040be64404541ffd8160f95310fec6f`，记录浏览器操作链、真实停止/重启结果和上述实现 SHA。使用 `git show <SHA>` 可分别检查这两次历史提交；历史提交时未配置个人远端、未推送。
+
+本次后续整理将当前展示名统一为 KnowWeave，并准备个人仓库及 GPT 审阅文档。个人仓库 [ck-alpha/KnowWeave](https://github.com/ck-alpha/KnowWeave) 为 private 独立仓库，`main` 是代码与文档交付入口。私有仓库需读取授权或由用户提供源码包，参见审阅指南。
+
+交付版本可用以下命令核对；本地 HEAD 应与远端 main 相同：
+
+```bash
+git rev-parse HEAD
+git ls-remote origin refs/heads/main
+```

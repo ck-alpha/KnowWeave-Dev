@@ -8,7 +8,7 @@ const __dirname = dirname(__filename);
 const nextConfig = {
   reactStrictMode: true,
   // Round 01 runs from this source checkout with `next start`; the inherited
-  // npm standalone-distribution workflow is not part of KnowWaeve.
+  // npm standalone-distribution workflow is not part of KnowWeave.
   transpilePackages: ["@llm-wiki/core", "@llm-wiki/ingestion", "@llm-wiki/llm"],
   experimental: {
     // In a monorepo, file-tracing for standalone defaults to the package dir

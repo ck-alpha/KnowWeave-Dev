@@ -7,7 +7,7 @@ export default function AboutPage() {
     <PageContainer width="lg">
       <PageHeader
         eyebrow="About the project"
-        title="KnowWaeve"
+        title="KnowWeave"
         description="A local-first knowledge workspace: turn source documents into a maintainable wiki, ask questions, and inspect the evidence."
       />
       <div className="space-y-6 text-body leading-relaxed">
@@ -23,7 +23,7 @@ export default function AboutPage() {
         <Card>
           <h2 className="font-display text-h2 font-semibold">Local models first</h2>
           <p className="mt-3 text-muted-foreground">
-            KnowWaeve uses Ollama for local inference. This project&apos;s Round 01 setup targets
+            KnowWeave uses Ollama for local inference. This project&apos;s Round 01 setup targets
             the locally installed <code>qwen3.8:27b</code> model. Check the exact model tag on your
             machine before use. A paid cloud API is not required. If you choose an external provider
             in Settings, its selected operations send content to that provider.
@@ -45,26 +45,35 @@ export default function AboutPage() {
           </p>
         </Card>
         <Card>
-          <h2 className="font-display text-h2 font-semibold">Source and license</h2>
+          <h2 id="license" className="font-display text-h2 font-semibold">
+            License and notices
+          </h2>
           <p className="mt-3 text-muted-foreground">
-            KnowWaeve is derived from{" "}
+            KnowWeave is an MIT-licensed derivative. Copyright notices, code provenance, and the
+            scope of project changes are documented in the project repository.
+          </p>
+          <div className="mt-3 flex gap-6 text-ui">
             <a
-              href="https://github.com/ddsyasas/llm-wiki"
+              href="https://github.com/ck-alpha/KnowWeave/blob/main/LICENSE"
               target="_blank"
               rel="noreferrer"
               className="text-primary underline underline-offset-2"
             >
-              LLM Wiki by Yasas
-            </a>{" "}
-            under the MIT License. The inherited implementation provides the wiki, ingestion, query,
-            and UI foundations. The repository&apos;s LICENSE retains the original copyright; its
-            third-party notice records the source and this project&apos;s changes. The upstream
-            design credits Andrej Karpathy&apos;s LLM Wiki pattern.
-          </p>
+              MIT License
+            </a>
+            <a
+              href="https://github.com/ck-alpha/KnowWeave/blob/main/NOTICE.md"
+              target="_blank"
+              rel="noreferrer"
+              className="text-primary underline underline-offset-2"
+            >
+              Third-party notices
+            </a>
+          </div>
         </Card>
         <div className="flex gap-6 text-ui">
           <Link href="/help" className="text-primary underline underline-offset-2">
-            Using KnowWaeve
+            Using KnowWeave
           </Link>
           <Link href="/developers" className="text-primary underline underline-offset-2">
             Developer overview
