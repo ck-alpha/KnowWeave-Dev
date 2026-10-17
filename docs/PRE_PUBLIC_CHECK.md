@@ -47,4 +47,4 @@
 1. 当前三张展示截图的最终人工隐私检查，以及是否接受 Git 历史中的个人邮箱、路径与上游历史材料。需要隐藏历史信息时，应另行决定处理方案；本轮未改写历史。
 2. 是否公开以及何时公开。仓库保持 private，本轮只推送 `main`。
 
-本轮检查与勘误提交将在交付时补记；最终远端可用 `git ls-remote origin refs/heads/main` 核对，当前测试基线为本报告首段 SHA。
+本轮检查与勘误提交：[`af2c0dbfb7a1ad068df81783cf1025fc308eb77e`](https://github.com/ck-alpha/KnowWeave/commit/af2c0dbfb7a1ad068df81783cf1025fc308eb77e)，已推送 `origin/main` 并核对远端一致；后续文档提交仅补记此 SHA，不改变实测源码。最终远端用 `git ls-remote origin refs/heads/main` 核对，测试基线为本报告首段 SHA。
