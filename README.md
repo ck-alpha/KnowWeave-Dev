@@ -1,14 +1,24 @@
 # KnowWeave
 
-**把零散资料整理成可持续更新、能够回溯原文的本地知识库。**
+**面向科研与知识型工作的本地知识工作台：整理资料、专题阅读、带着证据思考。**
 
-KnowWeave 将文档交给本地 Qwen 整理为 Markdown Wiki，支持 BM25、Embedding 和 Hybrid 检索，再基于检索到的页面回答问题。回答中的 Wiki 引用可以继续跳到原始来源，方便检查模型依据、修正知识和追加资料。
+KnowWeave 将文档交给本地 Qwen 整理为 Markdown Wiki，按课题或项目组织页面，记录收藏、阅读进度与个人笔记。支持 BM25、Embedding 和 Hybrid 检索，回答中的 Wiki 引用可继续跳到原始来源；阅读与问答成果可导出复用。
 
-这是基于 MIT 项目 [LLM Wiki](https://github.com/ddsyasas/llm-wiki) 的二次开发作品。本项目重点实现本地 Qwen/Ollama 适配、向量索引维护、混合检索、引用约束与可复现评测；继承能力和贡献边界见 [NOTICE](NOTICE.md)，原 [LICENSE](LICENSE) 保留。
+这是基于 MIT 项目 [LLM Wiki](https://github.com/ddsyasas/llm-wiki) 的二次开发作品。本项目重点实现本地 Qwen/Ollama 适配、向量索引维护、混合检索、引用约束、可复现评测，以及专题阅读工作流与产品界面；继承能力和贡献边界见 [NOTICE](NOTICE.md)，原 [LICENSE](LICENSE) 保留。
 
-[最终轮验收](docs/ROUND_03_ACCEPTANCE.md) · [公开前检查](docs/PRE_PUBLIC_CHECK.md) · [架构](architecture.md) · [求职展示与面试提纲](docs/CAREER_PRESENTATION.md) · [独立审阅指南](docs/GPT_REVIEW_GUIDE.md)
+[本次产品升级](docs/PRODUCT_UPGRADE.md) · [模型与检索验收](docs/ROUND_03_ACCEPTANCE.md) · [架构](architecture.md) · [求职展示与面试提纲](docs/CAREER_PRESENTATION.md) · [独立审阅指南](docs/GPT_REVIEW_GUIDE.md)
 
 ## 看一次实际使用
+
+知识首页：查看近期更新、阅读进度与待整理资料，继续上次的工作。
+
+![知识首页：真实页面、阅读进度与待办入口](docs/images/workspace-home.png)
+
+专题工作台：围绕研究或项目收集页面，管理阅读状态，并留下自己的判断。
+
+![专题工作台：页面归类、阅读状态与个人笔记](docs/images/workspace-projects.png)
+
+以上为新版真实浏览器截图，内容由独立的人工演示样例生成，不代表模型生成的研究成果。另见 [窄屏深色阅读页](docs/images/workspace-reading-mobile.png)；可复现的样例命令见下文。
 
 查询页面：选择检索模式，查看索引状态、回答和引用。
 
@@ -24,10 +34,14 @@ Wiki 页面：查看整理后的知识，并沿 Sources 返回原始文献。
 
 | 能力 | 当前行为 |
 | --- | --- |
+| 专题与阅读 | 一个页面可加入多个课题/项目；收藏、待读/阅读中/已读、个人笔记按 Wiki 持久化 |
+| 知识馆藏 | 搜索标题/标签/目录摘要，组合类型/标签筛选与排序；可直接写笔记，阅读页有目录和 Markdown 导出 |
+| 工作首页 | 真实近期更新、阅读进度、继续阅读和待处理来源入口；桌面/窄屏、深浅色界面 |
 | 文档 → Wiki | Qwen 生成或更新 Markdown 页面；同名原文独立保存，失败来源可重试，保留页面来源关系 |
 | 三路检索 | Query 可选 BM25、Embedding、Hybrid（RRF）；默认 BM25，无需 Embedding 模型 |
 | 可维护向量索引 | 各 Wiki 独立存储；内容变化使旧向量失效，显式增量刷新，支持全量重建 |
 | 回答与证据 | 实际页面正文进入模型上下文；引用须来自供给正文，支持 Wiki → 原始来源回溯 |
+| 知识复用与备份 | 问题/回答/引用一起复制或导出；Wiki ZIP 包含文档与 SQLite 一致快照，保存专题、笔记、来源关系 |
 | 可复现评测 | SciFact 官方原始 corpus 的三路检索对比，与小型 Wiki 问答演示分开记录 |
 
 三模式目前用于独立 Query；Ingest 和 Chat 的候选检索仍用 BM25。继承的文本导入、Wiki 浏览与更新构成本轮演示主路径，PDF/OCR 和云端模型不属于当前已验证能力。
@@ -75,6 +89,12 @@ pnpm dev
 
 打开 <http://127.0.0.1:3000>，依次进入 **Sources → 导入并整理 → Wiki → Query**。界面保留英文栏目与技术术语，操作步骤和说明以中文呈现。首次使用 Embedding/Hybrid，先在 Query 点击 **构建 / 刷新向量索引**。新增或编辑页面后再次刷新；失败时根据提示处理，或手动选择 BM25。
 
+日常使用可从 **Workspace → 新建专题** 开始，例如「课题文献综述」或「项目知识手册」。把 Wiki 页面加入专题，在阅读页收藏、标记阅读中，并展开 **专题与笔记** 保存自己的判断。个人笔记不会改写正文或进入模型证据；已读仅表示阅读进度。**Wiki → 写一篇笔记** 可以不调用模型直接积累自己的内容。
+
+Wiki 目录可组合搜索、类型、标签与排序；Sources 可按待处理或格式筛选。Query 的三个问题模板只填写输入框，由你决定何时提交；回答生成后可 **复制回答与引用** 或 **导出 Markdown**，导出保留本次实际提交的问题。引用链接仍指向当前 KnowWeave 实例。
+
+**Settings → Wikis → 导出当前 Wiki** 包含 Markdown、原始资料、会话及 SQLite 快照（专题、笔记、来源关系等），不包含设置、历史和回收站。宜在停止编辑/导入时导出，数据库与文档并非统一时点事务。恢复时先停止应用，将 ZIP 解压到目标 Wiki，再重新配置模型。页面软删除后撤销会恢复个人笔记和仍存在的专题关系；直接从磁盘删除页面不经过产品回收流程。
+
 多轮对话进入 **Chats → + 新建会话**，新建后出现输入框；窄屏先点 **会话列表** 展开会话列表。Chat 使用服务器上的本地模型，回复完整生成后显示。更新 Chat 入口代码后，生产服务需要重新 `pnpm build` 并重启 `pnpm start` 才会生效。
 
 网页保留英文栏目与技术术语，步骤、提示和主要操作使用中文。打开 **Graph**，可在 **Map · 2D** 与 **Space · 3D** 间切换，浏览器会记住偏好；支持搜索标题或标签、按类型筛选、选择节点查看关联，再点击「阅读页面」返回 Wiki。两种视图共用当前选择和筛选；Wiki 详情中的 **Graph ↗** 可直接定位该页面。图谱连线表示现有页面引用，浏览器无法使用 WebGL2 时可切回 2D。
@@ -92,7 +112,29 @@ pnpm start
 
 此配置以服务器应用已经运行为前提，不负责启动应用；服务器重启或应用停止后，在远程终端执行 `pnpm start`（需已有生产构建），本机浏览器即可继续通过转发访问。服务器不需要安装浏览器。也可在浏览器所在电脑运行 `ssh -N -L 13000:127.0.0.1:3000 <账号>@<服务器>`，再访问 `http://127.0.0.1:13000`。演示使用端口 `3001` 时相应调整转发端口。
 
-## 可复现的最终 Demo
+## 不调用模型的产品演示样例
+
+以下创建 16 页人工演示资料、两个专题和阅读记录，供界面演示与浏览器验收；不下载模型、不把内容计作科研成果。要求目标目录为空，重复运行请换新目录。
+
+```bash
+pnpm demo:workspace:prepare
+KNOWWAEVE_WIKI_PATH="$PWD/.local/workspace-demo/fixture-wiki" \
+KNOWWAEVE_CONFIG_DIR="$PWD/.local/workspace-demo/fixture-config" \
+pnpm --filter @llm-wiki/web dev --hostname 127.0.0.1 --port 3002
+```
+
+打开 <http://127.0.0.1:3002> 查看首页与 Workspace；整理资料和生成回答仍需要实际 Ollama 模型。可选浏览器验收在另一个终端运行（会修改此专用演示库，拒绝其他主题或不匹配路径）：
+
+```bash
+node scripts/workspace-browser.mjs --base-url http://127.0.0.1:3002 \
+  --wiki-path "$PWD/.local/workspace-demo/fixture-wiki" \
+  --chromium /path/to/chromium \
+  --output-dir "$PWD/.local/evidence/workspace-browser"
+```
+
+脚本使用真实鼠标键盘，覆盖专题/阅读/笔记、馆藏、目录、搜索、问题模板与桌面/窄屏深浅色；不发模型问答请求。重复验收使用新的输出目录。
+
+## 模型与检索 Demo
 
 先下载并校验官方数据，再生成固定小样本。`prepare` 只读取已下载数据：
 
@@ -184,6 +226,8 @@ NEXT_TELEMETRY_DISABLED=1 pnpm build
 ```
 
 Round 03 本机代码检查：299 项 JS/TS 与 47 项 Python 通过，1 项云端 smoke 跳过；typecheck、lint、build 成功，保留 2 条继承 Hooks 警告。逐项检查、真实浏览器操作和停止/重启结果见 [Round 03 验收](docs/ROUND_03_ACCEPTANCE.md)。这些结果来自报告所列工作树；独立复现仍应在自己的 checkout 运行上述命令。
+
+2026-11-12 知识工作台升级重新检查：343 项 JS/TS、47 项 Python 通过，1 项云端 smoke 跳过；typecheck、lint、隔离生产构建成功，Next lint 无警告。新版 UI 的 57 项真实浏览器检查通过，并实际验证本地 Qwen 回答、软删除恢复与 ZIP 数据库快照。本次不复跑 SciFact 全量 benchmark，不扩大历史指标结论；完整范围与分阶段提交见 [产品升级记录](docs/PRODUCT_UPGRADE.md)。
 
 - [当前进度](docs/PROGRESS.md) · [开发日志](docs/DEVLOG.md) · [独立审阅指南](docs/GPT_REVIEW_GUIDE.md)
 - [Round 01 验收](docs/ROUND_01_ACCEPTANCE.md) · [Round 02 验收](docs/ROUND_02_ACCEPTANCE.md) · [Round 03 要求](docs/KnowWeave_ROUND_03_CODEX_PROMPT.md)

@@ -5,6 +5,7 @@
     "benchmark-scifact.mts",
     "retrieval-metrics.ts",
     "scifact-dataset.ts",
-    "verify-retrieval.mts"
+    "verify-retrieval.mts",
+    "prepare-workspace-demo.mts"
   ]
 }

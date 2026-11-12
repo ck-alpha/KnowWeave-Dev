@@ -1,6 +1,6 @@
 # KnowWeave 项目架构
 
-最后核对：2026-11-12（Asia/Shanghai，知识工作台升级：专题与阅读持久化、馆藏查找、回答复用、回收恢复与数据库导出）。当前实现范围：Round 01–03 与知识工作台升级。
+最后核对：2026-11-12（Asia/Shanghai，完成知识工作台、馆藏/复用、视觉外壳、恢复/导出与隔离演示入口）。当前实现范围：Round 01–03 与知识工作台升级。
 本文件是当前架构的统一入口；模块、调用链、接口、数据格式、检索/模型协议或部署入口变化时，随代码在同一次提交中更新核对日期。当前名称 **KnowWeave**；既有 `KNOWWAEVE_*` 环境变量和内部包名为兼容保留。
 
 ## 技术栈与入口
@@ -73,6 +73,8 @@ UI 的 `[[slug]]` 跳到 Wiki，再经 Sources 链接进入原文；读取 API �
 
 ### 馆藏、阅读与回答复用
 
+首页是运行时读取的知识工作台：`listPageRows/listSourceRows/listChatRows/getWorkspaceSnapshot` 提供真实近期更新、待处理来源和阅读进度，不调用模型。双层导航保留现有各路由，新增 Workspace 与可点击搜索入口；主题继续复用现有本地偏好。共用暖纸/深红视觉、响应式布局、键盘焦点和减少动效设置。入口不展示 Wiki 绝对路径，首次引导条件保持不变。
+
 `/wiki` 从 `listPageRows` 与 `index.md` 的摘要构建馆藏；GET 参数 `q/type/tag/sort` 支持标题、slug、标签和目录摘要搜索、组合筛选，以及最近/最早/标题排序。重复查询参数先归一为单个值。该目录查找不是正文全文或语义检索。新建笔记沿用 `POST /api/pages`，不调用模型；空库与删除最后一页均保留新建/撤销入口。
 
 阅读页集成个人状态组件，根据已渲染 Markdown 标题生成页内目录；阅读时间分别粗估中文字数与字母词数，不作为实际阅读计时。单页 Markdown 下载包含正文、类型/日期/标签和已知来源 ID，不包含原文文件及个人笔记。Wiki 详情和侧栏按 Wiki 路径的 SHA256 key 重挂载，避免同 slug 切库后的旧状态残留。命令面板支持 `knowweave:open-search` 事件与 Cmd/Ctrl+K，渲染顺序和键盘选择统一，新增 Workspace 入口。
@@ -121,6 +123,8 @@ Query UI 提供模式解释、索引状态、构建/刷新按钮、取证页链�
 
 ## 评测和验证边界
 
+知识工作台升级的 [prepare-workspace-demo.mts](scripts/prepare-workspace-demo.mts) / `pnpm demo:workspace:prepare [新空目录]` 创建明确标记的人工演示 Wiki 与独立配置（16 页、原文样例、两个专题、阅读记录），不调用模型，拒绝非空目录。用环境变量指定它们启动独立实例。[workspace-browser.mjs](scripts/workspace-browser.mjs) 要求 loopback、服务端返回的准确 Wiki 路径和固定演示主题/页面，使用真实 Chromium 输入与鼠标操作检验工作流和响应式界面，拒绝覆盖已有报告。它不运行生成模型；真实 Qwen、下载、跨 Wiki 与部署验证另行记录。两种演示不能替代 SciFact 评测，具体结果见 [产品升级记录](docs/PRODUCT_UPGRADE.md)。
+
 `pnpm benchmark:scifact` 使用官方 5,183 篇原始标题/摘要、300 条 test queries、339 条相关性标注，直接调用产品 `indexPageForSearch` / `refreshEmbeddings` / `retrievePages`。离线数据库与 Wiki 分离，未调用 Qwen 编译 corpus。使用相同输入和规则宏平均 Recall@10、nDCG@10、MRR@10，记录原文件 hash、模型 digest、参数、索引耗时、含问题向量生成的检索延迟和运行环境。qrels 只用于最终评分，不用于选择融合参数。
 
 `scripts/demo_round03.py` 面向独立空 Wiki，先核对服务器目录、模型槽与官方数据指纹，顺序导入两篇原文，记录实际 LLM 旧页更新；再单独标注一次手工跨文档阅读列表编辑，验证单页失效、Hybrid 409、刷新 1 页/重复刷新 0 页和三模式引用与原文完整性。`scripts/demo-browser.mjs` 使用本机 Chromium DevTools 协议，首次通过 UI 导入第三篇、浏览 Wiki、刷新索引、三模式提问并点击引用到原文，直接截图；无新增浏览器 npm 依赖。详见 [Demo 说明](docs/DEMO.md) 与 [Round 03 验收](docs/ROUND_03_ACCEPTANCE.md)。
@@ -139,6 +143,7 @@ Round 02 历史检索结果与完整命令见 [Round 02 验收](docs/ROUND_02_AC
 
 | 日期（Asia/Shanghai） | 变更 |
 | --- | --- |
+| 2026-11-12 | 首页改为真实知识工作台，双层导航与响应式主题统一；新增人工样例生成与真实浏览器验收脚本，沿用本地部署。 |
 | 2026-11-12 | Wiki 馆藏组合筛选、新建笔记、阅读目录/导出；Sources 筛选；Query 模板与带引用导出；命令面板与切库状态修复。 |
 | 2026-11-12 | 新增每 Wiki 专题/收藏/阅读状态/个人笔记及工作台 HTTP；软删除 sidecar 恢复个人记录，ZIP 包含 SQLite 一致快照。 |
 | 2026-11-12 | Lint 提供中文交互与报告提示词；本地结果仅展示层映射，保留机器字段/修复目标与正文语言，历史时间显示为北京时间。 |

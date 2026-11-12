@@ -1,6 +1,14 @@
 # KnowWeave 求职展示与面试提纲
 
-更新：2026-10-17（Asia/Shanghai）。用于解释已经实现的二次开发与已有实验；本轮运行结果以 [Round 03 验收](ROUND_03_ACCEPTANCE.md) 为准。指标引用 [Round 02 验收](ROUND_02_ACCEPTANCE.md)，不把小型 Demo 当成检索 benchmark，也不把检索相关性当成回答正确率。
+更新：2026-11-12（Asia/Shanghai）。专题阅读与界面升级见 [产品升级记录](PRODUCT_UPGRADE.md)，模型与检索链路见 [Round 03 验收](ROUND_03_ACCEPTANCE.md)。指标引用 [Round 02 验收](ROUND_02_ACCEPTANCE.md)，不把小型 Demo 当成检索 benchmark，也不把检索相关性当成回答正确率。
+
+## 新版产品讲解补充
+
+以科研或项目任务开场：“资料整理成 Wiki 后，用户还需要知道哪些值得读、正在读什么、为哪个课题服务，以及自己的判断是什么。”展示首页的继续阅读 → Workspace 专题 → Wiki 笔记与原文 → Query 引用回答 → Markdown 导出。这一轮把已有模型/检索能力连接成持续使用流程，功能审查与优先级来自源码和目标用户任务推导，未开展正式访谈。
+
+开发岗可补充：“设计每 Wiki SQLite 的专题多对多关系和阅读记录，分离个人笔记与模型证据；通过事务校验、软删除 sidecar、同 slug 切库状态隔离及一致数据库快照，解决保存、撤销与导出的数据完整性问题。”可沿 [workspace.ts](../packages/core/src/workspace.ts)、[editor.ts](../packages/core/src/editor.ts)、[导出接口](../apps/web/src/app/api/wikis/export/route.ts) 解释。
+
+产品岗可补充：“将工具入口式首页改为真实近期更新、继续阅读和待办；补齐按目标归类、馆藏筛选、阅读笔记与带引用导出的完整路径，并使用桌面/窄屏深浅色真实浏览器验收。”不要把人工演示页说成模型整理成果，也不要把通过的交互数量表述为用户效率提升。可用 `pnpm demo:workspace:prepare` 准备独立演示，详细命令见 README。
 
 ## 贡献边界与项目定位
 

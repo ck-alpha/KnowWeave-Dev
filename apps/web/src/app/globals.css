@@ -153,3 +153,71 @@
   content: "";
   @apply absolute left-0 right-0 -bottom-[5px] h-px bg-primary;
 }
+
+/* Shared desk surfaces stay quiet so the user's knowledge remains the focus. */
+.desk-hero {
+  background-image: radial-gradient(
+    ellipse at 95% 0%,
+    hsl(var(--primary) / 0.055),
+    transparent 65%
+  );
+  box-shadow: 0 4px 24px -20px hsl(var(--foreground) / 0.2);
+}
+
+.app-navigation {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.app-navigation::-webkit-scrollbar {
+  display: none;
+}
+.desk-nav-link {
+  @apply relative inline-flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap px-3 text-xs text-muted-foreground transition-colors hover:text-foreground;
+}
+.desk-nav-link.is-active {
+  @apply text-primary;
+}
+.desk-nav-link.is-active::after {
+  content: "";
+  position: absolute;
+  height: 2px;
+  bottom: 0;
+  left: 0.75rem;
+  right: 0.75rem;
+  border-radius: 2px 2px 0 0;
+  background: hsl(var(--primary));
+}
+
+/* A visible keyboard path through every page, including native selects/links. */
+:where(a, button, input, textarea, select, summary, [tabindex]):focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 3px;
+}
+.skip-link {
+  position: fixed;
+  z-index: 100;
+  top: 0.75rem;
+  left: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  transform: translateY(-180%);
+}
+.skip-link:focus {
+  transform: translateY(0);
+}
+::selection {
+  background: hsl(var(--primary) / 0.16);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

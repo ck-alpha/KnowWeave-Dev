@@ -17,6 +17,11 @@ Round 03 修复同名原文覆盖、Ingest 写入冲突与正文索引一致性�
 来源删除保护与索引状态反馈，并提供最终演示、真实应用截图和求职/独立审阅文档；
 具体实现和实际验证范围见 `docs/ROUND_03_ACCEPTANCE.md`。
 
+2026-11 知识工作台升级：新增每 Wiki 专题、收藏、阅读状态和个人笔记，
+完善软删除恢复、数据库快照导出、馆藏筛选、阅读与问答复用、首页与响应式界面，
+并提供独立人工演示样例和真实浏览器验收。沿用上游文档/模型能力，
+不把新界面中的人工演示内容宣称为模型生成成果；见 `docs/PRODUCT_UPGRADE.md`。
+
 用户提供的任务计划整理为 `docs/THREE_ROUND_PLAN.md` 与 `docs/ROUND_01_REQUIREMENTS.md`，第二轮、第三轮要求分别见 `docs/KnowWeave_ROUND_02_CODEX_PROMPT.md` 与 `docs/KnowWeave_ROUND_03_CODEX_PROMPT.md`；项目名统一为 KnowWeave，需求实质保持不变。
 兼容内部包名 `@llm-wiki/*` 和 Wiki 内部 `.llm-wiki/` 目录，避免无关迁移。
 

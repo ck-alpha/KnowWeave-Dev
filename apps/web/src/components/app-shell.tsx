@@ -14,8 +14,17 @@ import { Footer } from "@/components/footer";
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <>
+      <a href="#main-content" className="skip-link">
+        跳转到主要内容
+      </a>
       <AppHeader />
-      <main className="flex flex-1 flex-col overflow-y-auto">{children}</main>
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto"
+      >
+        {children}
+      </main>
       <Footer />
     </>
   );

@@ -27,20 +27,22 @@ export async function Footer({ className = "" }: { className?: string }) {
   return (
     <footer
       className={
-        "border-t border-border bg-secondary/30 px-4 py-2 text-[11px] text-muted-foreground " +
+        "shrink-0 border-t border-border/60 bg-background px-4 py-2 text-[10px] text-muted-foreground " +
         className
       }
     >
-      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-3 gap-y-1">
+      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-2 gap-y-1 sm:gap-x-3">
         <span>KnowWeave</span>
         <span aria-hidden>·</span>
         <span>v{APP_VERSION}</span>
         {activeTopic ? (
           <>
-            <span aria-hidden>·</span>
+            <span aria-hidden className="hidden sm:inline">
+              ·
+            </span>
             <Link
               href="/settings?tab=wikis"
-              className="max-w-[16rem] truncate hover:text-foreground"
+              className="hidden max-w-[12rem] truncate hover:text-foreground sm:inline"
               title={`当前 Wiki，点击切换 (${activeTopic})`}
             >
               <span aria-hidden className="text-muted-foreground/70">

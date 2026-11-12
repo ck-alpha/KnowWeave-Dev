@@ -1,0 +1,145 @@
+{
+  "date": "2026-11-12",
+  "timezone": "Asia/Shanghai",
+  "baseline": "06b911d6b9d4d7a82af0c49fe5150b063b94f2d3",
+  "delivery": {
+    "remote": "ck-alpha/KnowWeave-Dev",
+    "branch": "main",
+    "stagesPushedBeforeThisRecord": {
+      "audit": "a8fb73c",
+      "workspace": "1c2ffff",
+      "discoveryReuse": "9bf9ab4"
+    },
+    "visualStage": "This record is committed together with the visual shell, README screenshots and demo scripts."
+  },
+  "validation": {
+    "typescriptTests": {
+      "passed": 343,
+      "skipped": 1,
+      "skipReason": "Cloud smoke requires opt-in configuration"
+    },
+    "pythonTests": {
+      "passed": 47
+    },
+    "typecheck": "passed",
+    "nextLint": "passed without ESLint warnings or errors",
+    "otherPackageLint": "existing no-op scripts",
+    "productionBuild": "passed in isolated checkout",
+    "buildSourceFiles": 192,
+    "buildSourceManifestSha256": "cd640a3ef34c245a6040ed38dc9e8893a70c56e92d933f4819fcff6c1b565552",
+    "buildSourcesEqualWorkingTree": true,
+    "browser": [
+      {
+        "name": "workspace",
+        "checks": 57,
+        "status": "passed",
+        "runtimeErrors": 0,
+        "httpErrors": 0,
+        "localEvidence": "browser-acceptance/browser.json"
+      },
+      {
+        "name": "reuse",
+        "checks": 18,
+        "status": "passed",
+        "runtimeErrors": 0,
+        "httpErrors": 0,
+        "localEvidence": "reuse-browser-02/browser.json"
+      },
+      {
+        "name": "crossWiki",
+        "checks": 10,
+        "status": "passed",
+        "runtimeErrors": 0,
+        "httpErrors": 0,
+        "localEvidence": "cross-wiki/browser.json"
+      },
+      {
+        "name": "live3000",
+        "checks": 16,
+        "status": "passed",
+        "runtimeErrors": 0,
+        "httpErrors": 0,
+        "localEvidence": "live-browser/3000/browser.json"
+      },
+      {
+        "name": "live3001",
+        "checks": 16,
+        "status": "passed",
+        "runtimeErrors": 0,
+        "httpErrors": 0,
+        "localEvidence": "live-browser/3001-onboarding-aware/browser.json"
+      }
+    ],
+    "apiIntegrationChecks": 13,
+    "crossWikiApiChecks": 7,
+    "demoRefusalChecks": 3,
+    "showcaseReadOnlyChecks": 6
+  },
+  "liveDeployment": {
+    "ports": [
+      3000,
+      3001
+    ],
+    "httpRoutes": 16,
+    "wikiAndRawContentUnchanged": true,
+    "retrievalIndexes": [
+      {
+        "port": 3000,
+        "indexed": 3,
+        "total": 3,
+        "ready": true
+      },
+      {
+        "port": 3001,
+        "indexed": 4,
+        "total": 4,
+        "ready": true
+      }
+    ],
+    "priorBuildAndDatabaseBackupsPreserved": true,
+    "onboarding3001": "Preserved existing incomplete onboarding; Workspace and Wiki tested directly"
+  },
+  "screenshots": [
+    {
+      "path": "docs/images/workspace-home.png",
+      "sha256": "b32d090705c3d7898bf61635facc5889ba53720553e0239a31453c8820adf33a",
+      "synthetic": true,
+      "edited": false
+    },
+    {
+      "path": "docs/images/workspace-projects.png",
+      "sha256": "ef943e19beabe56d0bb8ca4dadc29f0dafc8c826585431d1e61c294ab13b107c",
+      "synthetic": true,
+      "edited": false
+    },
+    {
+      "path": "docs/images/workspace-reading-mobile.png",
+      "sha256": "27fb68394a1348e0b277fe40e99f17bba3c3e7369c645ee9ffa98981dab37a7d",
+      "synthetic": true,
+      "edited": false
+    }
+  ],
+  "realModel": {
+    "model": "qwen3.8:27b",
+    "retrievalMode": "bm25",
+    "fixture": "synthetic product walkthrough",
+    "apiAnswerAndBrowserDownloadVerified": true,
+    "notABenchmark": true
+  },
+  "notRun": [
+    "Full SciFact benchmark rerun",
+    "Complete three-mode model ingestion demo rerun",
+    "Clean-machine installation",
+    "Real mobile touch devices",
+    "Large-Wiki or concurrency stress",
+    "Chinese retrieval quality benchmark",
+    "PDF/OCR validation",
+    "Formal user studies"
+  ],
+  "limits": [
+    "ZIP excludes settings, history and trash; documents and SQLite are not a cross-file atomic snapshot",
+    "ZIP buffers in memory",
+    "Markdown filesystem writes and SQLite changes are not one transaction",
+    "Reading state is not factual verification; private notes are not model evidence"
+  ]
+}
