@@ -358,7 +358,7 @@ export function WikisTab() {
                 value={newPath}
                 onChange={(e) => setNewPath(e.target.value)}
                 placeholder={newTopic ? suggestedPath(newTopic) : "~/knowwaeve-…"}
-                className="font-mono text-[13px]"
+                className="font-mono text-sm"
               />
               <p className="mt-1 text-xs text-muted-foreground">
                 <code className="font-mono">~</code> 表示服务器上当前运行用户的主目录。
@@ -436,17 +436,17 @@ function WikiRow({
             {topic ?? <span className="text-muted-foreground italic">尚未设置主题</span>}
           </p>
           {isActive ? (
-            <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] uppercase tracking-wider text-primary">
+            <span className="rounded-full bg-primary/15 px-2 py-0.5 text-xs uppercase tracking-wider text-primary">
               当前
             </span>
           ) : null}
           {!exists ? (
-            <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] uppercase tracking-wider text-amber-700 dark:text-amber-300">
+            <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-xs uppercase tracking-wider text-amber-700 dark:text-amber-300">
               目录缺失
             </span>
           ) : null}
         </div>
-        <p className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground">{path}</p>
+        <p className="mt-0.5 truncate font-mono text-xs text-muted-foreground">{path}</p>
       </div>
       <div className="flex shrink-0 gap-2">
         {!isActive && exists ? (

@@ -411,7 +411,7 @@ function KeyStep({
           value={apiKey}
           onChange={(e) => setApiKey(e.target.value)}
           placeholder="sk-or-v1-..."
-          className="font-mono text-[13px] sm:flex-1"
+          className="font-mono text-sm sm:flex-1"
           autoComplete="off"
         />
         {/* Validate the newly entered key before storing it. */}
@@ -643,7 +643,7 @@ function MinimalOnboarding({ needsTopic, needsKey, initialTopic, wikiPath }: Pro
             : needsTopic
               ? "为这个 Wiki 填写一个主题，即可开始使用。"
               : "当前有功能使用 OpenRouter。请填写密钥，或在 Settings → Models 中切换到本地 Ollama。"}{" "}
-          Wiki 目录：<code className="break-all font-mono text-[13px]">{wikiPath}</code>。
+          Wiki 目录：<code className="break-all font-mono text-sm">{wikiPath}</code>。
         </p>
       </header>
 
@@ -690,7 +690,7 @@ function MinimalOnboarding({ needsTopic, needsKey, initialTopic, wikiPath }: Pro
                 value={key}
                 onChange={(e) => setKey(e.target.value)}
                 placeholder="sk-or-v1-..."
-                className="font-mono text-[13px] sm:flex-1"
+                className="font-mono text-sm sm:flex-1"
                 autoComplete="off"
               />
               <Button variant="outline" onClick={onTest} disabled={!key.trim() || testing}>

@@ -27,7 +27,7 @@ export async function Footer({ className = "" }: { className?: string }) {
   return (
     <footer
       className={
-        "shrink-0 border-t border-border/60 bg-background px-4 py-2 text-[10px] text-muted-foreground " +
+        "shrink-0 border-t border-border/60 bg-background px-4 py-2 text-meta text-muted-foreground " +
         className
       }
     >

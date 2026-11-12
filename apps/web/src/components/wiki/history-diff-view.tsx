@@ -89,8 +89,8 @@ export function HistoryDiffView({
                       : "border-border/70 bg-card hover:border-border",
                   )}
                 >
-                  <p className="font-mono text-[11px]">{b.timestamp.slice(0, 16)}</p>
-                  <p className="mt-0.5 text-[11px] text-muted-foreground">
+                  <p className="font-mono text-xs">{b.timestamp.slice(0, 16)}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
                     {relativeDate(b.timestamp)} · {formatSize(b.sizeBytes)}
                   </p>
                 </Link>
@@ -123,7 +123,7 @@ export function HistoryDiffView({
             没有差异。
           </p>
         ) : (
-          <pre className="overflow-x-auto rounded-md border border-border/70 bg-card p-3 font-mono text-[12px] leading-relaxed">
+          <pre className="overflow-x-auto rounded-md border border-border/70 bg-card p-3 font-mono text-xs leading-relaxed">
             {changes.map((c, i) => (
               <DiffChunk key={i} change={c} />
             ))}

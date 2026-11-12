@@ -251,7 +251,7 @@ export function SourcesView() {
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 disabled={busy}
-                className="min-h-[280px] font-mono text-[13px] leading-relaxed"
+                className="min-h-[280px] font-mono text-sm leading-relaxed"
               />
             </div>
           ) : null}
@@ -401,7 +401,7 @@ export function SourcesView() {
                 >
                   {discardBusy ? "正在放弃…" : "放弃建议"}
                 </Button>
-                <span className="text-[11px] text-amber-800/70 dark:text-amber-200/70">
+                <span className="text-xs text-amber-800/70 dark:text-amber-200/70">
                   确认后将创建或更新下方列出的页面。
                 </span>
               </div>
@@ -504,7 +504,7 @@ function IngestErrorBanner({ message }: { message: string }) {
         <summary className="cursor-pointer text-xs text-destructive/70 hover:text-destructive">
           查看错误详情
         </summary>
-        <pre className="mt-2 overflow-x-auto rounded bg-background/50 p-2 font-mono text-[11px] text-destructive/80">
+        <pre className="mt-2 overflow-x-auto rounded bg-background/50 p-2 font-mono text-xs text-destructive/80">
           {message}
         </pre>
       </details>

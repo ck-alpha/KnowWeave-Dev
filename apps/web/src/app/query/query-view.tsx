@@ -277,11 +277,11 @@ export function QueryView() {
                 void refreshIndexStatus();
               }}
               disabled={busy || indexBusy}
-              className="rounded-md border border-input bg-background px-2 py-1"
+              className="min-h-10 w-full min-w-0 max-w-full rounded-md border border-input bg-background px-2 py-1 sm:w-auto"
             >
               <option value="bm25">BM25 · 关键词</option>
               <option value="embedding">Embedding · 语义</option>
-              <option value="hybrid">Hybrid · 混合检索（RRF）</option>
+              <option value="hybrid">Hybrid · 混合检索</option>
             </select>
             <Button
               type="button"
@@ -331,7 +331,7 @@ export function QueryView() {
         <Textarea
           id="question"
           rows={3}
-          placeholder="输入你想从资料中了解的问题，例如：这些研究对 ALDH1 的预后价值有什么结论？"
+          placeholder="输入问题，例如：这些研究的结论有哪些分歧？"
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
           disabled={busy}

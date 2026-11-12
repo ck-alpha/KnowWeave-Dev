@@ -93,7 +93,7 @@ export function PageEditor({
           <Textarea
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            className="min-h-[calc(100vh-22rem)] flex-1 resize-none rounded-md border-border/70 bg-card p-5 font-mono text-[13px] leading-relaxed"
+            className="min-h-[calc(100vh-22rem)] flex-1 resize-none rounded-md border-border/70 bg-card p-5 font-mono text-sm leading-relaxed"
           />
         </div>
         <div className="flex flex-col">

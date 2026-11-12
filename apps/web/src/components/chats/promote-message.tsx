@@ -138,7 +138,7 @@ export function PromoteMessageDialog({ message, chatTitle, onClose }: Props) {
               <Textarea
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
-                className="min-h-[200px] font-mono text-[13px] leading-relaxed"
+                className="min-h-[200px] font-mono text-sm leading-relaxed"
               />
             </div>
             {error ? (

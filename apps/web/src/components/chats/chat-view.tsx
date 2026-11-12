@@ -244,7 +244,7 @@ export function ChatView({ chatId, initialChat, knownSlugs, folders }: Props) {
                   setEditingTitle(false);
                 }
               }}
-              className="h-8 text-base"
+              className="h-10 text-base"
             />
           ) : (
             <button
@@ -260,7 +260,7 @@ export function ChatView({ chatId, initialChat, knownSlugs, folders }: Props) {
               {chat.row.title}
             </button>
           )}
-          <p className="mt-0.5 text-[11px] uppercase tracking-wider text-muted-foreground">
+          <p className="mt-0.5 text-xs uppercase tracking-wider text-muted-foreground">
             {chat.row.folder} · {chat.messages.length} 条消息
           </p>
         </div>
@@ -375,7 +375,7 @@ export function ChatView({ chatId, initialChat, knownSlugs, folders }: Props) {
                   <div className="flex justify-end">
                     <div className="max-w-[80%] rounded-2xl rounded-tr-md bg-primary/10 px-4 py-3 text-sm text-foreground">
                       <MarkdownView content={m.content} knownSlugs={knownSlugs} />
-                      <p className="mt-1 text-right text-[10px] text-muted-foreground/70">
+                      <p className="mt-1 text-right text-xs text-muted-foreground/70">
                         {m.time}
                       </p>
                     </div>
@@ -385,7 +385,7 @@ export function ChatView({ chatId, initialChat, knownSlugs, folders }: Props) {
                     <article className="text-sm">
                       <MarkdownView content={m.content} knownSlugs={knownSlugs} />
                     </article>
-                    <div className="mt-1.5 flex items-center gap-3 text-[10px] text-muted-foreground/80">
+                    <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground/80">
                       <span>{m.time}</span>
                       <button
                         type="button"

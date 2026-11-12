@@ -176,16 +176,16 @@ function WikiCard({ wiki }: { wiki: WikiHealth }) {
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="truncate font-display text-h3 font-semibold">{title}</h2>
             {wiki.isActive ? (
-              <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
+              <span className="rounded-full bg-primary/15 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-primary">
                 Active
               </span>
             ) : null}
             {!wiki.exists ? (
-              <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-destructive">
+              <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-destructive">
                 Folder missing
               </span>
             ) : !wiki.initialized ? (
-              <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-300">
+              <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-300">
                 Not initialized
               </span>
             ) : null}
@@ -245,7 +245,7 @@ function RollupTile({ label, value }: { label: string; value: string }) {
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+      <dt className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
         {label}
       </dt>
       <dd className="mt-0.5 font-display text-h3 font-semibold tabular-nums">{value}</dd>

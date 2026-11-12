@@ -446,14 +446,14 @@ export function LintView() {
                     key={`${h.stamp}-${i}`}
                     className="flex flex-wrap items-baseline gap-2 text-muted-foreground"
                   >
-                    <span className="font-mono text-[11px]" title="北京时间">
+                    <span className="font-mono text-xs" title="北京时间">
                       {beijingLogStamp(h.stamp)}
                     </span>
                     <span className="text-foreground">{h.totalIssues} 个问题</span>
                     {h.health ? (
                       <span
                         className={cn(
-                          "rounded px-1.5 py-0 text-[10px] uppercase tracking-wider",
+                          "rounded px-1.5 py-0 text-xs uppercase tracking-wider",
                           HEALTH_STYLES[h.health],
                         )}
                       >
@@ -463,7 +463,7 @@ export function LintView() {
                     {delta !== null && delta !== 0 ? (
                       <span
                         className={
-                          "text-[11px] " +
+                          "text-xs " +
                           (delta < 0
                             ? "text-emerald-700 dark:text-emerald-300"
                             : "text-amber-700 dark:text-amber-300")
@@ -473,7 +473,7 @@ export function LintView() {
                         {Math.abs(delta)}（较上次）
                       </span>
                     ) : null}
-                    <span className="text-[11px] text-muted-foreground/70">
+                    <span className="text-xs text-muted-foreground/70">
                       ({relativeFromLogStamp(h.stamp)})
                     </span>
                   </li>
@@ -481,7 +481,7 @@ export function LintView() {
               })}
             </ul>
           )}
-          <div className="mt-3 border-t border-border/60 pt-2 text-[11px] text-muted-foreground">
+          <div className="mt-3 border-t border-border/60 pt-2 text-xs text-muted-foreground">
             <Link
               href="/log"
               className="break-words text-primary underline underline-offset-2 hover:text-primary/80"
@@ -634,13 +634,13 @@ export function LintView() {
                           <div className="flex flex-wrap items-baseline gap-2">
                             <span
                               className={cn(
-                                "rounded px-1.5 py-0.5 text-[10px] uppercase tracking-wider",
+                                "rounded px-1.5 py-0.5 text-xs uppercase tracking-wider",
                                 SEVERITY_STYLES[issue.severity],
                               )}
                             >
                               {SEVERITY_LABELS[issue.severity]}
                             </span>
-                            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                            <span className="text-xs uppercase tracking-wider text-muted-foreground">
                               {issue.source === "local" ? "规则检查" : "模型建议"}
                             </span>
                             {issue.affectedPages.length > 0 ? (

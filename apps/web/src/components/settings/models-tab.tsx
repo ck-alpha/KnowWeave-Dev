@@ -351,7 +351,7 @@ export function ModelsTab() {
                       value={models[slot].model}
                       onChange={(e) => updateSlot(slot, { model: e.target.value })}
                       placeholder={isOllama ? "例如：qwen3.8:27b" : "provider/model-id"}
-                      className="font-mono text-[13px] sm:flex-1"
+                      className="font-mono text-sm sm:flex-1"
                     />
                   ) : (
                     <span className="break-all font-mono text-xs text-muted-foreground">

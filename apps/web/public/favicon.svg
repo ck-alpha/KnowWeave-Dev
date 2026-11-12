@@ -1,21 +1,7 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<!--
-  KnowWeave favicon — just the [[ mark, square.
-  JetBrains Mono in primary red, no background.
-  Renders crisp at 16x16, 32x32, 64x64, any size browsers ask for.
--->
-<svg xmlns="http://www.w3.org/2000/svg"
-     viewBox="0 0 64 64"
-     width="64" height="64"
-     role="img"
-     aria-label="KnowWeave">
-  <defs>
-    <style>
-      .mark { font: 700 56px "JetBrains Mono", Menlo, monospace; fill: #991b1b; }
-      @media (prefers-color-scheme: dark) {
-        .mark { fill: #f87171; }
-      }
-    </style>
-  </defs>
-  <text class="mark" x="6" y="50">[[</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
+  <rect width="48" height="48" rx="9" fill="#721c2b"/>
+  <g stroke="#fff5e4" stroke-width="2.8" stroke-linecap="round">
+    <path d="M10 9v20c0 7 8 10 14 4l14-14M10 19l14 14c6 6 14 3 14-4V9"/>
+    <path d="M19 9v10m10-10v10M19 29v10m10-10v10"/>
+  </g>
 </svg>

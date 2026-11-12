@@ -250,7 +250,7 @@ export function VaultGraph({
     <div className="mx-auto w-full max-w-[1600px] px-4 py-5 sm:px-8 sm:py-7 lg:px-10">
       <header className="mb-4 flex flex-wrap items-end justify-between gap-3 sm:mb-6 sm:gap-5">
         <div>
-          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.24em] text-primary">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.24em] text-primary">
             Your knowledge, connected
           </p>
           <h1 className="font-display text-[1.75rem] font-semibold leading-tight tracking-tight sm:text-[2.5rem]">
@@ -309,7 +309,7 @@ export function VaultGraph({
               >
                 <Icon size={14} aria-hidden />
                 {label}
-                <span className="text-[10px] opacity-60">{id.toUpperCase()}</span>
+                <span className="text-xs opacity-60">{id.toUpperCase()}</span>
               </button>
             ))}
           </div>
@@ -361,7 +361,7 @@ export function VaultGraph({
           className="app-navigation flex items-center gap-1 overflow-x-auto whitespace-nowrap border-b border-border/70 px-3 py-2 sm:flex-wrap sm:gap-2 sm:px-5 sm:py-3"
           aria-label="按页面类型筛选"
         >
-          <span className="mr-1 hidden text-[10px] uppercase tracking-[0.16em] sm:inline text-muted-foreground">
+          <span className="mr-1 hidden text-xs uppercase tracking-[0.16em] sm:inline text-muted-foreground">
             Page types
           </span>
           <button
@@ -693,7 +693,7 @@ export function VaultGraph({
                   <Minus size={16} />
                 </button>
                 {mode === "2d" && (
-                  <span className="w-11 text-center font-mono text-[10px] tabular-nums text-muted-foreground">
+                  <span className="w-11 text-center font-mono text-xs tabular-nums text-muted-foreground">
                     {Math.round(camera.zoom * 100)}%
                   </span>
                 )}
@@ -735,7 +735,7 @@ export function VaultGraph({
             {selected ? (
               <>
                 <div className="mb-5 flex items-center justify-between">
-                  <span className="inline-flex items-center gap-2 text-[10px] uppercase tracking-[0.15em] text-muted-foreground">
+                  <span className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.15em] text-muted-foreground">
                     <span
                       className="h-2 w-2 rounded-full"
                       style={{ background: graphType(selected.group).color }}
@@ -762,7 +762,7 @@ export function VaultGraph({
                     {selected.tags.map((tag) => (
                       <span
                         key={tag}
-                        className="max-w-full break-words rounded-md bg-secondary px-2 py-1 text-[10px] text-muted-foreground"
+                        className="max-w-full break-words rounded-md bg-secondary px-2 py-1 text-xs text-muted-foreground"
                       >
                         #{tag}
                       </span>
@@ -817,10 +817,10 @@ export function VaultGraph({
                 >
                   <Network size={14} />
                   仅看相邻
-                  <span className="ml-auto font-mono text-[10px]">{localOnly ? "ON" : "OFF"}</span>
+                  <span className="ml-auto font-mono text-xs">{localOnly ? "ON" : "OFF"}</span>
                 </button>
                 <div className="mt-7 border-t border-border pt-5">
-                  <p className="mb-3 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                  <p className="mb-3 text-xs uppercase tracking-[0.18em] text-muted-foreground">
                     Connected pages
                     <span className="ml-2">{connected.length.toString().padStart(2, "0")}</span>
                   </p>
@@ -846,7 +846,7 @@ export function VaultGraph({
                               />
                               <span className="min-w-0 flex-1 break-words text-ui">
                                 {node.title}
-                                <span className="mt-1 block text-[10px] text-muted-foreground">
+                                <span className="mt-1 block text-xs text-muted-foreground">
                                   {outgoing && incoming
                                     ? "互相引用"
                                     : outgoing
@@ -872,7 +872,7 @@ export function VaultGraph({
               </>
             ) : (
               <>
-                <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
                   A closer look
                 </p>
                 <div className="mb-5 mt-6 flex h-12 w-12 items-center justify-center rounded-2xl border border-primary/10 bg-primary/5">
@@ -884,7 +884,7 @@ export function VaultGraph({
                 </p>
                 {entryNodes.length > 0 && (
                   <div className="mt-7 border-t border-border/70 pt-5">
-                    <p className="mb-3 flex items-center justify-between text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+                    <p className="mb-3 flex items-center justify-between text-xs uppercase tracking-[0.16em] text-muted-foreground">
                       Start exploring<span className="tracking-normal">按关联数</span>
                     </p>
                     <ul className="space-y-1">
@@ -909,7 +909,7 @@ export function VaultGraph({
                               <span className="line-clamp-2 text-ui leading-relaxed">
                                 {node.title}
                               </span>
-                              <span className="mt-1 block text-[10px] text-muted-foreground">
+                              <span className="mt-1 block text-xs text-muted-foreground">
                                 {graphType(node.group).label} · {node.degree} 条关联
                               </span>
                             </span>
@@ -923,7 +923,7 @@ export function VaultGraph({
                     </ul>
                   </div>
                 )}
-                <p className="mt-8 border-t border-border pt-4 text-[11px] leading-relaxed text-muted-foreground">
+                <p className="mt-8 border-t border-border pt-4 text-xs leading-relaxed text-muted-foreground">
                   颜色区分页面类型，大小表示关联数量。连线来自实际页面引用，空间距离不代表语义相似度。
                 </p>
               </>
@@ -931,7 +931,7 @@ export function VaultGraph({
           </aside>
         </div>
       </div>
-      <p className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[10px] text-muted-foreground">
+      <p className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
         <span>
           KNOWWEAVE <span className="mx-2 opacity-40">/</span> Connected knowledge, clearer
           thinking.

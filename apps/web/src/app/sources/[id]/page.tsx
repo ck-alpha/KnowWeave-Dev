@@ -112,7 +112,7 @@ export default async function SourceDetailPage({
           eyebrow="Source"
           title={title}
           description={
-            <span className="font-mono text-[13px] break-all">raw/{source.filename}</span>
+            <span className="font-mono text-sm break-all">raw/{source.filename}</span>
           }
           actions={
             <Link
@@ -126,15 +126,15 @@ export default async function SourceDetailPage({
 
         {/* Metadata strip — format, dates, size, original URL if any. The
             things you'd want at a glance before reading the body. */}
-        <dl className="mb-6 grid grid-cols-2 gap-x-6 gap-y-2 rounded-md border border-border/70 bg-card p-4 text-sm sm:grid-cols-4">
+        <dl className="mb-6 grid grid-cols-2 gap-x-6 gap-y-2 [&>div]:min-w-0 [&_dd]:break-words rounded-md border border-border/70 bg-card p-4 text-sm sm:grid-cols-4">
           <div>
-            <dt className="text-[10px] uppercase tracking-wider text-muted-foreground">
+            <dt className="text-xs uppercase tracking-wider text-muted-foreground">
               格式
             </dt>
             <dd className="mt-0.5 font-medium">{formatLabel}</dd>
           </div>
           <div>
-            <dt className="text-[10px] uppercase tracking-wider text-muted-foreground">
+            <dt className="text-xs uppercase tracking-wider text-muted-foreground">
               大小
             </dt>
             <dd className="mt-0.5 font-medium tabular-nums">
@@ -142,30 +142,30 @@ export default async function SourceDetailPage({
             </dd>
           </div>
           <div>
-            <dt className="text-[10px] uppercase tracking-wider text-muted-foreground">
+            <dt className="text-xs uppercase tracking-wider text-muted-foreground">
               添加时间（北京时间）
             </dt>
-            <dd className="mt-0.5 font-mono text-[12px]">{formatDate(source.added_at)}</dd>
+            <dd className="mt-0.5 font-mono text-xs">{formatDate(source.added_at)}</dd>
           </div>
           <div>
-            <dt className="text-[10px] uppercase tracking-wider text-muted-foreground">
+            <dt className="text-xs uppercase tracking-wider text-muted-foreground">
               整理时间（北京时间）
             </dt>
-            <dd className="mt-0.5 font-mono text-[12px]">
+            <dd className="mt-0.5 font-mono text-xs">
               {source.ingested_at ? formatDate(source.ingested_at) : "待处理"}
             </dd>
           </div>
           {source.original_name ? (
             <div className="col-span-2">
-              <dt className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              <dt className="text-xs uppercase tracking-wider text-muted-foreground">
                 原始文件名
               </dt>
-              <dd className="mt-0.5 font-mono text-[12px]">{source.original_name}</dd>
+              <dd className="mt-0.5 break-all font-mono text-xs">{source.original_name}</dd>
             </div>
           ) : null}
           {source.url ? (
             <div className="col-span-2">
-              <dt className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              <dt className="text-xs uppercase tracking-wider text-muted-foreground">
                 来源 URL
               </dt>
               <dd className="mt-0.5">
@@ -173,7 +173,7 @@ export default async function SourceDetailPage({
                   href={source.url}
                   target="_blank"
                   rel="noreferrer"
-                  className="break-all font-mono text-[12px] text-primary underline underline-offset-2"
+                  className="break-all font-mono text-xs text-primary underline underline-offset-2"
                 >
                   {source.url}
                 </a>

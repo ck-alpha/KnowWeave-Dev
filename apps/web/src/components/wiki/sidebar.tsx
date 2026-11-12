@@ -80,7 +80,7 @@ export function WikiSidebar() {
           aria-label="查找 Wiki 页面"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          className="h-8 border-border/70 bg-background/60 text-ui"
+          className="h-10 border-border/70 bg-background/60 text-base"
         />
       </div>
 

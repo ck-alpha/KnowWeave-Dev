@@ -109,7 +109,7 @@ export function WikiSwitcher() {
         type="button"
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          "group flex max-w-[14rem] items-center gap-1.5 rounded-md border border-border/60 bg-secondary/40 px-2 py-1 text-[12px] text-foreground/80 transition-colors hover:border-border hover:bg-secondary/60 hover:text-foreground",
+          "group flex max-w-[14rem] items-center gap-1.5 rounded-md border border-border/60 bg-secondary/40 px-2 py-1 text-xs text-foreground/80 transition-colors hover:border-border hover:bg-secondary/60 hover:text-foreground",
           open && "border-border bg-secondary/60",
         )}
         aria-haspopup="menu"
@@ -131,16 +131,16 @@ export function WikiSwitcher() {
           className="absolute left-0 top-full z-50 mt-1.5 w-[280px] overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-lg"
         >
           <div className="border-b border-border px-3 py-2">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">当前 Wiki</p>
+            <p className="text-xs uppercase tracking-wider text-muted-foreground">当前 Wiki</p>
             <p className="mt-0.5 truncate text-sm font-medium">{chipLabel}</p>
-            <p className="mt-0.5 truncate font-mono text-[10px] text-muted-foreground">
+            <p className="mt-0.5 truncate font-mono text-xs text-muted-foreground">
               {data?.active.path}
             </p>
           </div>
 
           {others.length > 0 ? (
             <div className="border-b border-border py-1">
-              <p className="px-3 pb-1 pt-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+              <p className="px-3 pb-1 pt-1.5 text-xs uppercase tracking-wider text-muted-foreground">
                 切换到
               </p>
               <ul>
@@ -156,7 +156,7 @@ export function WikiSwitcher() {
                       >
                         <span className="truncate">{w.topic ?? friendlyFolderName(w.path)}</span>
                         {isLoading ? (
-                          <span className="shrink-0 text-[10px] text-muted-foreground">
+                          <span className="shrink-0 text-xs text-muted-foreground">
                             切换中…
                           </span>
                         ) : null}

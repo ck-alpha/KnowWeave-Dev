@@ -459,7 +459,7 @@ export function SpatialGraph({
         disabled={reducedMotion}
         onClick={() => setOrbiting((value) => !value)}
         title={reducedMotion ? "已遵循系统的减少动态效果设置" : "拖动图谱或选择节点会暂停环绕"}
-        className="absolute right-4 top-[4.5rem] z-10 inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-card/85 px-3 py-2 text-[11px] text-muted-foreground shadow-sm backdrop-blur-md transition-colors hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-45 sm:right-5 sm:top-[4.75rem]"
+        className="absolute right-4 top-[4.5rem] z-10 inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-card/85 px-3 py-2 text-xs text-muted-foreground shadow-sm backdrop-blur-md transition-colors hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-45 sm:right-5 sm:top-[4.75rem]"
       >
         {orbiting ? <Pause size={13} aria-hidden /> : <Orbit size={13} aria-hidden />}
         {orbiting ? "暂停环绕" : "缓慢环绕"}

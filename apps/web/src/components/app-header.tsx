@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 
 import { ThemeToggle } from "@/components/theme-toggle";
+import { WeaveMark } from "@/components/weave-mark";
 import { WikiSwitcher } from "@/components/wiki-switcher";
 import { cn } from "@/lib/utils";
 
@@ -82,22 +83,17 @@ export function AppHeader() {
   }, [menuOpen]);
 
   return (
-    <header className="relative z-30 shrink-0 border-b border-border/70 bg-background/95 backdrop-blur">
-      <div className="flex h-[60px] min-w-0 items-center gap-3 px-4 sm:px-6 lg:px-8">
+    <header className="app-masthead relative z-30 shrink-0 border-b border-border/80 bg-background">
+      <div className="flex h-[66px] min-w-0 items-center gap-3 px-4 sm:px-6 lg:px-8">
         <Link
           href="/"
           className="group flex shrink-0 items-center gap-2.5"
           aria-label="KnowWeave 首页"
         >
-          <span
-            aria-hidden
-            className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary font-mono text-xs font-semibold leading-none tracking-[-0.12em] text-primary-foreground"
-          >
-            [[ ]]
+          <span className="brand-mark">
+            <WeaveMark />
           </span>
-          <span className="font-display text-[19px] font-semibold tracking-tight">
-            KnowWeave<span className="text-primary">.</span>
-          </span>
+          <span className="font-display text-[22px] font-semibold tracking-tight">KnowWeave</span>
         </Link>
         <span className="mx-1 hidden h-5 w-px bg-border sm:block" aria-hidden />
         <div className="hidden min-w-0 sm:block">
@@ -108,13 +104,13 @@ export function AppHeader() {
           <button
             type="button"
             onClick={() => window.dispatchEvent(new Event("knowweave:open-search"))}
-            className="flex h-9 items-center gap-2 rounded-lg border border-transparent px-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground sm:min-w-[190px] sm:border-border/70 sm:bg-card/70 sm:px-3"
+            className="flex h-10 items-center gap-2 rounded-lg border border-transparent px-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground sm:min-w-[220px] sm:border-border/70 sm:bg-card/70 sm:px-3"
             aria-label="搜索页面、会话或功能"
             title="搜索 · Ctrl / ⌘ K"
           >
             <Search className="h-4 w-4" aria-hidden />
-            <span className="hidden text-xs sm:inline">搜索知识与功能</span>
-            <kbd className="ml-auto hidden rounded border border-border/70 px-1 py-0.5 font-sans text-[10px] leading-none text-muted-foreground sm:inline">
+            <span className="hidden text-ui sm:inline">搜索知识与功能</span>
+            <kbd className="ml-auto hidden rounded border border-border/70 px-1 py-0.5 font-sans text-meta leading-none text-muted-foreground sm:inline">
               ⌘ K
             </kbd>
           </button>
@@ -167,8 +163,8 @@ export function AppHeader() {
                       isActive(item.href) && "bg-primary/5 text-primary",
                     )}
                   >
-                    <span className="text-xs font-medium">{item.label}</span>
-                    <span className="text-[11px] text-muted-foreground">{item.hint}</span>
+                    <span className="text-ui font-medium">{item.label}</span>
+                    <span className="text-xs text-muted-foreground">{item.hint}</span>
                   </Link>
                 ))}
               </nav>
@@ -179,7 +175,7 @@ export function AppHeader() {
       <nav
         ref={navRef}
         aria-label="主导航"
-        className="app-navigation flex items-center gap-1 overflow-x-auto px-3 sm:gap-2 sm:px-6 lg:px-8"
+        className="app-navigation flex items-center gap-1 overflow-x-auto border-t border-border/50 px-3 sm:gap-2 sm:px-6 lg:px-8"
       >
         {PRIMARY_NAV.map((item) => {
           const Icon = item.icon;
@@ -193,9 +189,7 @@ export function AppHeader() {
             >
               <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
               <span>{item.label}</span>
-              <span className="hidden text-[10px] text-muted-foreground xl:inline">
-                {item.hint}
-              </span>
+              <span className="hidden text-xs text-muted-foreground 2xl:inline">{item.hint}</span>
             </Link>
           );
         })}

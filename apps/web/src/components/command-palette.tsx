@@ -524,7 +524,7 @@ export function CommandPalette() {
           ) : (
             Array.from(grouped.entries()).map(([group, list]) => (
               <li key={group}>
-                <div className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <div className="px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   {GROUP_LABELS[group]}
                 </div>
                 <ul>
@@ -563,7 +563,7 @@ export function CommandPalette() {
             {error}
           </p>
         )}
-        <div className="border-t border-border px-3 py-1.5 text-[11px] text-muted-foreground">
+        <div className="border-t border-border px-3 py-1.5 text-xs text-muted-foreground">
           ↑↓ 选择 · Enter 打开 · Esc 关闭 · Cmd/Ctrl + K 唤起
         </div>
       </div>

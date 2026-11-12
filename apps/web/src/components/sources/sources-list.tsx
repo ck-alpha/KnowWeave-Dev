@@ -308,7 +308,7 @@ export function SourcesList({ refreshNonce, onPreview, onBusyChange, disabled }:
           const isPending = s.ingestedAt === null;
           const isBusy = busyId === s.id;
           return (
-            <li key={s.id} className="flex flex-wrap items-baseline justify-between gap-2 py-2.5">
+            <li key={s.id} className="flex flex-col items-stretch gap-3 py-3 sm:flex-row sm:flex-wrap sm:items-baseline sm:justify-between">
               <div className="min-w-0 flex-1">
                 {/* Title area is a link to /sources/[id] — buttons sit
                     outside the link so clicks don't bubble. */}
@@ -319,7 +319,7 @@ export function SourcesList({ refreshNonce, onPreview, onBusyChange, disabled }:
                 >
                   <p className="truncate text-sm font-medium">{label}</p>
                 </Link>
-                <p className="mt-0.5 text-[11px] text-muted-foreground">
+                <p className="mt-0.5 text-xs text-muted-foreground">
                   <span className="font-mono">{formatBadge}</span>
                   {" · "}
                   {formatSize(s.sizeBytes)}
@@ -327,7 +327,7 @@ export function SourcesList({ refreshNonce, onPreview, onBusyChange, disabled }:
                   {relativeDate(s.addedAt)}
                 </p>
               </div>
-              <div className="flex shrink-0 items-center gap-2 text-[11px]">
+              <div className="flex shrink-0 items-center gap-2 text-xs">
                 {isPending ? (
                   <>
                     <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-amber-700 dark:text-amber-300">

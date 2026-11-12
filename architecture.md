@@ -1,6 +1,6 @@
 # KnowWeave 项目架构
 
-最后核对：2026-11-12（Asia/Shanghai，完成知识工作台与 Graph 二维/三维视觉、局部关联探索和浏览器验收入口的源码核对）。当前实现范围：Round 01–03、知识工作台与图谱呈现升级；本轮验证状态见 [PROGRESS](docs/PROGRESS.md)。
+最后核对：2026-11-12（Asia/Shanghai，完成研究札记首页、共享字号与控件可读性、首页英文类型标签、移动侧栏焦点行为的源码核对）。当前实现范围：Round 01–03、知识工作台、图谱呈现与研究札记视觉升级；本轮验证状态见 [PROGRESS](docs/PROGRESS.md)。
 本文件是当前架构的统一入口；模块、调用链、接口、数据格式、检索/模型协议或部署入口变化时，随代码在同一次提交中更新核对日期。当前名称 **KnowWeave**；既有 `KNOWWAEVE_*` 环境变量和内部包名为兼容保留。
 
 ## 技术栈与入口
@@ -73,9 +73,15 @@ UI 的 `[[slug]]` 跳到 Wiki，再经 Sources 链接进入原文；读取 API �
 
 ### 馆藏、阅读与回答复用
 
-首页是运行时读取的知识工作台：`listPageRows/listSourceRows/listChatRows/getWorkspaceSnapshot` 提供真实近期更新、待处理来源和阅读进度，不调用模型。双层导航保留现有各路由，新增 Workspace 与可点击搜索入口；主题继续复用现有本地偏好。共用暖纸/深红视觉、响应式布局、键盘焦点和减少动效设置。入口不展示 Wiki 绝对路径，首次引导条件保持不变。
+首页是运行时读取的知识工作台：`listPageRows/listSourceRows/listChatRows/getWorkspaceSnapshot` 提供真实近期更新、待处理来源和阅读进度，不调用模型。深红「阅读札记」按在读页面、收藏页面、最近页面的优先级选择一个真实页面；各组沿用 workspace 按个人记录更新时间（无记录则为页面更新时间）倒序、slug 决胜的顺序，展示其已有专题、标题和个人笔记。空库显示添加资料入口；近期页面列表仍独立按页面更新时间排序。双层导航保留各路由、Workspace 与可点击搜索入口，首次引导条件不变，入口不展示 Wiki 绝对路径。
 
-`/wiki` 从 `listPageRows` 与 `index.md` 的摘要构建馆藏；GET 参数 `q/type/tag/sort` 支持标题、slug、标签和目录摘要搜索、组合筛选，以及最近/最早/标题排序。重复查询参数先归一为单个值。该目录查找不是正文全文或语义检索。新建笔记沿用 `POST /api/pages`，不调用模型；空库与删除最后一页均保留新建/撤销入口。
+[globals.css](apps/web/src/app/globals.css) 维护绛红、暖纸、象牙与墨褐的语义色值和深浅双主题，主题继续复用现有本地偏好；标题与长文使用本地衬线/宋体字体栈，操作区使用本地无衬线字体栈，不请求外部字体。[WeaveMark](apps/web/src/components/weave-mark.tsx) 提供导航品牌的交织 SVG 标记；首页交织线条亦由 SVG 绘制。[home.module.css](apps/web/src/app/home.module.css)、[library.module.css](apps/web/src/app/wiki/library.module.css) 与 [workspace.module.css](apps/web/src/app/workspace/workspace.module.css) 分别约束首页札记、馆藏索引行、专题书签和连续阅读列表样式，避免跨页选择器覆盖。桌面首页左右分栏、窄屏顺序堆叠，沿用共享键盘焦点与减少动效规则。此次呈现变化不修改接口、存储、检索或模型协议。
+
+共享字号由 [tailwind.config.ts](apps/web/tailwind.config.ts) 统一：`text-xs/text-caption` 为 14px、`text-sm/text-ui` 为 15px、正文说明和普通输入为 16px、`text-body` 与 Markdown 阅读为 18px（均用 rem 定义，按默认根字号换算）。页脚与快捷键提示为 13px；首页、馆藏和专题 CSS modules 沿用对应尺度，窄屏通过换行和控件增高容纳文字，不再缩小辅助字号。Graph 画布中与标签避让绑定的绘制字号保持原尺寸，普通工具栏与详情使用共享尺度。首页「最近更新的知识」类型标签显示 `Entity / Concept / Source / Comparison / Overview`；仅此处改为英文，类型枚举与其他页面语言不变。
+
+Wiki 与 Chats 共用 [SidebarLayoutWrapper](apps/web/src/components/sidebar-layout-wrapper.tsx)：窄屏关闭侧栏时同时隐藏可见性，使隐藏链接不能获得键盘焦点；打开时聚焦首个可用控件，Escape 或遮罩关闭后返回触发按钮，路由切换关闭时处理侧栏内遗留焦点。桌面侧栏继续常显；切换至桌面断点会清除移动展开状态。
+
+`/wiki` 从 `listPageRows` 与 `index.md` 的摘要构建馆藏，以类型签条、标题摘要、标签和更新日期组成索引行；`/workspace` 用专题书签选择、状态筛选横条和连续阅读条目呈现已有专题与个人笔记。馆藏 GET 参数 `q/type/tag/sort` 支持标题、slug、标签和目录摘要搜索、组合筛选，以及最近/最早/标题排序。重复查询参数先归一为单个值。该目录查找不是正文全文或语义检索。新建笔记沿用 `POST /api/pages`，不调用模型；空库与删除最后一页均保留新建/撤销入口。
 
 阅读页集成个人状态组件，根据已渲染 Markdown 标题生成页内目录；阅读时间分别粗估中文字数与字母词数，不作为实际阅读计时。单页 Markdown 下载包含正文、类型/日期/标签和已知来源 ID，不包含原文文件及个人笔记。Wiki 详情和侧栏按 Wiki 路径的 SHA256 key 重挂载，避免同 slug 切库后的旧状态残留。命令面板支持 `knowweave:open-search` 事件与 Cmd/Ctrl+K，渲染顺序和键盘选择统一，新增 Workspace 入口。
 
@@ -147,6 +153,8 @@ Round 02 历史检索结果与完整命令见 [Round 02 验收](docs/ROUND_02_AC
 
 | 日期（Asia/Shanghai） | 变更 |
 | --- | --- |
+| 2026-11-12 | 统一14px标签、15px操作、16px说明/输入和18px阅读尺度，治理显式小字号并同步控件/窄屏排版；首页近期页面类型改英文，数据与接口不变。 |
+| 2026-11-12 | 首页改为真实阅读札记，按在读/收藏/最近选择页面；馆藏与专题采用索引布局，新增独立 CSS modules 与交织 SVG 品牌，统一本地字体和双主题，补齐移动侧栏隐藏焦点及 Escape 关闭行为；接口、存储、检索和模型协议不变。 |
 | 2026-11-12 | Graph 新增一跳诱导子图、共享标签开关、原生全屏及实际关联排序入口；升级 SVG/Three.js 呈现、屏幕标签四向避让、主题光照、显式环绕和减少动效，新增人工图谱样例与只读浏览器验收入口，无后端协议或依赖变化。 |
 | 2026-11-12 | 首页改为真实知识工作台，双层导航与响应式主题统一；新增人工样例生成与真实浏览器验收脚本，沿用本地部署。 |
 | 2026-11-12 | Wiki 馆藏组合筛选、新建笔记、阅读目录/导出；Sources 筛选；Query 模板与带引用导出；命令面板与切库状态修复。 |

@@ -140,16 +140,21 @@ export function PageView(props: Props) {
       {!editing ? (
         <header className="mb-6 border-b border-border pb-6">
           <div>
-            <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-primary">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-primary">
               {props.type} / Knowledge note
             </p>
             <h1 className="break-words font-display text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">
               {props.title}
             </h1>
-            <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-              更新于 {props.updated} · 约 {readingMinutes(props.content)} 分钟阅读
-              {props.tags.length > 0 ? ` · ${props.tags.map((tag) => `#${tag}`).join("  ")}` : null}
-            </p>
+            <div className="mt-3 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-xs leading-relaxed text-muted-foreground">
+              <span className="max-w-full break-words">更新于 {props.updated}</span>
+              <span className="whitespace-nowrap">约 {readingMinutes(props.content)} 分钟阅读</span>
+              {props.tags.map((tag) => (
+                <span key={tag} className="max-w-full flex-none break-all">
+                  #{tag}
+                </span>
+              ))}
+            </div>
           </div>
           <div className="mt-5 flex flex-wrap gap-2">
             <Button variant="outline" onClick={() => setEditing(true)}>
@@ -276,7 +281,7 @@ export function PageView(props: Props) {
                       href={`/sources/${s.id}`}
                       className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-2.5 py-1 text-xs hover:border-primary/40 hover:bg-accent"
                     >
-                      <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                      <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
                         {s.format}
                       </span>
                       <span>{s.title}</span>
@@ -375,13 +380,13 @@ export function PageView(props: Props) {
                 页面会移到回收站并保留 30 天。删除后也可以点击 <strong>撤销</strong> 立即恢复。
               </p>
               {backlinkCount !== null && backlinkCount > 0 ? (
-                <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-[13px] text-amber-800 dark:text-amber-200">
+                <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-200">
                   <p>
                     还有 <strong>{backlinkCount} 个页面</strong>{" "}
                     链接到这里。删除后这些链接会失效，你可以在 Lint 中检查并修复。
                   </p>
                   {props.backlinks.length > 0 ? (
-                    <ul className="mt-2 list-disc pl-5 text-[12px]">
+                    <ul className="mt-2 list-disc pl-5 text-xs">
                       {props.backlinks.slice(0, 3).map((b) => (
                         <li key={b.slug}>{b.title}</li>
                       ))}

@@ -42,18 +42,16 @@ export function PageHeader({
   actions?: React.ReactNode;
 }) {
   return (
-    <header className="mb-7 flex flex-col gap-4 border-b border-border/60 pb-6 sm:flex-row sm:items-end sm:justify-between">
+    <header className="mb-7 flex flex-col gap-4 border-b border-border pb-6 sm:flex-row sm:items-end sm:justify-between">
       <div className="min-w-0">
-        {eyebrow ? (
-          <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-            {eyebrow}
-          </p>
-        ) : null}
-        <h1 className="mt-2 font-display text-[28px] font-semibold leading-tight tracking-tight sm:text-h1">
+        {eyebrow ? <p className="text-xs text-muted-foreground">{eyebrow}</p> : null}
+        <h1 className="mt-2 font-display text-[30px] font-medium leading-tight tracking-tight sm:text-[36px]">
           {title}
         </h1>
         {description ? (
-          <p className="mt-2 max-w-2xl text-ui text-muted-foreground">{description}</p>
+          <p className="mt-3 max-w-2xl text-base leading-relaxed text-muted-foreground">
+            {description}
+          </p>
         ) : null}
       </div>
       {actions ? (
@@ -76,7 +74,7 @@ export function Card({
   return (
     <div
       className={cn(
-        "rounded-xl border border-border/70 bg-card text-card-foreground shadow-[0_2px_8px_-6px_hsl(var(--foreground)/0.12)]",
+        "rounded-lg border border-border/80 bg-card text-card-foreground",
         pad,
         className,
       )}

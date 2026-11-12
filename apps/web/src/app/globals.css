@@ -2,93 +2,78 @@
 @tailwind components;
 @tailwind utilities;
 
-/*
-  Palette — paper-inspired warm cream (light) and warm dark.
-  Hex → HSL conversions kept in comments so future tweaks stay grounded.
-
-  Light:
-    bg:        #faf7f2  cream paper
-    secondary: #f3ede2  slightly darker for sidebars
-    elevated:  #ffffff  cards, modals, popovers
-    text:      #1c1917  warm near-black
-    muted-fg:  #57534e  warm gray
-    border:    #d6d3d1
-    accent:    #991b1b  deep oxblood red, used sparingly
-
-  Dark:
-    bg:        #1c1917
-    secondary: #292524
-    elevated:  #44403c
-    text:      #f5f5f4
-    muted-fg:  #a8a29e
-    border:    #3a3530
-    accent:    #f87171  warm coral, against the dark warm-brown bg
-*/
-
+/* KnowWeave: oxblood bookcloth, ivory leaves, and warm ink.
+   Theme values are semantic; the reading cover keeps its bookcloth color. */
 @layer base {
   :root {
+    color-scheme: light;
     /* System fonts keep builds and the browser independent of font services. */
     --font-sans:
-      ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
-      "Microsoft YaHei", sans-serif;
-    --font-serif: ui-serif, Georgia, "Times New Roman", "Songti SC", "Noto Serif CJK SC", serif;
-    --font-display: ui-serif, Georgia, "Times New Roman", "Songti SC", "Noto Serif CJK SC", serif;
+      "Aptos", "Segoe UI", "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", system-ui,
+      sans-serif;
+    --font-serif:
+      "Iowan Old Style", "Palatino Linotype", "Book Antiqua", "Songti SC", "Noto Serif CJK SC",
+      "SimSun", Georgia, serif;
+    --font-display:
+      "Iowan Old Style", "Palatino Linotype", "Book Antiqua", "Songti SC", "Noto Serif CJK SC",
+      "SimSun", Georgia, serif;
     --font-mono: ui-monospace, "Cascadia Code", "Segoe UI Mono", Menlo, Consolas, monospace;
 
-    --background: 40 33% 97%; /* #faf7f2 */
-    --foreground: 24 10% 10%; /* #1c1917 */
+    --background: 40 42.9% 93.1%; /* #f5f0e6 */
+    --foreground: 27.7 15.7% 16.3%; /* #302923 */
 
-    --elevated: 0 0% 100%; /* #ffffff */
-    --card: 0 0% 100%;
-    --card-foreground: 24 10% 10%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 24 10% 10%;
+    --elevated: 42 100% 98%; /* #fffcf5 */
+    --card: 42 100% 98%; /* #fffcf5 */
+    --card-foreground: 27.7 15.7% 16.3%; /* #302923 */
+    --popover: 42 100% 98%; /* #fffcf5 */
+    --popover-foreground: 27.7 15.7% 16.3%; /* #302923 */
 
-    --secondary: 36 30% 92%; /* #f3ede2 */
-    --secondary-foreground: 24 10% 10%;
-    --muted: 36 30% 92%;
-    --muted-foreground: 24 6% 35%; /* #57534e */
+    --secondary: 39.1 37.7% 88%; /* #ece4d5 */
+    --secondary-foreground: 27.7 15.7% 16.3%; /* #302923 */
+    --muted: 39.1 37.7% 88%; /* #ece4d5 */
+    --muted-foreground: 27.5 12.5% 37.6%; /* #6c5f54; readable on paper and hover surfaces */
 
-    --primary: 0 70% 35%; /* #991b1b deep red */
-    --primary-foreground: 40 33% 97%;
-    --accent: 36 30% 89%; /* subtle warm hover */
-    --accent-foreground: 24 10% 10%;
-    --accent-soft: 0 84% 94%; /* #fee2e2 — soft red wash for chips */
-    --destructive: 0 70% 35%;
-    --destructive-foreground: 40 33% 97%;
+    --primary: 349.5 60.6% 27.8%; /* #721c2b */
+    --primary-foreground: 42 100% 98%; /* #fffcf5 */
+    --accent: 36.9 36.1% 85.9%; /* #e8dece */
+    --accent-foreground: 27.7 15.7% 16.3%; /* #302923 */
+    --accent-soft: 6.3 42.2% 91.2%; /* #f2e1df */
+    --destructive: 0 70% 35.3%; /* #991b1b */
+    --destructive-foreground: 42 100% 98%; /* #fffcf5 */
 
-    --border: 24 8% 84%; /* #d6d3d1 */
-    --input: 24 8% 84%;
-    --ring: 0 70% 35%;
+    --border: 36 24.3% 79.8%; /* #d8cebf */
+    --input: 35.2 20.6% 72.4%; /* #c7bbaa */
+    --ring: 349.5 60.6% 27.8%; /* #721c2b */
     --radius: 0.5rem;
   }
 
   .dark {
-    --background: 24 10% 10%; /* #1c1917 */
-    --foreground: 36 14% 96%; /* #f5f5f4 */
+    color-scheme: dark;
+    --background: 20 10% 11.8%; /* #211d1b */
+    --foreground: 35.5 47.8% 91%; /* #f3eadd */
 
-    --elevated: 24 8% 16%; /* slightly raised surface */
-    --card: 24 8% 13%;
-    --card-foreground: 36 14% 96%;
-    --popover: 24 8% 13%;
-    --popover-foreground: 36 14% 96%;
+    --elevated: 21.8 11.8% 18.2%; /* #342d29 */
+    --card: 20 11.7% 15.1%; /* #2b2522 */
+    --card-foreground: 35.5 47.8% 91%; /* #f3eadd */
+    --popover: 20 11.7% 15.1%; /* #2b2522 */
+    --popover-foreground: 35.5 47.8% 91%; /* #f3eadd */
 
-    --secondary: 24 8% 14%; /* #292524 */
-    --secondary-foreground: 36 14% 96%;
-    --muted: 24 8% 14%;
-    --muted-foreground: 24 6% 62%; /* #a8a29e */
+    --secondary: 20 14.3% 16.5%; /* #302824 */
+    --secondary-foreground: 35.5 47.8% 91%; /* #f3eadd */
+    --muted: 20 14.3% 16.5%; /* #302824 */
+    --muted-foreground: 30.9 19.8% 67.3%; /* #bcac9b */
 
-    --primary: 0 84% 70%; /* #f87171 coral */
-    --primary-foreground: 24 10% 10%;
-    --accent: 24 8% 18%;
-    --accent-foreground: 36 14% 96%;
-    --accent-soft: 0 56% 15%; /* #450a0a — deep red wash */
-    --destructive: 0 84% 70%;
-    --destructive-foreground: 24 10% 10%;
+    --primary: 357.4 57% 76.3%; /* #e5a0a3 */
+    --primary-foreground: 347 29.9% 15.1%; /* #321b20 */
+    --accent: 14.1 16.2% 20.6%; /* #3d302c */
+    --accent-foreground: 35.5 47.8% 91%; /* #f3eadd */
+    --accent-soft: 345.5 29.2% 22.2%; /* #492830 */
+    --destructive: 3.5 73.9% 77.5%; /* #f0a09b */
+    --destructive-foreground: 347 29.9% 15.1%; /* #321b20 */
 
-    --border: 24 6% 20%; /* #3a3530 */
-    --input: 24 6% 20%;
-    --ring: 0 84% 70%;
+    --border: 22.9 16.8% 24.5%; /* #493c34 */
+    --input: 22.8 17.2% 33.1%; /* #635146 */
+    --ring: 357.4 57% 76.3%; /* #e5a0a3 */
   }
 }
 
@@ -101,6 +86,7 @@
   }
   body {
     @apply bg-background text-foreground font-sans;
+    line-height: 1.6;
     font-feature-settings:
       "rlig" 1,
       "calt" 1,
@@ -123,20 +109,9 @@
   }
 }
 
-/* Subtle paper-grain accent on the light theme. Tiny, almost imperceptible —
-   gives the background warmth that solid color alone misses. Skipped in dark
-   mode to avoid muddy noise on the deep warm-brown bg. */
-:root body {
-  background-image: radial-gradient(hsl(var(--foreground) / 0.015) 1px, transparent 1px);
-  background-size: 24px 24px;
-}
-.dark body {
-  background-image: none;
-}
-
 /* shadcn prose tweaks so wiki body uses the serif and proper rhythm. */
 .prose {
-  @apply font-serif;
+  @apply font-serif text-body;
 }
 .prose code {
   @apply font-mono;
@@ -154,14 +129,21 @@
   @apply absolute left-0 right-0 -bottom-[5px] h-px bg-primary;
 }
 
-/* Shared desk surfaces stay quiet so the user's knowledge remains the focus. */
-.desk-hero {
-  background-image: radial-gradient(
-    ellipse at 95% 0%,
-    hsl(var(--primary) / 0.055),
-    transparent 65%
-  );
-  box-shadow: 0 4px 24px -20px hsl(var(--foreground) / 0.2);
+/* Quiet paper surfaces; the home reading cover carries the visual identity. */
+.app-masthead {
+  box-shadow: inset 0 3px 0 hsl(var(--primary));
+}
+.brand-mark {
+  display: flex;
+  width: 33px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  color: hsl(var(--primary));
+}
+.brand-mark svg {
+  width: 33px;
+  height: 33px;
 }
 
 .app-navigation {
@@ -172,18 +154,18 @@
   display: none;
 }
 .desk-nav-link {
-  @apply relative inline-flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap px-3 text-xs text-muted-foreground transition-colors hover:text-foreground;
+  @apply relative inline-flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap px-3 text-ui text-muted-foreground transition-colors hover:text-foreground;
 }
 .desk-nav-link.is-active {
-  @apply text-primary;
+  @apply text-primary bg-primary/[0.055];
 }
 .desk-nav-link.is-active::after {
   content: "";
   position: absolute;
   height: 2px;
   bottom: 0;
-  left: 0.75rem;
-  right: 0.75rem;
+  left: 0;
+  right: 0;
   border-radius: 2px 2px 0 0;
   background: hsl(var(--primary));
 }

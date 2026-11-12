@@ -95,7 +95,7 @@ export function CostsTab() {
             <tbody>
               {data.breakdown.map((r, i) => (
                 <tr key={`${r.model}-${r.operation}-${i}`} className="border-t border-border">
-                  <td className="px-3 py-2 font-mono text-[12px]">{r.model}</td>
+                  <td className="px-3 py-2 font-mono text-xs">{r.model}</td>
                   <td className="px-3 py-2 capitalize">{r.operation}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{r.call_count}</td>
                   <td className="px-3 py-2 text-right tabular-nums">
@@ -125,7 +125,7 @@ export function CostsTab() {
 function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-md border border-border bg-card p-3">
-      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
+      <p className="text-xs uppercase tracking-wider text-muted-foreground">{label}</p>
       <p className="mt-1 text-xl font-semibold tabular-nums">{value}</p>
     </div>
   );

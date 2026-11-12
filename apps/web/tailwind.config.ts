@@ -64,15 +64,18 @@ const config: Config = {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
-      // docs/08 type scale, expressed as Tailwind classes (text-display, etc.)
+      // Readable UI scale. Keep these sizes on narrow screens; reflow the layout instead.
       fontSize: {
+        xs: ["0.875rem", { lineHeight: "1.5" }],
+        sm: ["0.9375rem", { lineHeight: "1.6" }],
+        meta: ["0.8125rem", { lineHeight: "1.5" }],
         display: ["2.5rem", { lineHeight: "1.15", letterSpacing: "-0.02em" }],
         h1: ["2rem", { lineHeight: "1.2", letterSpacing: "-0.02em" }],
         h2: ["1.5rem", { lineHeight: "1.25", letterSpacing: "-0.01em" }],
         h3: ["1.25rem", { lineHeight: "1.3" }],
-        body: ["1.0625rem", { lineHeight: "1.65" }],
-        ui: ["0.875rem", { lineHeight: "1.4" }],
-        caption: ["0.75rem", { lineHeight: "1.4", letterSpacing: "0.04em" }],
+        body: ["1.125rem", { lineHeight: "1.85" }],
+        ui: ["0.9375rem", { lineHeight: "1.6" }],
+        caption: ["0.875rem", { lineHeight: "1.55", letterSpacing: "0.01em" }],
       },
     },
   },
