@@ -98,6 +98,24 @@ export function filterGraph(data: GraphData, query: string, group: string): Grap
   };
 }
 
+/** Keep a page's immediate context, including actual links between its neighbours. */
+export function neighborhoodGraph(data: GraphData, selectedId?: string): GraphData {
+  if (selectedId === undefined || !data.nodes.some((node) => node.id === selectedId)) {
+    return data;
+  }
+  const neighbors = new Set([selectedId]);
+  for (const link of data.links) {
+    if (link.source === selectedId) neighbors.add(link.target);
+    if (link.target === selectedId) neighbors.add(link.source);
+  }
+  const nodes = data.nodes.filter((node) => neighbors.has(node.id));
+  const ids = new Set(nodes.map((node) => node.id));
+  return {
+    nodes,
+    links: data.links.filter((link) => ids.has(link.source) && ids.has(link.target)),
+  };
+}
+
 export function titleLines(title: string): string[] {
   const chars = Array.from(title);
   const lines: string[] = [];

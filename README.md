@@ -97,7 +97,9 @@ Wiki 目录可组合搜索、类型、标签与排序；Sources 可按待处理�
 
 多轮对话进入 **Chats → + 新建会话**，新建后出现输入框；窄屏先点 **会话列表** 展开会话列表。Chat 使用服务器上的本地模型，回复完整生成后显示。更新 Chat 入口代码后，生产服务需要重新 `pnpm build` 并重启 `pnpm start` 才会生效。
 
-网页保留英文栏目与技术术语，步骤、提示和主要操作使用中文。打开 **Graph**，可在 **Map · 2D** 与 **Space · 3D** 间切换，浏览器会记住偏好；支持搜索标题或标签、按类型筛选、选择节点查看关联，再点击「阅读页面」返回 Wiki。两种视图共用当前选择和筛选；Wiki 详情中的 **Graph ↗** 可直接定位该页面。图谱连线表示现有页面引用，浏览器无法使用 WebGL2 时可切回 2D。
+网页保留英文栏目与技术术语，步骤、提示和主要操作使用中文。打开 **Graph**，可在 **Map · 2D** 与 **Space · 3D** 间切换，浏览器会记住偏好。Map 使用珠光节点、曲线引用与清晰的标签底板，Space 提供适配深浅色的立体材质、光照和投影标签；悬停或选择节点会突出相邻页面。支持搜索标题或标签、按类型筛选，也可从按实际关联数量排序的页面入口开始探索。
+
+选中节点后可开启「仅看相邻」，查看该页、一跳邻居及它们之间的实际引用；「阅读页面」返回 Wiki。两种视图共用当前选择、筛选和标签开关，隐藏普通标签后仍保留当前选择或悬停提示；Wiki 详情中的 **Graph ↗** 可直接定位该页面。浏览器支持时可全屏查看，3D 的「缓慢环绕」需主动开启，遵循系统减少动态效果设置。连线表示现有页面引用，节点距离不代表语义相似度；浏览器无法使用 WebGL2 时可切回 2D。
 
 **Lint · 知识体检** 提供中文交互，点击「开始检查」可查看失效链接、缺少引用、内容矛盾等问题及建议。检查会记录摘要，不自动改写 Wiki 正文；点击具体修复按钮后才写入页面。这里的「重建页面目录」维护 `index.md`，向量索引仍在 Query 中刷新。
 
@@ -133,6 +135,30 @@ node scripts/workspace-browser.mjs --base-url http://127.0.0.1:3002 \
 ```
 
 脚本使用真实鼠标键盘，覆盖专题/阅读/笔记、馆藏、目录、搜索、问题模板与桌面/窄屏深浅色；不发模型问答请求。重复验收使用新的输出目录。
+
+### 图谱视觉演示
+
+新版真实浏览器截图：[二维知识地图](docs/images/graph-2d-light.png) · [三维深色空间](docs/images/graph-3d-dark.png)。均来自下述人工样例，未替换页面数据或修改截图。
+
+[图谱样例准备器](scripts/prepare-graph-demo.mts) 创建 18 页、33 条实际引用的人工资料，含中英文标题、双向引用和孤立页面，不调用模型；默认目标为 `.local/graph-demo`，要求目录为空。开发实例与生产服务应使用不同检出目录，避免共用 `apps/web/.next`。在独立开发检出目录执行：
+
+```bash
+pnpm exec tsx scripts/prepare-graph-demo.mts
+KNOWWAEVE_WIKI_PATH="$PWD/.local/graph-demo/fixture-wiki" \
+KNOWWAEVE_CONFIG_DIR="$PWD/.local/graph-demo/fixture-config" \
+pnpm --filter @llm-wiki/web dev --hostname 127.0.0.1 --port 3002
+```
+
+打开 <http://127.0.0.1:3002/graph> 查看双视图。在另一个终端运行只读浏览器验收：
+
+```bash
+node scripts/graph-browser.mjs --base-url http://127.0.0.1:3002 \
+  --wiki-path "$PWD/.local/graph-demo/fixture-wiki" \
+  --chromium /path/to/chromium \
+  --output-dir "$PWD/.local/evidence/graph-browser-full" --scenario full
+```
+
+脚本拒绝外部地址、Wiki 路径不匹配或不符的样例，输出截图与 JSON 报告。将 `--scenario full` 改为 `--scenario fallback` 并使用新的输出目录，可单独检查禁用 WebGL 后回到 2D；重复准备样例也需换用新空目录。浏览器检查使用软件 WebGL，不代表实际 GPU、大库或手机触控性能；本轮验证结果见 [开发日志](docs/DEVLOG.md)。
 
 ## 模型与检索 Demo
 

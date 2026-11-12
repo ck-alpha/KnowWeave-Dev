@@ -6,6 +6,7 @@
     "retrieval-metrics.ts",
     "scifact-dataset.ts",
     "verify-retrieval.mts",
-    "prepare-workspace-demo.mts"
+    "prepare-workspace-demo.mts",
+    "prepare-graph-demo.mts"
   ]
 }

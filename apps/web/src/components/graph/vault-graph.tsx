@@ -5,6 +5,8 @@ import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowUpRight,
+  ArrowRight,
+  Expand,
   Focus,
   Layers2,
   Maximize2,
@@ -14,10 +16,13 @@ import {
   RotateCcw,
   Search,
   Sparkles,
+  Type,
   X,
 } from "lucide-react";
 import type { GraphData } from "@llm-wiki/core";
-import { filterGraph, layoutGraph, titleLines } from "./graph-layout";
+import { filterGraph, layoutGraph, neighborhoodGraph } from "./graph-layout";
+import { nodeRadius, placeGraphLabels } from "./graph-labels";
+import styles from "./graph.module.css";
 
 const SpatialGraph = dynamic(
   () => import("./spatial-graph").then((module) => module.SpatialGraph),
@@ -59,14 +64,23 @@ export function VaultGraph({
   const [group, setGroup] = useState("");
   const [selectedId, setSelectedIdState] = useState(initialSelectedId);
   const [hoverId, setHoverId] = useState<string>();
+  const [showLabels, setShowLabels] = useState(true);
+  const [localOnly, setLocalOnly] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
+  const [canFullscreen, setCanFullscreen] = useState(false);
   const [size, setSize] = useState({ w: 900, h: 540 });
   const [camera, setCamera] = useState<Camera>({ x: 450, y: 270, zoom: 1 });
   const [spaceCommand, setSpaceCommand] = useState({ action: "fit", tick: 0 });
   const surfaceRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const drag = useRef<{ x: number; y: number; camera: Camera; moved: boolean } | null>(null);
   const suppressClick = useRef(false);
-  const filtered = useMemo(() => filterGraph(data, query, group), [data, query, group]);
+  const scoped = useMemo(
+    () => (localOnly ? neighborhoodGraph(data, selectedId) : data),
+    [data, localOnly, selectedId],
+  );
+  const filtered = useMemo(() => filterGraph(scoped, query, group), [scoped, query, group]);
   const hasResults = filtered.nodes.length > 0;
   const layout = useMemo(() => layoutGraph(filtered), [filtered]);
   const positions = useMemo(() => new Map(layout.nodes.map((node) => [node.id, node])), [layout]);
@@ -88,6 +102,29 @@ export function VaultGraph({
     [data],
   );
   const selectedVisible = selected && positions.has(selected.id);
+  const entryNodes = useMemo(
+    () =>
+      [...filtered.nodes]
+        .sort((a, b) => b.degree - a.degree || a.title.localeCompare(b.title))
+        .slice(0, 4),
+    [filtered],
+  );
+
+  useEffect(() => {
+    setCanFullscreen(Boolean(document.fullscreenEnabled));
+    const onFullscreen = () => setFullscreen(document.fullscreenElement === panelRef.current);
+    document.addEventListener("fullscreenchange", onFullscreen);
+    return () => document.removeEventListener("fullscreenchange", onFullscreen);
+  }, []);
+  async function toggleFullscreen() {
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else await panelRef.current?.requestFullscreen();
+    } catch {
+      // Embedding policies can deny fullscreen; keep the normal canvas usable.
+      setCanFullscreen(false);
+    }
+  }
 
   useEffect(() => {
     try {
@@ -106,6 +143,7 @@ export function VaultGraph({
   }
   const select = useCallback((id?: string) => {
     setSelectedIdState(id);
+    if (!id) setLocalOnly(false);
     const url = new URL(window.location.href);
     if (id) url.searchParams.set("node", id);
     else url.searchParams.delete("node");
@@ -182,59 +220,38 @@ export function VaultGraph({
   function clearFilters() {
     setQuery("");
     setGroup("");
+    setLocalOnly(false);
   }
   function selectRelated(id: string) {
     clearFilters();
     select(id);
   }
-  const activeId = selectedVisible ? selectedId : hoverId;
-  const activeNeighbors = selectedVisible ? relatedIds : new Set([hoverId]);
-
-  const labelIds = useMemo(() => {
-    const occupied: { x: number; y: number; w: number; h: number }[] = [];
-    const visible = new Set<string>();
-    const ordered = [...layout.nodes].sort(
-      (a, b) =>
-        Number(b.id === selectedId || b.id === hoverId) -
-        Number(a.id === selectedId || a.id === hoverId),
-    );
-    for (const node of ordered) {
-      const x = size.w / 2 + (node.x - camera.x) * camera.zoom;
-      const radius = Math.max(9 + Math.min(7, Math.sqrt(node.degree) * 2), 6 / camera.zoom);
-      const y = size.h / 2 + (node.y - camera.y) * camera.zoom + radius * camera.zoom + 19;
-      const lines = titleLines(node.title);
-      const w = Math.min(
-        165,
-        Math.max(
-          ...lines.map((line) =>
-            Array.from(line).reduce(
-              (sum, char) => sum + (/[\u0000-\u00ff]/.test(char) ? 6 : 11),
-              0,
-            ),
-          ),
-        ) + 10,
-      );
-      const h = lines.length * 16;
-      if (x - w / 2 < 4 || x + w / 2 > size.w - 4 || y < 70 || y + h > size.h - 65) continue;
-      if (
-        occupied.some(
-          (box) =>
-            Math.abs(box.x - x) < (box.w + w) / 2 && Math.abs(box.y - y) < Math.max(box.h, h) + 8,
-        )
-      )
-        continue;
-      visible.add(node.id);
-      occupied.push({ x, y, w, h });
+  const activeId = selectedVisible
+    ? selectedId
+    : hoverId && positions.has(hoverId)
+      ? hoverId
+      : undefined;
+  const activeNeighbors = useMemo(() => {
+    if (selectedVisible) return relatedIds;
+    const ids = new Set([hoverId]);
+    for (const link of filtered.links) {
+      if (link.source === hoverId) ids.add(link.target);
+      if (link.target === hoverId) ids.add(link.source);
     }
-    return visible;
-  }, [layout, camera, size, selectedId, hoverId]);
+    return ids;
+  }, [filtered, hoverId, selectedVisible, relatedIds]);
+
+  const labels = useMemo(
+    () => placeGraphLabels(layout.nodes, camera, size, [selectedId, hoverId], showLabels),
+    [layout, camera, size, selectedId, hoverId, showLabels],
+  );
 
   return (
     <div className="mx-auto w-full max-w-[1600px] px-4 py-5 sm:px-8 sm:py-7 lg:px-10">
       <header className="mb-4 flex flex-wrap items-end justify-between gap-3 sm:mb-6 sm:gap-5">
         <div>
           <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.24em] text-primary">
-            Explore the connections
+            Your knowledge, connected
           </p>
           <h1 className="font-display text-[1.75rem] font-semibold leading-tight tracking-tight sm:text-[2.5rem]">
             Knowledge Graph
@@ -267,7 +284,10 @@ export function VaultGraph({
         </div>
       </header>
 
-      <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+      <div
+        ref={panelRef}
+        className={`${styles.panel} overflow-hidden rounded-2xl border border-border bg-card`}
+      >
         <div className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2 sm:gap-3 sm:px-5 sm:py-3">
           <div
             className="flex shrink-0 rounded-xl bg-secondary p-1"
@@ -317,16 +337,28 @@ export function VaultGraph({
               </button>
             )}
           </div>
+          {canFullscreen && (
+            <button
+              type="button"
+              onClick={toggleFullscreen}
+              className={`${iconButton} ml-auto`}
+              aria-label={fullscreen ? "退出全屏" : "全屏查看图谱"}
+              title={fullscreen ? "退出全屏 · Esc" : "全屏查看图谱"}
+            >
+              <Expand size={16} />
+            </button>
+          )}
           <Link
             href="/wiki"
-            className="ml-auto inline-flex items-center gap-1.5 px-1 text-caption text-muted-foreground hover:text-primary"
+            aria-label="返回 Wiki"
+            className={`${canFullscreen ? "" : "ml-auto"} inline-flex items-center gap-1.5 px-1 text-caption text-muted-foreground hover:text-primary`}
           >
-            返回 Wiki
+            <span className="hidden sm:inline">返回 Wiki</span>
             <ArrowUpRight size={13} aria-hidden />
           </Link>
         </div>
         <div
-          className="flex items-center gap-1 overflow-x-auto whitespace-nowrap border-b border-border/70 px-3 py-2 sm:flex-wrap sm:gap-2 sm:px-5 sm:py-3"
+          className="app-navigation flex items-center gap-1 overflow-x-auto whitespace-nowrap border-b border-border/70 px-3 py-2 sm:flex-wrap sm:gap-2 sm:px-5 sm:py-3"
           aria-label="按页面类型筛选"
         >
           <span className="mr-1 hidden text-[10px] uppercase tracking-[0.16em] sm:inline text-muted-foreground">
@@ -360,24 +392,34 @@ export function VaultGraph({
           ))}
         </div>
 
-        <div className="grid lg:grid-cols-[minmax(0,1fr)_300px] xl:grid-cols-[minmax(0,1fr)_320px]">
+        <div
+          className={`${styles.body} grid lg:grid-cols-[minmax(0,1fr)_300px] xl:grid-cols-[minmax(0,1fr)_320px]`}
+        >
           <div
             ref={surfaceRef}
-            className="relative h-[440px] min-w-0 overflow-hidden bg-background sm:h-[560px] lg:h-[min(64vh,720px)] lg:min-h-[490px]"
-            style={{
-              backgroundImage:
-                "radial-gradient(hsl(var(--border) / .65) 1px, transparent 1px), radial-gradient(ellipse at 50% 45%, hsl(var(--accent-soft) / .5), transparent 65%)",
-              backgroundSize: "22px 22px, 100% 100%",
-            }}
+            className={`${styles.surface} relative h-[460px] min-w-0 overflow-hidden sm:h-[580px]`}
           >
-            <div className="pointer-events-none absolute left-5 top-5 z-10">
-              <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-                {mode === "2d" ? "The knowledge map" : "A space for ideas"}
+            <div className="pointer-events-none absolute left-4 top-4 z-10 rounded-xl border border-border/50 bg-card/85 px-3 py-2.5 backdrop-blur-md sm:left-5 sm:top-5">
+              <p className="flex items-center gap-2 text-[9px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+                <span className="h-1.5 w-1.5 rounded-full bg-primary/70" />
+                {mode === "2d" ? "Knowledge atlas" : "Knowledge orbit"}
               </p>
-              <p className="mt-1 text-caption text-muted-foreground" aria-live="polite">
+              <p className="mt-1 text-[11px] text-muted-foreground" aria-live="polite">
                 {filtered.nodes.length} 个页面 · {filtered.links.length} 条关联
-                {(query || group) && " · 已筛选"}
+                {(query || group || localOnly) && " · 已筛选"}
               </p>
+            </div>
+            <div className="absolute right-4 top-4 z-10 flex gap-1 rounded-xl border border-border/50 bg-card/85 p-1 shadow-sm backdrop-blur-md sm:right-5 sm:top-5">
+              <button
+                type="button"
+                aria-label="显示页面标签"
+                aria-pressed={showLabels}
+                title={showLabels ? "隐藏页面标签" : "显示页面标签"}
+                onClick={() => setShowLabels((value) => !value)}
+                className={`${iconButton} ${showLabels ? "bg-secondary text-foreground" : ""}`}
+              >
+                <Type size={16} />
+              </button>
             </div>
             {filtered.nodes.length === 0 ? (
               <div className="absolute inset-0 grid place-items-center px-8">
@@ -403,6 +445,7 @@ export function VaultGraph({
                 onSelect={select}
                 size={size}
                 command={spaceCommand}
+                showLabels={showLabels}
                 onFallback={() => changeMode("2d")}
               />
             ) : (
@@ -483,6 +526,13 @@ export function VaultGraph({
                 }}
               >
                 <defs>
+                  {groups.map((type) => (
+                    <radialGradient key={type} id={`graph-pearl-${type}`} cx="32%" cy="25%" r="75%">
+                      <stop offset="0%" stopColor="hsl(var(--card))" />
+                      <stop offset="38%" stopColor={graphType(type).color} stopOpacity="0.65" />
+                      <stop offset="100%" stopColor={graphType(type).color} />
+                    </radialGradient>
+                  ))}
                   <marker
                     id="graph-arrow"
                     viewBox="0 0 10 10"
@@ -508,20 +558,21 @@ export function VaultGraph({
                     const source = positions.get(link.source)!,
                       target = positions.get(link.target)!;
                     const active =
-                      selectedVisible && (link.source === selectedId || link.target === selectedId);
+                      activeId && (link.source === activeId || link.target === activeId);
                     const angle = Math.atan2(target.y - source.y, target.x - source.x);
                     const r = 19 + Math.min(6, Math.sqrt(target.degree) * 1.8);
                     return (
                       <path
                         key={`${link.source}:${link.target}`}
+                        className={styles.edge}
                         d={`M ${source.x} ${source.y} Q ${(source.x + target.x) / 2 + Math.sin(angle) * 22} ${(source.y + target.y) / 2 - Math.cos(angle) * 22} ${target.x - Math.cos(angle) * r} ${target.y - Math.sin(angle) * r}`}
                         fill="none"
                         stroke={
-                          active ? "hsl(var(--primary) / .65)" : "hsl(var(--foreground) / .17)"
+                          active ? "hsl(var(--primary) / .65)" : "hsl(var(--foreground) / .18)"
                         }
-                        strokeWidth={active ? 1.6 : 1}
+                        strokeWidth={active ? 1.8 : 1.1}
                         vectorEffect="non-scaling-stroke"
-                        opacity={selectedVisible && !active ? 0.25 : 1}
+                        opacity={activeId && !active ? 0.16 : active ? 0.85 : 1}
                         markerEnd={active ? "url(#graph-arrow)" : undefined}
                       />
                     );
@@ -530,11 +581,8 @@ export function VaultGraph({
                     const focused = node.id === selectedId,
                       hovered = node.id === hoverId;
                     const muted = Boolean(activeId && !activeNeighbors.has(node.id));
-                    const radius = Math.max(
-                      9 + Math.min(7, Math.sqrt(node.degree) * 2),
-                      6 / camera.zoom,
-                    );
-                    const showLabel = labelIds.has(node.id);
+                    const radius = nodeRadius(node.degree, camera.zoom);
+                    const label = labels.get(node.id);
                     return (
                       <g
                         key={node.id}
@@ -544,8 +592,8 @@ export function VaultGraph({
                         tabIndex={0}
                         aria-label={`${node.title}，${graphType(node.group).label}，${node.degree} 条关联`}
                         aria-pressed={focused}
-                        className="group cursor-pointer outline-none"
-                        opacity={muted && !hovered ? 0.2 : 1}
+                        className={`${styles.node} group cursor-pointer outline-none`}
+                        opacity={muted && !hovered ? 0.18 : 1}
                         onMouseEnter={() => setHoverId(node.id)}
                         onMouseLeave={() => setHoverId(undefined)}
                         onFocus={() => setHoverId(node.id)}
@@ -565,46 +613,67 @@ export function VaultGraph({
                       >
                         <title>{node.title}</title>
                         <circle
-                          r={radius + 12}
+                          pointerEvents="none"
+                          r={radius + (focused || hovered ? 20 : 12)}
                           fill={graphType(node.group).color}
-                          opacity={focused ? 0.14 : 0.06}
+                          opacity={focused || hovered ? 0.1 : 0.04}
                         />
                         <circle
+                          pointerEvents="none"
                           r={radius + 6}
                           fill="none"
                           stroke={graphType(node.group).color}
-                          strokeWidth={focused ? 1.2 : 0}
+                          strokeWidth={focused || hovered ? 1.2 : 0}
+                          strokeDasharray={focused ? "3 4" : undefined}
+                          vectorEffect="non-scaling-stroke"
                           opacity={0.6}
                           className="group-focus-visible:stroke-[2]"
                         />
                         <circle
                           r={radius}
-                          fill="hsl(var(--card))"
+                          className={styles.nodeCore}
+                          fill={`url(#graph-pearl-${node.group})`}
                           stroke={graphType(node.group).color}
-                          strokeWidth={focused || hovered ? 2.5 : 1.5}
+                          strokeWidth={focused || hovered ? 1.7 : 0.6}
                           vectorEffect="non-scaling-stroke"
                         />
-                        <circle r={radius * 0.47} fill={graphType(node.group).color} />
-                        {showLabel && (
-                          <text
-                            y={radius + 20 / camera.zoom}
-                            textAnchor="middle"
-                            fill="hsl(var(--foreground))"
-                            fontSize={(size.w < 600 ? 10.5 : 11.5) / camera.zoom}
-                            fontWeight={focused ? 600 : 500}
-                            style={{
-                              paintOrder: "stroke",
-                              stroke: "hsl(var(--background))",
-                              strokeWidth: 4 / camera.zoom,
-                              strokeLinejoin: "round",
-                            }}
+                        <circle
+                          pointerEvents="none"
+                          r={radius * 0.25}
+                          cx={-radius * 0.28}
+                          cy={-radius * 0.33}
+                          fill="white"
+                          opacity={0.48}
+                        />
+                        {label && (
+                          <g
+                            transform={`translate(${label.x / camera.zoom} ${label.y / camera.zoom}) scale(${1 / camera.zoom})`}
                           >
-                            {titleLines(node.title).map((line, index) => (
-                              <tspan key={index} x={0} dy={index ? 16 / camera.zoom : 0}>
-                                {line}
-                              </tspan>
-                            ))}
-                          </text>
+                            <rect
+                              width={label.w}
+                              height={label.h}
+                              rx={7}
+                              fill="hsl(var(--card))"
+                              fillOpacity={focused || hovered ? 0.97 : 0.8}
+                              stroke={focused ? graphType(node.group).color : "hsl(var(--border))"}
+                              strokeOpacity={focused ? 0.5 : 0.4}
+                              strokeWidth={0.7}
+                            />
+                            <text
+                              x={label.w / 2}
+                              y={16}
+                              textAnchor="middle"
+                              fill="hsl(var(--foreground))"
+                              fontSize={size.w < 600 ? 10.5 : 11.5}
+                              fontWeight={focused ? 600 : 500}
+                            >
+                              {label.lines.map((line, index) => (
+                                <tspan key={index} x={label.w / 2} dy={index ? 16 : 0}>
+                                  {line}
+                                </tspan>
+                              ))}
+                            </text>
+                          </g>
                         )}
                       </g>
                     );
@@ -649,9 +718,9 @@ export function VaultGraph({
                 </button>
               </div>
             )}
-            <p className="pointer-events-none absolute bottom-6 left-4 max-w-[120px] text-[10px] leading-relaxed text-muted-foreground sm:hidden">
+            <p className="pointer-events-none absolute bottom-[76px] left-4 text-[10px] leading-relaxed text-muted-foreground sm:hidden">
               拖动探索
-              <br />点 + 放大查看更多标题
+              <span className="mx-1.5 opacity-40">/</span>点 + 放大
             </p>
             <div className="pointer-events-none absolute bottom-6 left-5 hidden text-[10px] text-muted-foreground/70 sm:block">
               {mode === "2d" ? "拖动画布 · 滚轮缩放" : "拖动旋转 · 滚轮缩放"}
@@ -660,7 +729,7 @@ export function VaultGraph({
           </div>
 
           <aside
-            className="min-w-0 border-t border-border bg-card p-5 lg:max-h-[720px] lg:overflow-y-auto lg:border-l lg:border-t-0 sm:p-6"
+            className={`${styles.details} ${styles.detailAccent} min-w-0 border-t border-border bg-card p-5 lg:max-h-[760px] lg:overflow-y-auto lg:border-l lg:border-t-0 sm:p-6`}
             aria-label="图谱页面详情"
           >
             {selected ? (
@@ -736,6 +805,20 @@ export function VaultGraph({
                     <Focus size={17} />
                   </button>
                 </div>
+                <button
+                  type="button"
+                  aria-pressed={localOnly}
+                  onClick={() => {
+                    setQuery("");
+                    setGroup("");
+                    setLocalOnly((value) => !value);
+                  }}
+                  className={`mt-3 flex w-full items-center justify-center gap-2 rounded-lg border px-3 py-2 text-caption transition-colors ${localOnly ? "border-primary/30 bg-primary/5 text-primary" : "border-border text-muted-foreground hover:bg-secondary"}`}
+                >
+                  <Network size={14} />
+                  仅看相邻
+                  <span className="ml-auto font-mono text-[10px]">{localOnly ? "ON" : "OFF"}</span>
+                </button>
                 <div className="mt-7 border-t border-border pt-5">
                   <p className="mb-3 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
                     Connected pages
@@ -792,40 +875,56 @@ export function VaultGraph({
                 <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
                   A closer look
                 </p>
-                <div className="my-7 flex h-14 w-14 items-center justify-center rounded-2xl border border-border bg-background">
+                <div className="mb-5 mt-6 flex h-12 w-12 items-center justify-center rounded-2xl border border-primary/10 bg-primary/5">
                   <Network size={25} strokeWidth={1.25} className="text-primary/70" />
                 </div>
                 <h2 className="font-display text-h2">从一个节点开始</h2>
                 <p className="mt-3 text-ui leading-7 text-muted-foreground">
-                  每个节点都是一篇 Wiki。点击感兴趣的页面，查看内容摘要，以及它与其他知识的联系。
+                  每一条连线，都是知识的另一条阅读路径。选择一个页面，展开它的关联。
                 </p>
-                <ol className="mt-7 space-y-5">
-                  {[
-                    { title: "找到感兴趣的知识", text: "搜索标题或标签，也可以按页面类型筛选。" },
-                    {
-                      title: "沿关联继续探索",
-                      text: "点击节点高亮相邻页面，打开详情阅读完整内容。",
-                    },
-                    {
-                      title: "选择你的观察方式",
-                      text: "Map 便于阅读关系，Space 适合旋转探索；视图偏好会自动记住。",
-                    },
-                  ].map((step, index) => (
-                    <li key={step.title} className="flex gap-3">
-                      <span className="pt-0.5 font-mono text-[10px] text-primary/60">
-                        0{index + 1}
-                      </span>
-                      <div>
-                        <p className="text-ui">{step.title}</p>
-                        <p className="mt-1 text-caption leading-relaxed text-muted-foreground">
-                          {step.text}
-                        </p>
-                      </div>
-                    </li>
-                  ))}
-                </ol>
+                {entryNodes.length > 0 && (
+                  <div className="mt-7 border-t border-border/70 pt-5">
+                    <p className="mb-3 flex items-center justify-between text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+                      Start exploring<span className="tracking-normal">按关联数</span>
+                    </p>
+                    <ul className="space-y-1">
+                      {entryNodes.map((node) => (
+                        <li key={node.id}>
+                          <button
+                            type="button"
+                            onClick={() => select(node.id)}
+                            className="group flex w-full items-center gap-3 rounded-xl px-2 py-3 text-left transition-colors hover:bg-secondary"
+                          >
+                            <span
+                              className="h-2 w-2 shrink-0 rounded-full ring-4 ring-offset-0"
+                              style={
+                                {
+                                  background: graphType(node.group).color,
+                                  boxShadow: `0 0 0 4px ${graphType(node.group).color}14`,
+                                  "--tw-ring-color": "transparent",
+                                } as React.CSSProperties
+                              }
+                            />
+                            <span className="min-w-0 flex-1">
+                              <span className="line-clamp-2 text-ui leading-relaxed">
+                                {node.title}
+                              </span>
+                              <span className="mt-1 block text-[10px] text-muted-foreground">
+                                {graphType(node.group).label} · {node.degree} 条关联
+                              </span>
+                            </span>
+                            <ArrowRight
+                              size={13}
+                              className="shrink-0 text-muted-foreground/40 group-hover:text-primary"
+                            />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
                 <p className="mt-8 border-t border-border pt-4 text-[11px] leading-relaxed text-muted-foreground">
-                  连线来自 Wiki 内的实际页面引用；节点颜色表示页面类型，大小表示关联数量。
+                  颜色区分页面类型，大小表示关联数量。连线来自实际页面引用，空间距离不代表语义相似度。
                 </p>
               </>
             )}
@@ -842,6 +941,7 @@ export function VaultGraph({
           onClick={() => {
             clearFilters();
             select();
+            setShowLabels(true);
             command("fit");
           }}
           className="inline-flex items-center gap-1.5 py-1 hover:text-foreground"

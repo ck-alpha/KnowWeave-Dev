@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Orbit, Pause } from "lucide-react";
 import ForceGraph3D, {
   type ForceGraphMethods,
   type LinkObject,
@@ -9,14 +10,29 @@ import ForceGraph3D, {
 import type { GraphData, GraphNode } from "@llm-wiki/core";
 import { graphType } from "./vault-graph";
 import { layoutGraph } from "./graph-layout";
+import { createSpatialNode, spatialLights } from "./spatial-materials";
 
 type SceneNode = NodeObject<GraphNode>;
 type SceneLink = LinkObject<GraphNode>;
-type Label = { id: string; x: number; y: number };
+type Label = { id: string; x: number; y: number; opacity: number; offset: number };
+type OrbitControls = {
+  minDistance: number;
+  maxDistance: number;
+  autoRotate: boolean;
+  autoRotateSpeed: number;
+  enableDamping: boolean;
+  dampingFactor: number;
+  target: { x: number; y: number; z: number };
+  addEventListener: (type: string, listener: () => void) => void;
+  removeEventListener: (type: string, listener: () => void) => void;
+};
 function endpoint(value: unknown): string {
   return typeof value === "string"
     ? value
     : String((value as { id?: string } | undefined)?.id ?? "");
+}
+function nodeRadius(node: GraphNode) {
+  return 5.5 + Math.min(6, Math.sqrt(node.degree) * 1.6);
 }
 
 export function SpatialGraph({
@@ -26,6 +42,7 @@ export function SpatialGraph({
   size,
   command,
   onFallback,
+  showLabels = true,
 }: {
   data: GraphData;
   selectedId?: string;
@@ -33,9 +50,13 @@ export function SpatialGraph({
   size: { w: number; h: number };
   command: { action: string; tick: number };
   onFallback?: () => void;
+  showLabels?: boolean;
 }) {
   const graph = useRef<ForceGraphMethods<SceneNode, SceneLink>>();
-  const [background, setBackground] = useState("#faf7f2");
+  const surface = useRef<HTMLDivElement>(null);
+  const [dark, setDark] = useState(false);
+  const [reducedMotion, setReducedMotion] = useState(false);
+  const [orbiting, setOrbiting] = useState(false);
   const [labels, setLabels] = useState<Label[]>([]);
   const [supported, setSupported] = useState<boolean>();
   const [hoverId, setHoverId] = useState<string>();
@@ -43,44 +64,68 @@ export function SpatialGraph({
   const sceneData = useMemo(() => {
     const layout = layoutGraph(data);
     return {
-      nodes: layout.nodes.map((node, i) => ({
-        ...node,
-        tags: [...node.tags],
-        x: (node.x - layout.width / 2) * 0.65,
-        y: (layout.height / 2 - node.y) * 0.65,
-        z: Math.sin(i * 2.4) * Math.min(140, 40 + Math.sqrt(data.nodes.length) * 15),
-        fx: (node.x - layout.width / 2) * 0.65,
-        fy: (layout.height / 2 - node.y) * 0.65,
-        fz: Math.sin(i * 2.4) * Math.min(140, 40 + Math.sqrt(data.nodes.length) * 15),
-      })),
+      nodes: layout.nodes.map((node, i) => {
+        const x = (node.x - layout.width / 2) * 0.65;
+        const y = (layout.height / 2 - node.y) * 0.65;
+        const z = Math.sin(i * 2.4) * Math.min(150, 45 + Math.sqrt(data.nodes.length) * 18);
+        return { ...node, tags: [...node.tags], x, y, z, fx: x, fy: y, fz: z };
+      }),
       links: data.links.map((link) => ({ ...link })),
     };
   }, [data]);
+  const nodesById = useMemo(
+    () => new Map(sceneData.nodes.map((node) => [node.id, node])),
+    [sceneData],
+  );
+  const activeId = selectedId ?? hoverId;
   const neighbors = useMemo(() => {
-    const ids = new Set([selectedId]);
+    const ids = new Set([activeId]);
     for (const link of data.links) {
-      if (link.source === selectedId) ids.add(link.target);
-      if (link.target === selectedId) ids.add(link.source);
+      if (link.source === activeId) ids.add(link.target);
+      if (link.target === activeId) ids.add(link.source);
     }
     return ids;
-  }, [data, selectedId]);
+  }, [data, activeId]);
+  // ForceGraph owns these objects after nodeThreeObject hands them over. Its
+  // node mapper recursively disposes geometry, material maps and materials when
+  // data changes, and its renderer does the same on unmount. Do not dispose in
+  // an effect cleanup: StrictMode replays effects while keeping this scene.
+  const sceneObjects = useMemo(
+    () =>
+      new Map(
+        supported
+          ? sceneData.nodes.map((node) => [
+              node.id,
+              createSpatialNode(graphType(node.group).color, nodeRadius(node)),
+            ])
+          : [],
+      ),
+    [sceneData, supported],
+  );
+  const nodeObject = useCallback(
+    (node: SceneNode) => sceneObjects.get(node.id)?.object,
+    [sceneObjects],
+  );
   const labelNodes = useMemo(
     () =>
       [...sceneData.nodes]
         .sort(
           (a, b) =>
             Number(b.id === selectedId || b.id === hoverId) -
-              Number(a.id === selectedId || a.id === hoverId) || b.degree - a.degree,
+              Number(a.id === selectedId || a.id === hoverId) ||
+            Number(neighbors.has(b.id)) - Number(neighbors.has(a.id)) ||
+            b.degree - a.degree,
         )
-        .filter(
-          (node, index) =>
-            sceneData.nodes.length <= 30 ||
-            neighbors.has(node.id) ||
-            node.id === hoverId ||
-            index < 8,
+        .filter((node, index) =>
+          showLabels
+            ? sceneData.nodes.length <= 30 ||
+              neighbors.has(node.id) ||
+              node.id === hoverId ||
+              index < 10
+            : node.id === selectedId || node.id === hoverId,
         )
         .slice(0, 40),
-    [sceneData, selectedId, hoverId, neighbors],
+    [sceneData, selectedId, hoverId, neighbors, showLabels],
   );
 
   useEffect(() => {
@@ -88,21 +133,47 @@ export function SpatialGraph({
     const context = canvas.getContext("webgl2");
     setSupported(Boolean(context));
     context?.getExtension("WEBGL_lose_context")?.loseContext();
-    const readTheme = () =>
-      setBackground(
-        `hsl(${getComputedStyle(document.documentElement).getPropertyValue("--background").trim().replace(/\s+/g, ", ")})`,
-      );
+    const readTheme = () => setDark(document.documentElement.classList.contains("dark"));
     readTheme();
     const observer = new MutationObserver(readTheme);
     observer.observe(document.documentElement, {
       attributes: true,
       attributeFilter: ["class", "data-theme"],
     });
-    return () => observer.disconnect();
+    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const readMotion = () => {
+      setReducedMotion(media.matches);
+      if (media.matches) setOrbiting(false);
+    };
+    readMotion();
+    media.addEventListener("change", readMotion);
+    return () => {
+      observer.disconnect();
+      media.removeEventListener("change", readMotion);
+    };
   }, []);
 
-  // Fixed spatial coordinates keep a collection legible at first paint and after
-  // switching views. Orbit controls retain true depth without simulation drift.
+  useEffect(() => {
+    for (const [id, item] of sceneObjects) {
+      item.update({
+        dark,
+        active: id === activeId || id === hoverId,
+        selected: id === selectedId,
+        muted: Boolean(activeId && !neighbors.has(id)),
+      });
+    }
+  }, [sceneObjects, dark, activeId, selectedId, hoverId, neighbors]);
+
+  useEffect(() => {
+    if (!supported) return;
+    const frame = requestAnimationFrame(() => {
+      graph.current?.lights(spatialLights(dark));
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [supported, dark]);
+
+  // Stable coordinates make switching views predictable; real depth remains
+  // visible through perspective, lighting and user-controlled orbiting.
   const fitScene = useCallback(
     (duration = 450) => {
       const fg = graph.current;
@@ -119,69 +190,134 @@ export function SpatialGraph({
       const center = { x: (minX + maxX) / 2, y: (minY + maxY) / 2, z: (minZ + maxZ) / 2 };
       const fov = (fg.camera() as { fov?: number }).fov ?? 50;
       const tangent = Math.tan((fov * Math.PI) / 360);
-      const vertical = tangent * Math.max(0.35, (size.h - 160) / size.h);
-      const horizontal = ((tangent * size.w) / size.h) * Math.max(0.35, (size.w - 100) / size.w);
+      const vertical = tangent * Math.max(0.35, (size.h - 180) / size.h);
+      const horizontal = ((tangent * size.w) / size.h) * Math.max(0.35, (size.w - 110) / size.w);
       const distance =
-        Math.max(150, (maxY - minY) / 2 / vertical, (maxX - minX) / 2 / horizontal) +
+        Math.max(170, (maxY - minY) / 2 / vertical, (maxX - minX) / 2 / horizontal) +
         (maxZ - minZ) / 2 +
-        35;
-      fg.cameraPosition({ x: center.x, y: center.y, z: center.z + distance }, center, duration);
+        45;
+      fg.cameraPosition(
+        { x: center.x, y: center.y, z: center.z + distance },
+        center,
+        reducedMotion ? 0 : duration,
+      );
     },
-    [sceneData, size],
+    [sceneData, size, reducedMotion],
   );
 
   useEffect(() => {
     setLabels([]);
     if (!supported) return;
-    const frame = requestAnimationFrame(() => {
-      fitScene(0);
-      const controls = graph.current?.controls() as
-        | { minDistance?: number; maxDistance?: number }
-        | undefined;
-      if (controls) {
-        controls.minDistance = 40;
-        controls.maxDistance = 12000;
-      }
-    });
+    const frame = requestAnimationFrame(() => fitScene(0));
     return () => cancelAnimationFrame(frame);
   }, [fitScene, supported]);
 
-  // Labels stay upright while the camera rotates. Keep only visible, non-overlapping
-  // labels; the page search and detail list remain available for dense collections.
+  useEffect(() => setOrbiting(false), [selectedId]);
+
+  useEffect(() => {
+    if (!supported) return;
+    let controls: OrbitControls | undefined;
+    const stopOrbit = () => setOrbiting(false);
+    const frame = requestAnimationFrame(() => {
+      controls = graph.current?.controls() as OrbitControls | undefined;
+      if (!controls) return;
+      controls.minDistance = 40;
+      controls.maxDistance = 12000;
+      controls.enableDamping = !reducedMotion;
+      controls.dampingFactor = 0.12;
+      controls.autoRotateSpeed = 0.35;
+      controls.autoRotate = orbiting && !reducedMotion;
+      controls.addEventListener("start", stopOrbit);
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+      controls?.removeEventListener("start", stopOrbit);
+      if (controls) controls.autoRotate = false;
+    };
+  }, [supported, orbiting, reducedMotion]);
+
+  useEffect(() => {
+    if (!supported) return;
+    const canvas = surface.current?.querySelector("canvas");
+    const onContextLost = (event: Event) => {
+      event.preventDefault();
+      setOrbiting(false);
+      setSupported(false);
+    };
+    canvas?.addEventListener("webglcontextlost", onContextLost);
+    return () => canvas?.removeEventListener("webglcontextlost", onContextLost);
+  }, [supported]);
+
+  // Project upright labels, cull behind-camera nodes, and reserve control space.
   useEffect(() => {
     if (!supported) return;
     let frame = 0,
       last = 0;
     const update = (time: number) => {
-      if (graph.current && time - last > 70) {
+      if (graph.current && time - last > 80 && !document.hidden) {
         last = time;
         const next: Label[] = [];
+        const camera = graph.current.camera() as {
+          position: { x: number; y: number; z: number };
+          quaternion: { x: number; y: number; z: number; w: number };
+        };
+        const q = camera.quaternion;
+        const forward = {
+          x: -2 * (q.x * q.z + q.w * q.y),
+          y: -2 * (q.y * q.z - q.w * q.x),
+          z: -(1 - 2 * (q.x * q.x + q.y * q.y)),
+        };
         for (const node of labelNodes) {
-          const point = graph.current.graph2ScreenCoords(node.x ?? 0, node.y ?? 0, node.z ?? 0);
+          const delta = {
+            x: node.x - camera.position.x,
+            y: node.y - camera.position.y,
+            z: node.z - camera.position.z,
+          };
+          const depth = delta.x * forward.x + delta.y * forward.y + delta.z * forward.z;
+          if (depth <= 0) continue;
+          const point = graph.current.graph2ScreenCoords(node.x, node.y, node.z);
+          const offset = Math.max(
+            16,
+            Math.min(30, ((nodeRadius(node) * size.h) / depth) * 1.2 + 8),
+          );
           if (
             !Number.isFinite(point.x) ||
             !Number.isFinite(point.y) ||
-            point.x < 60 ||
-            point.x > size.w - 60 ||
-            point.y < 35 ||
-            point.y > size.h - 80
+            point.x < 75 ||
+            point.x > size.w - 75 ||
+            point.y < 85 ||
+            point.y > size.h - 100 ||
+            (point.x > size.w - 170 && point.y < 155)
           )
             continue;
           if (
             next.some(
-              (label) => Math.abs(label.x - point.x) < 150 && Math.abs(label.y - point.y) < 43,
+              (label) => Math.abs(label.x - point.x) < 160 && Math.abs(label.y - point.y) < 46,
             )
           )
             continue;
-          next.push({ id: node.id, x: point.x, y: point.y });
+          const emphasized = node.id === selectedId || node.id === hoverId;
+          next.push({
+            id: node.id,
+            x: point.x,
+            y: point.y,
+            offset,
+            opacity: emphasized
+              ? 1
+              : activeId && !neighbors.has(node.id)
+                ? 0.25
+                : Math.max(0.65, Math.min(1, 700 / depth)),
+          });
         }
         setLabels((current) =>
           current.length === next.length &&
           current.every(
             (label, i) =>
               label.id === next[i]?.id &&
-              Math.abs(label.x - next[i]!.x) < 0.6 &&
-              Math.abs(label.y - next[i]!.y) < 0.6,
+              Math.abs(label.x - next[i]!.x) < 0.5 &&
+              Math.abs(label.y - next[i]!.y) < 0.5 &&
+              Math.abs(label.opacity - next[i]!.opacity) < 0.02 &&
+              Math.abs(label.offset - next[i]!.offset) < 0.5,
           )
             ? current
             : next,
@@ -191,25 +327,27 @@ export function SpatialGraph({
     };
     frame = requestAnimationFrame(update);
     return () => cancelAnimationFrame(frame);
-  }, [labelNodes, size, supported]);
+  }, [labelNodes, size, supported, selectedId, hoverId, activeId, neighbors]);
 
-  function focus() {
-    const node = sceneData.nodes.find((item) => item.id === selectedId);
+  const focus = useCallback(() => {
+    const node = selectedId ? nodesById.get(selectedId) : undefined;
     if (!node) return;
-    graph.current?.cameraPosition({ x: node.x, y: node.y + 25, z: node.z + 240 }, node, 650);
-  }
+    graph.current?.cameraPosition(
+      { x: node.x, y: node.y + 25, z: node.z + 240 },
+      node,
+      reducedMotion ? 0 : 650,
+    );
+  }, [nodesById, selectedId, reducedMotion]);
+
   useEffect(() => {
     const fg = graph.current;
     if (!fg || command.tick === 0) return;
+    setOrbiting(false);
     if (command.action === "fit") fitScene();
     else if (command.action === "focus") focus();
     else {
       const position = (fg.camera() as { position: { x: number; y: number; z: number } }).position;
-      const target = (fg.controls() as { target?: { x: number; y: number; z: number } }).target ?? {
-        x: 0,
-        y: 0,
-        z: 0,
-      };
+      const target = (fg.controls() as OrbitControls).target ?? { x: 0, y: 0, z: 0 };
       const factor = command.action === "in" ? 0.8 : 1.25;
       const distance = Math.hypot(
         position.x - target.x,
@@ -224,12 +362,20 @@ export function SpatialGraph({
           z: target.z + (position.z - target.z) * factor,
         },
         target,
-        250,
+        reducedMotion ? 0 : 250,
       );
     }
-    // Only explicit toolbar commands move the camera; selections keep orientation.
+    // Only explicit toolbar commands move the camera; selection preserves orientation.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [command]);
+
+  const isActiveLink = useCallback(
+    (link: SceneLink) =>
+      Boolean(
+        activeId && (endpoint(link.source) === activeId || endpoint(link.target) === activeId),
+      ),
+    [activeId],
+  );
 
   if (supported === false)
     return (
@@ -242,7 +388,7 @@ export function SpatialGraph({
           <button
             type="button"
             onClick={onFallback}
-            className="mt-4 rounded-lg border border-border bg-card px-4 py-2 text-ui"
+            className="mt-4 rounded-lg border border-border bg-card px-4 py-2 text-ui focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             切换到 Map · 2D
           </button>
@@ -257,76 +403,99 @@ export function SpatialGraph({
     );
 
   return (
-    <div className="absolute inset-0" aria-label="三维知识图谱">
+    <div ref={surface} className="absolute inset-0" aria-label="三维知识图谱">
       <ForceGraph3D<GraphNode>
         ref={graph}
         graphData={sceneData}
         width={size.w}
         height={size.h}
-        backgroundColor={background}
+        backgroundColor="rgba(0,0,0,0)"
         controlType="orbit"
         showNavInfo={false}
         nodeLabel={() => ""}
-        nodeRelSize={6}
-        nodeVal={(node) => 1.5 + Math.sqrt(node.degree) * 1.5}
-        nodeResolution={20}
-        nodeOpacity={0.94}
-        nodeColor={(node) =>
-          selectedId && !neighbors.has(node.id)
-            ? "rgba(140,140,145,0.18)"
-            : graphType(node.group).color
-        }
+        nodeThreeObject={nodeObject}
         linkColor={(link) =>
-          selectedId &&
-          (endpoint(link.source) === selectedId || endpoint(link.target) === selectedId)
-            ? "rgba(184,94,86,0.7)"
-            : selectedId
-              ? "rgba(140,140,145,0.08)"
-              : "rgba(130,125,120,0.45)"
+          isActiveLink(link)
+            ? dark
+              ? "#dca597"
+              : "#a85850"
+            : activeId
+              ? dark
+                ? "rgba(170,170,180,0.12)"
+                : "rgba(140,125,120,0.1)"
+              : dark
+                ? "rgba(173,179,190,0.38)"
+                : "rgba(124,113,105,0.28)"
         }
-        linkWidth={(link) =>
-          selectedId &&
-          (endpoint(link.source) === selectedId || endpoint(link.target) === selectedId)
-            ? 1.15
-            : 0.7
-        }
-        linkOpacity={0.75}
-        linkCurvature={0.08}
+        linkWidth={(link) => (isActiveLink(link) ? 1.1 : 0.45)}
+        linkOpacity={0.8}
+        linkCurvature={0.1}
         linkDirectionalParticles={0}
-        linkDirectionalArrowLength={(link) =>
-          selectedId &&
-          (endpoint(link.source) === selectedId || endpoint(link.target) === selectedId)
-            ? 3
-            : 0
-        }
-        linkDirectionalArrowRelPos={0.88}
-        linkDirectionalArrowColor={() => "#b85e56"}
+        linkDirectionalArrowLength={(link) => (isActiveLink(link) ? 3.6 : 0)}
+        linkDirectionalArrowRelPos={0.87}
+        linkDirectionalArrowColor={() => (dark ? "#dca597" : "#a85850")}
         warmupTicks={0}
         cooldownTicks={0}
-        d3VelocityDecay={0.45}
         enableNodeDrag={false}
-        onNodeClick={(node) => onSelect(node.id)}
+        onNodeClick={(node) => {
+          setOrbiting(false);
+          onSelect(node.id);
+        }}
         onBackgroundClick={() => onSelect()}
         onNodeHover={(node) => setHoverId(node?.id)}
       />
+      <div
+        className="pointer-events-none absolute inset-0"
+        aria-hidden
+        style={{
+          background: dark
+            ? "radial-gradient(ellipse at 50% 42%, transparent 35%, rgba(12,13,17,.22))"
+            : "radial-gradient(ellipse at 50% 42%, transparent 35%, rgba(214,202,183,.12))",
+        }}
+      />
+      <button
+        type="button"
+        aria-pressed={orbiting}
+        disabled={reducedMotion}
+        onClick={() => setOrbiting((value) => !value)}
+        title={reducedMotion ? "已遵循系统的减少动态效果设置" : "拖动图谱或选择节点会暂停环绕"}
+        className="absolute right-4 top-[4.5rem] z-10 inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-card/85 px-3 py-2 text-[11px] text-muted-foreground shadow-sm backdrop-blur-md transition-colors hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-45 sm:right-5 sm:top-[4.75rem]"
+      >
+        {orbiting ? <Pause size={13} aria-hidden /> : <Orbit size={13} aria-hidden />}
+        {orbiting ? "暂停环绕" : "缓慢环绕"}
+      </button>
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         {labels.map((label) => {
-          const node = sceneData.nodes.find((item) => item.id === label.id)!;
+          const node = nodesById.get(label.id);
+          if (!node) return null;
+          const selected = selectedId === node.id;
           return (
             <button
               key={label.id}
               type="button"
-              onClick={() => onSelect(node.id)}
-              aria-pressed={selectedId === node.id}
-              title={node.title}
-              className={`pointer-events-auto absolute max-w-[165px] -translate-x-1/2 rounded-md border px-2 py-1 text-center text-[11px] leading-snug shadow-sm backdrop-blur-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${selectedId === node.id ? "border-primary/40 bg-card text-foreground" : "border-border/50 bg-card/80 text-muted-foreground hover:text-foreground"}`}
-              style={{
-                left: label.x,
-                top: label.y + 14,
-                opacity: selectedId && !neighbors.has(node.id) ? 0.35 : 1,
+              data-spatial-node={node.id}
+              onClick={() => {
+                setOrbiting(false);
+                onSelect(node.id);
               }}
+              onMouseEnter={() => setHoverId(node.id)}
+              onMouseLeave={() => setHoverId(undefined)}
+              onFocus={() => {
+                setOrbiting(false);
+                setHoverId(node.id);
+              }}
+              onBlur={() => setHoverId(undefined)}
+              aria-pressed={selected}
+              title={node.title}
+              className={`pointer-events-auto absolute max-w-[165px] -translate-x-1/2 rounded-lg border px-2.5 py-1.5 text-center text-[11px] leading-snug backdrop-blur-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${selected ? "border-primary/40 bg-card/95 font-medium text-foreground shadow-md" : "border-border/45 bg-card/75 text-foreground/80 shadow-sm hover:border-primary/30 hover:text-foreground"}`}
+              style={{ left: label.x, top: label.y + label.offset, opacity: label.opacity }}
             >
               <span className="line-clamp-2">{node.title}</span>
+              {selected && (
+                <span className="mt-1 block text-[9px] font-normal tracking-wide text-muted-foreground">
+                  {node.degree} 条引用关联
+                </span>
+              )}
             </button>
           );
         })}

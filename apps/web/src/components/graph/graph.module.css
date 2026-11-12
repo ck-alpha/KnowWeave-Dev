@@ -1,0 +1,88 @@
+.panel {
+  box-shadow:
+    0 20px 60px -36px hsl(var(--foreground) / 0.24),
+    0 1px 0 hsl(var(--card)) inset;
+}
+
+.panel:fullscreen {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  border: 0;
+  border-radius: 0;
+  overflow: auto;
+}
+
+.panel:fullscreen .body {
+  flex: 1;
+  min-height: 0;
+}
+
+.panel:fullscreen .surface {
+  height: 100%;
+  min-height: 440px;
+}
+
+.panel:fullscreen .details {
+  max-height: none;
+  height: 100%;
+}
+
+.surface {
+  background-color: hsl(var(--background));
+  background-image:
+    radial-gradient(ellipse at 45% 45%, transparent 25%, hsl(var(--background) / 0.85) 78%),
+    radial-gradient(hsl(var(--foreground) / 0.14) 0.7px, transparent 0.7px),
+    radial-gradient(ellipse at 30% 35%, hsl(var(--accent-soft) / 0.35), transparent 60%);
+  background-size:
+    100% 100%,
+    24px 24px,
+    100% 100%;
+}
+
+.node {
+  transition: opacity 180ms ease;
+}
+
+.nodeCore {
+  filter: drop-shadow(0 3px 5px rgb(0 0 0 / 0.14));
+}
+
+.edge {
+  transition:
+    opacity 180ms ease,
+    stroke 180ms ease;
+}
+
+.detailAccent {
+  background-image: radial-gradient(
+    ellipse at 100% 0%,
+    hsl(var(--primary) / 0.055),
+    transparent 65%
+  );
+}
+
+@media (min-width: 1024px) {
+  .body .surface,
+  .body .details {
+    height: clamp(440px, calc(100dvh - 450px), 760px);
+    min-height: 0;
+  }
+}
+
+@media (max-width: 1023px) {
+  .panel:fullscreen .body {
+    flex: none;
+  }
+  .panel:fullscreen .surface {
+    height: 65dvh;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .node,
+  .edge {
+    transition: none;
+  }
+}
