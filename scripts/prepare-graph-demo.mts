@@ -4,8 +4,12 @@ import { mkdir, readdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import {
   DEFAULT_WIKI_SETTINGS,
+  createWorkspaceCollection,
   initWikiFolder,
+  openDb,
   saveWikiSettings,
+  syncWikiToDb,
+  updatePageWorkspace,
   writePage,
   type PageType,
 } from "../packages/core/src/index";
@@ -104,12 +108,56 @@ for (const [index, [slug, title, type]] of items.entries()) {
     content: `# ${title}\n\n这是一份仅用于界面验证的人工示例页面，用来检查中文标题、英文术语及页面关联在两种图谱视图中的显示，不代表模型生成的研究成果。\n\n${references}\n`,
   });
 }
+const db = openDb(wikiPath);
+try {
+  await syncWikiToDb(wikiPath, db);
+  const research = createWorkspaceCollection(db, {
+    title: "研究 · 检索与证据",
+    description: "人工演示专题：从研究问题到检索与证据。",
+  });
+  const practice = createWorkspaceCollection(db, {
+    title: "实践 · 本地知识库",
+    description: "人工演示专题：本地工具与知识组织。",
+  });
+  createWorkspaceCollection(db, { title: "待开始的专题", description: "验证空专题的探索入口。" });
+  const researchSlugs = new Set([
+    "knowledge-map",
+    "retrieval",
+    "bm25",
+    "embeddings",
+    "hybrid",
+    "evaluation",
+    "scifact",
+    "isolated",
+  ]);
+  const practiceSlugs = new Set([
+    "knowledge-map",
+    "local-first",
+    "qwen",
+    "ollama",
+    "markdown",
+    "graph",
+  ]);
+  for (const [slug] of items) {
+    updatePageWorkspace(db, slug, {
+      collectionIds: [
+        ...(researchSlugs.has(slug) ? [research.id] : []),
+        ...(practiceSlugs.has(slug) ? [practice.id] : []),
+      ],
+      starred: slug === "knowledge-map",
+      readingStatus: slug === "knowledge-map" ? "reading" : slug === "bm25" ? "reviewed" : "unread",
+    });
+  }
+} finally {
+  db.close();
+}
 await writeFile(
   join(output, "fixture.json"),
   JSON.stringify(
     {
       kind: "KnowWeave Graph QA",
       synthetic: true,
+      collections: 3,
       pages: items.length,
       links: Object.values(links).reduce((count, list) => count + list.length, 0),
       createdAt: stamp,

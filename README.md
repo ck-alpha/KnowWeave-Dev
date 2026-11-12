@@ -6,7 +6,7 @@ KnowWeave 将文档交给本地 Qwen 整理为 Markdown Wiki，按课题或项�
 
 这是基于 MIT 项目 [LLM Wiki](https://github.com/ddsyasas/llm-wiki) 的二次开发作品。本项目重点实现本地 Qwen/Ollama 适配、向量索引维护、混合检索、引用约束、可复现评测，以及专题阅读工作流与产品界面；继承能力和贡献边界见 [NOTICE](NOTICE.md)，原 [LICENSE](LICENSE) 保留。
 
-[本次产品升级](docs/PRODUCT_UPGRADE.md) · [模型与检索验收](docs/ROUND_03_ACCEPTANCE.md) · [架构](architecture.md) · [求职展示与面试提纲](docs/CAREER_PRESENTATION.md) · [独立审阅指南](docs/GPT_REVIEW_GUIDE.md)
+[知识管理调研与补全建议](docs/KNOWLEDGE_RESEARCH_2026-11.md) · [本次产品升级](docs/PRODUCT_UPGRADE.md) · [模型与检索验收](docs/ROUND_03_ACCEPTANCE.md) · [架构](architecture.md) · [求职展示与面试提纲](docs/CAREER_PRESENTATION.md) · [独立审阅指南](docs/GPT_REVIEW_GUIDE.md)
 
 ## 看一次实际使用
 
@@ -35,13 +35,14 @@ Wiki 页面：查看整理后的知识，并沿 Sources 返回原始文献。
 | 能力 | 当前行为 |
 | --- | --- |
 | 专题与阅读 | 一个页面可加入多个课题/项目；收藏、待读/阅读中/已读、个人笔记按 Wiki 持久化 |
+| 专题关系探索 | 专题与图谱相互跳转；区分引用、被引和双向引用，发现全库未连接页面，查看阅读状态 |
 | 知识馆藏 | 搜索标题/标签/目录摘要，组合类型/标签筛选与排序；可直接写笔记，阅读页有目录和 Markdown 导出 |
 | 工作首页 | 真实近期更新、阅读进度、继续阅读和待处理来源入口；桌面/窄屏、深浅色界面 |
 | 文档 → Wiki | Qwen 生成或更新 Markdown 页面；同名原文独立保存，失败来源可重试，保留页面来源关系 |
 | 三路检索 | Query 可选 BM25、Embedding、Hybrid（RRF）；默认 BM25，无需 Embedding 模型 |
 | 可维护向量索引 | 各 Wiki 独立存储；内容变化使旧向量失效，显式增量刷新，支持全量重建 |
 | 回答与证据 | 实际页面正文进入模型上下文；引用须来自供给正文，支持 Wiki → 原始来源回溯 |
-| 知识复用与备份 | 问题/回答/引用一起复制或导出；Wiki ZIP 包含文档与 SQLite 一致快照，保存专题、笔记、来源关系 |
+| 知识复用与备份 | 专题阅读清单含个人笔记；问题/回答/引用一起导出；Wiki ZIP 包含文档与 SQLite 一致快照 |
 | 可复现评测 | SciFact 官方原始 corpus 的三路检索对比，与小型 Wiki 问答演示分开记录 |
 
 三模式目前用于独立 Query；Ingest 和 Chat 的候选检索仍用 BM25。继承的文本导入、Wiki 浏览与更新构成本轮演示主路径，PDF/OCR 和云端模型不属于当前已验证能力。
@@ -91,13 +92,17 @@ pnpm dev
 
 日常使用可从 **Workspace → 新建专题** 开始，例如「课题文献综述」或「项目知识手册」。把 Wiki 页面加入专题，在阅读页收藏、标记阅读中，并展开 **专题与笔记** 保存自己的判断。个人笔记不会改写正文或进入模型证据；已读仅表示阅读进度。**Wiki → 写一篇笔记** 可以不调用模型直接积累自己的内容。
 
+选中专题后，**导出阅读清单** 可下载专题说明、全部成员的 Wiki 链接、标签、收藏/阅读状态和个人笔记。导出不受当前搜索或状态筛选影响，空专题也可下载；个人笔记标为个人记录，不是原文证据。清单不含 Wiki 正文或原始文件，不替代 ZIP 备份；链接需要当前实例可访问。
+
 Wiki 目录可组合搜索、类型、标签与排序；Sources 可按待处理或格式筛选。Query 的三个问题模板只填写输入框，由你决定何时提交；回答生成后可 **复制回答与引用** 或 **导出 Markdown**，导出保留本次实际提交的问题。引用链接仍指向当前 KnowWeave 实例。
 
 **Settings → Wikis → 导出当前 Wiki** 包含 Markdown、原始资料、会话及 SQLite 快照（专题、笔记、来源关系等），不包含设置、历史和回收站。宜在停止编辑/导入时导出，数据库与文档并非统一时点事务。恢复时先停止应用，将 ZIP 解压到目标 Wiki，再重新配置模型。页面软删除后撤销会恢复个人笔记和仍存在的专题关系；直接从磁盘删除页面不经过产品回收流程。
 
 多轮对话进入 **Chats → + 新建会话**，新建后出现输入框；窄屏先点 **会话列表** 展开会话列表。Chat 使用服务器上的本地模型，回复完整生成后显示。更新 Chat 入口代码后，生产服务需要重新 `pnpm build` 并重启 `pnpm start` 才会生效。
 
-网页保留英文栏目与技术术语，步骤、提示和主要操作使用中文。打开 **Graph**，可在 **Map · 2D** 与 **Space · 3D** 间切换，浏览器会记住偏好。Map 使用珠光节点、曲线引用与清晰的标签底板，Space 提供适配深浅色的立体材质、光照和投影标签；悬停或选择节点会突出相邻页面。支持搜索标题或标签、按类型筛选，也可从按实际关联数量排序的页面入口开始探索。
+网页保留英文栏目与技术术语，步骤、提示和主要操作使用中文。打开 **Graph**，可在 **Map · 2D** 与 **Space · 3D** 间切换，浏览器会记住偏好。图谱沿用研究札记的深红、暖纸与墨色：Map 用平面墨点与细线呈现实际引用，Space 使用哑光材质与暖色光照，右侧为页边札记式关系阅读。支持搜索标题或标签、按类型和专题组合筛选；「未连接页面」指整个 Wiki 中没有有效引用关系的页面，不会把筛选后暂时没有连线的页面误判为孤页。
+
+在 **Workspace → 选中专题 → 专题图谱** 可进入该课题的关系图，Graph 也可返回对应专题阅读。节点详情分别列出「此页引用」「引用此页」「双向引用」，同时显示已有收藏、阅读状态与所属专题。详情读取完整 Wiki 的真实关系，专题内关系跳转保留专题；范围外的关系明确标注「在全库查看」，点击后才清除范围。专题与节点可用 `?collection=<id>&node=<slug>` 保存入口，切换 Wiki 会清除旧库的客户端探索状态。
 
 选中节点后可开启「仅看相邻」，查看该页、一跳邻居及它们之间的实际引用；「阅读页面」返回 Wiki。两种视图共用当前选择、筛选和标签开关，隐藏普通标签后仍保留当前选择或悬停提示；Wiki 详情中的 **Graph ↗** 可直接定位该页面。浏览器支持时可全屏查看，3D 的「缓慢环绕」需主动开启，遵循系统减少动态效果设置。连线表示现有页面引用，节点距离不代表语义相似度；浏览器无法使用 WebGL2 时可切回 2D。
 
@@ -138,9 +143,9 @@ node scripts/workspace-browser.mjs --base-url http://127.0.0.1:3002 \
 
 ### 图谱视觉演示
 
-新版真实浏览器截图：[二维知识地图](docs/images/graph-2d-light.png) · [三维深色空间](docs/images/graph-3d-dark.png)。均来自下述人工样例，未替换页面数据或修改截图。
+新版真实浏览器截图：[纸面知识图册](docs/images/graph-atlas-light.png) · [深色图册](docs/images/graph-atlas-dark.png) · [引用关系](docs/images/graph-atlas-relations.png) · [手机首屏](docs/images/graph-atlas-mobile.png) · [哑光三维空间](docs/images/graph-atlas-3d.png)。均来自下述人工样例，未替换页面数据或修改截图。
 
-[图谱样例准备器](scripts/prepare-graph-demo.mts) 创建 18 页、33 条实际引用的人工资料，含中英文标题、双向引用和孤立页面，不调用模型；默认目标为 `.local/graph-demo`，要求目录为空。开发实例与生产服务应使用不同检出目录，避免共用 `apps/web/.next`。在独立开发检出目录执行：
+[图谱样例准备器](scripts/prepare-graph-demo.mts) 创建 18 页、33 条实际引用和三个专题（含空专题、跨专题页面及阅读状态）的人工资料，含中英文标题、双向引用和孤立页面，不调用模型；默认目标为 `.local/graph-demo`，要求目录为空。开发实例与生产服务应使用不同检出目录，避免共用 `apps/web/.next`。在独立开发检出目录执行：
 
 ```bash
 pnpm exec tsx scripts/prepare-graph-demo.mts
@@ -159,6 +164,17 @@ node scripts/graph-browser.mjs --base-url http://127.0.0.1:3002 \
 ```
 
 脚本拒绝外部地址、Wiki 路径不匹配或不符的样例，输出截图与 JSON 报告。将 `--scenario full` 改为 `--scenario fallback` 并使用新的输出目录，可单独检查禁用 WebGL 后回到 2D；重复准备样例也需换用新空目录。浏览器检查使用软件 WebGL，不代表实际 GPU、大库或手机触控性能；本轮验证结果见 [开发日志](docs/DEVLOG.md)。
+
+新增的专题与阅读清单验收使用同一份新生成的图谱样例（需要其中三个专题和阅读状态），检查方向关系、手机筛选、专题往返与真实下载：
+
+```bash
+node scripts/graph-exploration-browser.mjs --base-url http://127.0.0.1:3002 \
+  --wiki-path "$PWD/.local/graph-demo/fixture-wiki" \
+  --chromium /path/to/chromium \
+  --output-dir "$PWD/.local/evidence/graph-exploration"
+```
+
+它只读取专用 Wiki，下载文件写入验收输出目录；再次运行请换一个新的输出目录。
 
 ## 模型与检索 Demo
 

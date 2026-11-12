@@ -52,9 +52,10 @@ export default function HelpPage() {
         <Card>
           <h2 className="font-display text-h2 font-semibold">04 · 浏览关系，持续维护</h2>
           <p className="mt-3 text-muted-foreground">
-            在 Wiki 中浏览、编辑页面或查看历史；Graph 将页面之间已有的链接呈现为知识图谱，支持切换
-            2D 与 3D。 Lint 检查链接、索引和语义问题；Schema 用于调整知识库的整理规则；Log
-            记录变更。
+            在 Wiki 中浏览、编辑页面或查看历史；从 Workspace 的「专题图谱」查看课题内的真实引用， 在
+            Graph 区分此页引用、引用此页和双向引用，也能查找尚未连接的页面。图谱支持 2D 与
+            3D，详情显示已有阅读状态。专题的「导出阅读清单」可保存全部成员与个人笔记。 Lint
+            检查链接、索引和语义问题；Schema 用于调整知识库的整理规则；Log 记录变更。
           </p>
         </Card>
         <Card>

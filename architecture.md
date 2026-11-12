@@ -1,6 +1,6 @@
 # KnowWeave 项目架构
 
-最后核对：2026-11-12（Asia/Shanghai，完成全站18px界面/20px阅读尺度、双行导航与窄屏栏目选择、英文首页标题、图谱文字尺寸及焦点行为的源码核对）。当前实现范围：Round 01–03、知识工作台、图谱呈现与研究札记视觉升级；本轮验证状态见 [PROGRESS](docs/PROGRESS.md)。
+最后核对：2026-11-12（Asia/Shanghai，专题关系图谱、引用方向、阅读上下文、纸面图册及专题清单导出；本轮验证结果见进度与开发日志）。当前实现范围：Round 01–03、知识工作台、图谱呈现与研究札记视觉升级；本轮验证状态见 [PROGRESS](docs/PROGRESS.md)。
 本文件是当前架构的统一入口；模块、调用链、接口、数据格式、检索/模型协议或部署入口变化时，随代码在同一次提交中更新核对日期。当前名称 **KnowWeave**；既有 `KNOWWAEVE_*` 环境变量和内部包名为兼容保留。
 
 ## 技术栈与入口
@@ -58,6 +58,8 @@ UI 的 `[[slug]]` 跳到 Wiki，再经 Sources 链接进入原文；读取 API �
 
 `GET /api/wikis/export` 在现有文档 ZIP 中加入 SQLite `backup` 生成的一致快照 `.llm-wiki/meta.sqlite`，保留专题、笔记、来源关系等不可从 Markdown 重建的信息。临时快照在成功/失败后清理，ZIP 使用已安装 archiver v8 的 `ZipArchive`。设置、历史和回收站仍不包含；数据库快照与 Markdown 文件拷贝不构成统一时点事务，宜在停止编辑/导入后导出。还原时先停止应用，将 ZIP 解压到目标 Wiki 后重新配置模型；不要把该包称为包含全部配置/历史的完整备份。下载继续在内存缓冲，超大库未验证。
 
+Workspace 选中专题后可「导出阅读清单」。客户端 [collection-export.ts](apps/web/src/lib/collection-export.ts) 从完整 snapshot 按 collectionIds 取全部成员，不使用当前 UI 搜索、阅读状态或收藏过滤结果；生成 Markdown Blob 下载，无新增 HTTP 或模型调用。包含专题名/说明、Asia/Shanghai 导出时间、页面标题/当前实例链接、类型/标签、收藏/阅读状态、个人笔记；用户文本按纯文本转义，slug 做 URL 编码、文件名去除路径与控制字符。空专题可导出，个人记录明确不作为证据；不含正文或原始文件，不替代 ZIP 备份。Blob URL 下载后回收。
+
 | 接口 | 契约 |
 | --- | --- |
 | `GET /api/workspace` | `{collections,pages,summary}`；pages 含 `starred,readingStatus,note,collectionIds,touchedAt`，summary 为真实状态计数 |
@@ -94,12 +96,13 @@ Sources 列表在已有返回数据上按标题/文件名/网址、处理状态�
 Query 提供比较研究、简报、决策问题模板，仅填写输入框，不自动提交。每次响应记录对应的实际提交问题，后续编辑输入不会改变该回答的题目。客户端 [answer-export.ts](apps/web/src/lib/answer-export.ts) 将问题、回答、引用、模型、模式、置信度和局限一起复制/下载为 Markdown；仅把 `pagesUsed` 中的 Wiki 引用转换成当前实例 URL。链接仍需该实例可访问，置信度明确标为模型判断。没有增加浏览器回答历史、模型调用或检索协议。
 
 - 界面采用英文栏目/技术术语（Sources、Wiki、Query、BM25 等）与中文操作说明；`html lang="zh-CN"`，帮助页、导入/问答/聊天、Wiki 和主要设置操作提供中文指引。用户资料与 Wiki 正文不因界面语言而翻译，不新增翻译服务。
-- `/graph` 继续由服务端 `openWikiContext` → `buildGraph` 读取现有页面与 `[[slug]]` 引用，返回原有 `GraphData {nodes, links}`；断链、自引用、重复同向边沿用 core 规则。有向关联表示页面引用，不代表语义相似度或模型推断关系。
+- `/graph` 由服务端 `openWikiContext` → `buildGraph` 读取现有页面与 `[[slug]]` 引用，保留原有 `GraphData {nodes, links}`；同时在同一 Wiki 上读取 `getWorkspaceSnapshot`，仅传递专题 id/title 与页面 slug/collectionIds/readingStatus/starred，不将个人笔记加入图谱 payload。按 Wiki 路径 SHA256 key 重挂载以隔离切库状态。`?node=` 与 `?collection=` 接受可保存入口，重复参数取首个值。断链、自引用、重复同向边沿用 core 规则；有向关联表示页面引用，不代表语义相似度或模型推断关系。
+- [graph-exploration.ts](apps/web/src/components/graph/graph-exploration.ts) 提供只读 `scopeGraph` 与 `pageRelations`。先按专题成员/全库孤立条件取诱导子图，再应用一跳邻域和文本/类型过滤；孤立基于完整图中的有效连线，不基于当前可见边或缓存 degree。不存在/空专题保持空结果。详情基于完整图将关系分成互斥的引用、被引与双向三组，保留原图、元数据与有向边数；专题内关系跳转保留专题并清除文本/类型/邻域限制，范围外的关系明确标注「在全库查看」，点击后清除筛选。Workspace 的「专题图谱」和图谱中的专题阅读链接构成往返入口；所有探索为客户端只读，不新增 API、数据库字段或模型调用。
 - [vault-graph.tsx](apps/web/src/components/graph/vault-graph.tsx) 管理 Map · 2D / Space · 3D、搜索、类型筛选、选择详情与悬停/选择邻接高亮；`?node=<slug>` 保留深链接。两种视图共享筛选、选择、「仅看相邻」和标签开关，视图偏好保存在浏览器 `knowweave.graph.mode`；首次默认 2D，浏览器存储不可用时仍可切换。未选择时展示当前筛选结果中按原图关联数量排序的最多四个页面入口；排序不表示内容质量或模型相关性。全屏使用原生 Fullscreen API，仅在浏览器支持时提供入口。
 - [graph-layout.ts](apps/web/src/components/graph/graph-layout.ts) 提供确定性二维布局与过滤，160 节点以内执行有界布局迭代，更多节点采用网格控制开销。新增 `neighborhoodGraph` 先保留所选节点及所有直接引用/被引用邻居构成的诱导子图，再应用标题/标签/类型筛选；邻居彼此的实际引用仍保留，不生成推断边，不改输入或原图 degree。缺失选择返回原图，清除选择退出局部范围。
-- Map 使用 SVG 珠光渐变节点、曲线引用、选择环与固定屏幕字号的标签底板；支持缩放平移与键盘选择。[graph-labels.ts](apps/web/src/components/graph/graph-labels.ts) 统一标签实际绘制与布局所用的屏幕尺寸，以14px字号/20px行高测量并绘制，依次尝试下、上、右、左四个方向，窄画布增加紧邻节点的四个角向候选并缩短每行标题长度，避开全部可见节点、已有标签、画布信息区与工具条；优先当前选择/悬停与高关联节点，关闭普通标签后仍允许显示当前选择或悬停提示。[graph.module.css](apps/web/src/components/graph/graph.module.css) 维护图谱专属画布、面板层次、全屏布局和减少动态效果样式；桌面画布与侧栏同高，侧栏内容独立滚动，不覆盖其他路由。
-- [spatial-graph.tsx](apps/web/src/components/graph/spatial-graph.tsx) 仅在选择 Space 时动态加载现有 `react-force-graph-3d`，使用独立数据副本与固定空间坐标，避免模拟漂移或修改共用图数据。[spatial-materials.js](apps/web/src/components/graph/spatial-materials.js) 封装现有 Three.js 的球体、珠光材质、光晕/选择环与主题化光源；镜头按节点边界与画布比例取景，屏幕投影标签按实际单/双行高度和宽度避开其他标签、可见节点圆、信息区与控件，并隐藏相机背面标签；标题与副标均为14px。用户主动开启「缓慢环绕」后才自动旋转，拖动、选择和镜头操作会暂停；`prefers-reduced-motion` 禁用环绕与相机过渡。
-- 画布与详情在窄屏上下排列；WebGL2 不可用或上下文丢失时显示切换至 2D 的入口。节点位置仅用于图谱呈现，距离不表示语义相似度。图谱是浏览与跳转工具，不改变 Wiki、检索、模型或持久化接口，也不引入 GraphRAG 或新的运行依赖。
+- Map 使用 SVG 平面墨点、细曲线引用与深红选择环，移除珠光渐变和发光装饰；文字与底板沿用暖纸/深纸主题。支持缩放平移与键盘选择。[graph-labels.ts](apps/web/src/components/graph/graph-labels.ts) 统一标签实际绘制与布局所用的屏幕尺寸，以14px字号/20px行高测量并绘制，依次尝试下、上、右、左四个方向，窄画布增加紧邻节点的四个角向候选并缩短每行标题长度，避开全部可见节点、已有标签、画布信息区与工具条；优先当前选择/悬停与高关联节点，关闭普通标签后仍允许显示当前选择或悬停提示。[graph.module.css](apps/web/src/components/graph/graph.module.css) 将图谱呈现为装订书页与页边札记，维护独立画布、全屏和减少动态效果样式；桌面画布与侧栏同高，侧栏内容独立滚动，不覆盖其他路由。
+- [spatial-graph.tsx](apps/web/src/components/graph/spatial-graph.tsx) 仅在选择 Space 时动态加载现有 `react-force-graph-3d`，使用独立数据副本与固定空间坐标，避免模拟漂移或修改共用图数据。[spatial-materials.js](apps/web/src/components/graph/spatial-materials.js) 封装现有 Three.js 的哑光球体、选择环与暖色主题光源，去除装饰光晕；镜头按节点边界与画布比例取景，屏幕投影标签按实际单/双行高度和宽度避开其他标签、可见节点圆、信息区与控件，并隐藏相机背面标签；标题与副标均为14px。`placeSpatialGraphLabel` 对选中/悬停标题追加有界角向与较远候选，继续避让全部节点/控件/其他标签；细引线仅指示标签对应节点，不是新增页面引用，也不接收点击。选中标题优先于悬停标题。用户主动开启「缓慢环绕」后才自动旋转，拖动、选择和镜头操作会暂停；`prefers-reduced-motion` 禁用环绕与相机过渡。
+- 画布与详情在窄屏上下排列；639px及以下默认收起专题/类型/范围筛选，保留搜索、视图与「筛选 · 数量」入口；隐藏控件不进入Tab，跨639/640断点恢复可见焦点。当前专题名显示在画布信息区。WebGL2 不可用或上下文丢失时显示切换至 2D 的入口。节点位置仅用于图谱呈现，距离不表示语义相似度。图谱是浏览与跳转工具，不改变 Wiki、检索、模型或持久化接口，也不引入 GraphRAG 或新的运行依赖。
 
 ### Lint 中文交互与报告
 
@@ -139,6 +142,8 @@ Query UI 提供模式解释、索引状态、构建/刷新按钮、取证页链�
 
 [prepare-graph-demo.mts](scripts/prepare-graph-demo.mts) 默认在新的空目录 `.local/graph-demo` 生成独立 Wiki/config 与 `fixture.json`：18 页、33 条引用，主题 `KnowWeave Graph QA`，包含双向引用与孤立页面，不调用模型，拒绝非空目录；已纳入 [scripts/tsconfig.json](scripts/tsconfig.json) 的类型检查。[graph-browser.mjs](scripts/graph-browser.mjs) 是对应只读浏览器验收入口，要求 loopback、准确 Wiki 路径和指定人工样例；记录真实 Chromium 鼠标/键盘操作、截图、浏览器/HTTP 错误与意外写请求，提供 `full` / `fallback` 场景。普通场景使用软件 WebGL，回退场景禁用 WebGL；不调用模型，不向 Wiki 写入页面，不作为实际 GPU、大规模图谱或手机触控性能结论。复现命令见 [README](README.md#图谱视觉演示)，当前运行结果统一记录在 [DEVLOG](docs/DEVLOG.md)。
 
+图谱样例现还创建两个非空专题与一个空专题、跨专题成员、收藏及阅读状态。[graph-exploration-browser.mjs](scripts/graph-exploration-browser.mjs) 校验上述专用样例后，覆盖专题/类型/搜索/孤立组合、完整图的方向分组、空/失效专题、2D/3D共享状态、桌面/手机深浅色、折叠筛选及断点焦点、Graph与Workspace往返，以及Markdown真实下载（搜索无结果仍导出完整专题，空专题可下载）。比较页面与workspace前后快照并记录非GET请求；不用于私有日常资料或模型/性能验收。
+
 `pnpm benchmark:scifact` 使用官方 5,183 篇原始标题/摘要、300 条 test queries、339 条相关性标注，直接调用产品 `indexPageForSearch` / `refreshEmbeddings` / `retrievePages`。离线数据库与 Wiki 分离，未调用 Qwen 编译 corpus。使用相同输入和规则宏平均 Recall@10、nDCG@10、MRR@10，记录原文件 hash、模型 digest、参数、索引耗时、含问题向量生成的检索延迟和运行环境。qrels 只用于最终评分，不用于选择融合参数。
 
 `scripts/demo_round03.py` 面向独立空 Wiki，先核对服务器目录、模型槽与官方数据指纹，顺序导入两篇原文，记录实际 LLM 旧页更新；再单独标注一次手工跨文档阅读列表编辑，验证单页失效、Hybrid 409、刷新 1 页/重复刷新 0 页和三模式引用与原文完整性。`scripts/demo-browser.mjs` 使用本机 Chromium DevTools 协议，首次通过 UI 导入第三篇、浏览 Wiki、刷新索引、三模式提问并点击引用到原文，直接截图；无新增浏览器 npm 依赖。详见 [Demo 说明](docs/DEMO.md) 与 [Round 03 验收](docs/ROUND_03_ACCEPTANCE.md)。
@@ -157,6 +162,7 @@ Round 02 历史检索结果与完整命令见 [Round 02 验收](docs/ROUND_02_AC
 
 | 日期（Asia/Shanghai） | 变更 |
 | --- | --- |
+| 2026-11-12 | 图谱重绘为纸面图册与页边札记，读取专题/个人阅读上下文，增加专题范围、全库孤页与互斥方向分组；Workspace 增加专题图谱往返入口及 Markdown 阅读清单导出，无新存储/API/模型协议。 |
 | 2026-11-12 | 整站普通文字/操作18px、阅读20px、辅助16px，首页标题改英文；新增导航CSS module、桌面双行栏目与窄屏栏目菜单，补齐焦点行为；放大2D/3D标签并同步碰撞范围，后端接口与数据不变。 |
 | 2026-11-12 | 统一14px标签、15px操作、16px说明/输入和18px阅读尺度，治理显式小字号并同步控件/窄屏排版；首页近期页面类型改英文，数据与接口不变。 |
 | 2026-11-12 | 首页改为真实阅读札记，按在读/收藏/最近选择页面；馆藏与专题采用索引布局，新增独立 CSS modules 与交织 SVG 品牌，统一本地字体和双主题，补齐移动侧栏隐藏焦点及 Escape 关闭行为；接口、存储、检索和模型协议不变。 |

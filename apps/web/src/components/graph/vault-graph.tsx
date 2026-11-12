@@ -15,12 +15,20 @@ import {
   Plus,
   RotateCcw,
   Search,
-  Sparkles,
+  Box,
+  Bookmark,
+  BookOpen,
   Type,
   X,
 } from "lucide-react";
 import type { GraphData } from "@llm-wiki/core";
 import { filterGraph, layoutGraph, neighborhoodGraph } from "./graph-layout";
+import {
+  scopeGraph,
+  pageRelations,
+  type GraphCollection,
+  type GraphPageState,
+} from "./graph-exploration";
 import {
   GRAPH_LABEL_BASELINE,
   GRAPH_LABEL_FONT_SIZE,
@@ -43,31 +51,42 @@ const SpatialGraph = dynamic(
 );
 
 export const GRAPH_TYPES: Record<string, { label: string; color: string }> = {
-  overview: { label: "Overview", color: "#b85e56" },
-  concept: { label: "Concept", color: "#4e9290" },
-  entity: { label: "Entity", color: "#b78b48" },
-  comparison: { label: "Comparison", color: "#9380b4" },
-  source: { label: "Source", color: "#7a8b9d" },
+  overview: { label: "Overview", color: "#98525a" },
+  concept: { label: "Concept", color: "#6f8375" },
+  entity: { label: "Entity", color: "#ab8554" },
+  comparison: { label: "Comparison", color: "#8c7a8b" },
+  source: { label: "Source", color: "#7d858d" },
 };
 export function graphType(group: string) {
   return GRAPH_TYPES[group] ?? { label: group, color: "#7a8b9d" };
 }
 
-const iconButton =
-  "grid h-11 w-11 shrink-0 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-30";
+const iconButton = styles.iconButton;
+const EMPTY_COLLECTIONS: GraphCollection[] = [];
+const EMPTY_PAGE_STATES: GraphPageState[] = [];
+const READING_LABELS = { unread: "待读", reading: "阅读中", reviewed: "已读" };
 type Camera = { x: number; y: number; zoom: number };
 type Mode = "2d" | "3d";
 
 export function VaultGraph({
   data,
   initialSelectedId,
+  initialCollectionId,
+  collections = EMPTY_COLLECTIONS,
+  pageStates = EMPTY_PAGE_STATES,
 }: {
   data: GraphData;
   initialSelectedId?: string;
+  initialCollectionId?: string;
+  collections?: GraphCollection[];
+  pageStates?: GraphPageState[];
 }) {
   const [mode, setMode] = useState<Mode>("2d");
   const [query, setQuery] = useState("");
   const [group, setGroup] = useState("");
+  const [collectionId, setCollectionId] = useState(initialCollectionId ?? "");
+  const [isolatedOnly, setIsolatedOnly] = useState(false);
+  const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [selectedId, setSelectedIdState] = useState(initialSelectedId);
   const [hoverId, setHoverId] = useState<string>();
   const [showLabels, setShowLabels] = useState(true);
@@ -81,6 +100,9 @@ export function VaultGraph({
   const surfaceRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
+  const filtersToggleRef = useRef<HTMLButtonElement>(null);
+  const scopeFiltersRef = useRef<HTMLDivElement>(null);
+  const typeFiltersRef = useRef<HTMLDivElement>(null);
   const drag = useRef<{
     pointerId: number;
     x: number;
@@ -89,23 +111,42 @@ export function VaultGraph({
     moved: boolean;
   } | null>(null);
   const suppressClick = useRef(false);
+  const collectionGraph = useMemo(
+    () => scopeGraph(data, pageStates, { collectionId, isolatedOnly }),
+    [data, pageStates, collectionId, isolatedOnly],
+  );
   const scoped = useMemo(
-    () => (localOnly ? neighborhoodGraph(data, selectedId) : data),
-    [data, localOnly, selectedId],
+    () => (localOnly ? neighborhoodGraph(collectionGraph, selectedId) : collectionGraph),
+    [collectionGraph, localOnly, selectedId],
   );
   const filtered = useMemo(() => filterGraph(scoped, query, group), [scoped, query, group]);
+  const activeFilterCount =
+    Number(Boolean(collectionId)) +
+    Number(Boolean(group)) +
+    Number(isolatedOnly) +
+    Number(localOnly);
+  const canvasTitle = collectionId
+    ? (collections.find((collection) => collection.id === collectionId)?.title ?? "该专题已不存在")
+    : mode === "2d"
+      ? "知识关系图册"
+      : "知识的空间视角";
   const hasResults = filtered.nodes.length > 0;
   const layout = useMemo(() => layoutGraph(filtered), [filtered]);
   const positions = useMemo(() => new Map(layout.nodes.map((node) => [node.id, node])), [layout]);
   const selected = data.nodes.find((node) => node.id === selectedId);
-  const connected = useMemo(() => {
-    const ids = new Set<string>();
-    for (const link of data.links) {
-      if (link.source === selectedId) ids.add(link.target);
-      if (link.target === selectedId) ids.add(link.source);
-    }
-    return data.nodes.filter((node) => ids.has(node.id));
-  }, [data, selectedId]);
+  const relations = useMemo(() => pageRelations(data, selectedId), [data, selectedId]);
+  const connected = useMemo(
+    () => [...relations.outgoing, ...relations.incoming, ...relations.bidirectional],
+    [relations],
+  );
+  const selectedState = pageStates.find((page) => page.slug === selectedId);
+  const selectedCollections = collections.filter((collection) =>
+    selectedState?.collectionIds.includes(collection.id),
+  );
+  const isolatedCount = useMemo(
+    () => scopeGraph(data, pageStates, { isolatedOnly: true }).nodes.length,
+    [data, pageStates],
+  );
   const relatedIds = useMemo(
     () => new Set([selectedId, ...connected.map((node) => node.id)]),
     [selectedId, connected],
@@ -122,6 +163,25 @@ export function VaultGraph({
         .slice(0, 4),
     [filtered],
   );
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 639px)");
+    const restoreVisibleFocus = () => {
+      const active = document.activeElement;
+      if (!media.matches) {
+        if (active === filtersToggleRef.current) {
+          scopeFiltersRef.current?.querySelector<HTMLSelectElement>("select")?.focus();
+        }
+        return;
+      }
+      if (filtersExpanded) return;
+      if (scopeFiltersRef.current?.contains(active) || typeFiltersRef.current?.contains(active)) {
+        filtersToggleRef.current?.focus();
+      }
+    };
+    media.addEventListener("change", restoreVisibleFocus);
+    return () => media.removeEventListener("change", restoreVisibleFocus);
+  }, [filtersExpanded]);
 
   useEffect(() => {
     setCanFullscreen(Boolean(document.fullscreenEnabled));
@@ -163,8 +223,12 @@ export function VaultGraph({
     window.history.replaceState(window.history.state, "", url);
   }, []);
   useEffect(() => {
-    const onPop = () =>
-      setSelectedIdState(new URL(window.location.href).searchParams.get("node") ?? undefined);
+    const onPop = () => {
+      const params = new URL(window.location.href).searchParams;
+      setSelectedIdState(params.get("node") ?? undefined);
+      setCollectionId(params.get("collection") ?? "");
+      if (!params.get("node")) setLocalOnly(false);
+    };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
   }, []);
@@ -230,13 +294,28 @@ export function VaultGraph({
       if (node) setCamera({ x: node.x, y: node.y + 16, zoom: Math.max(camera.zoom, 1.15) });
     }
   }
+  function changeCollection(id: string) {
+    setCollectionId(id);
+    const url = new URL(window.location.href);
+    if (id) url.searchParams.set("collection", id);
+    else url.searchParams.delete("collection");
+    window.history.replaceState(window.history.state, "", url);
+  }
   function clearFilters() {
     setQuery("");
     setGroup("");
     setLocalOnly(false);
+    setIsolatedOnly(false);
+    changeCollection("");
   }
   function selectRelated(id: string) {
-    clearFilters();
+    if (collectionGraph.nodes.some((node) => node.id === id)) {
+      setQuery("");
+      setGroup("");
+      setLocalOnly(false);
+    } else {
+      clearFilters();
+    }
     select(id);
   }
   const activeId = selectedVisible
@@ -260,63 +339,42 @@ export function VaultGraph({
   );
 
   return (
-    <div className="mx-auto w-full max-w-[1600px] px-4 py-5 sm:px-8 sm:py-7 lg:px-10">
-      <header className="mb-4 flex flex-wrap items-end justify-between gap-3 sm:mb-6 sm:gap-5">
-        <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.24em] text-primary">
-            Your knowledge, connected
+    <div className={styles.atlas}>
+      <header className={styles.heading}>
+        <div className={styles.introduction}>
+          <p className={styles.context}>
+            Graph <span>知识图谱</span>
           </p>
-          <h1 className="font-display text-[1.75rem] font-semibold leading-tight tracking-tight sm:text-[2.5rem]">
-            Knowledge Graph
-            <span className="mt-1 block whitespace-nowrap align-middle font-sans text-caption sm:ml-3 sm:mt-0 sm:inline-block sm:text-ui font-normal tracking-normal text-muted-foreground">
-              知识图谱
-            </span>
-          </h1>
-          <p className="mt-2 text-ui leading-relaxed text-muted-foreground">
-            <span className="sm:hidden">点击节点，沿关联探索知识。</span>
-            <span className="hidden sm:inline">
-              让分散的知识连接起来。选择一个节点，沿着关联继续探索。
-            </span>
-          </p>
+          <h1>知识之间，自有脉络。</h1>
+          <p className={styles.introCopy}>循着一条引用，发现下一页值得阅读的知识。</p>
         </div>
-        <div className="flex gap-5 sm:gap-7 sm:border-l sm:border-border sm:pl-6">
-          <div>
-            <p className="font-display text-h3 tabular-nums sm:text-h2">
-              {data.nodes.length}
-              <span className="ml-1.5 font-sans text-caption text-muted-foreground">pages</span>
-            </p>
-            <p className="mt-0.5 hidden text-caption text-muted-foreground sm:block">知识页面</p>
-          </div>
-          <div>
-            <p className="font-display text-h3 tabular-nums sm:text-h2">
-              {data.links.length}
-              <span className="ml-1.5 font-sans text-caption text-muted-foreground">links</span>
-            </p>
-            <p className="mt-0.5 hidden text-caption text-muted-foreground sm:block">有向关联</p>
-          </div>
-        </div>
+        <p className={styles.catalogueCount}>
+          <span>
+            <strong>{data.nodes.length}</strong> 篇知识
+          </span>
+          <span>
+            <strong>{data.links.length}</strong> 条引用
+          </span>
+        </p>
       </header>
 
       <div
         ref={panelRef}
-        className={`${styles.panel} overflow-hidden rounded-2xl border border-border bg-card`}
+        className={styles.panel}
         data-input={keyboardInput ? "keyboard" : "pointer"}
+        data-filters-open={filtersExpanded}
         onKeyDownCapture={() => setKeyboardInput(true)}
         onPointerDownCapture={() => setKeyboardInput(false)}
         onPointerMoveCapture={(event) => {
           if (event.pointerType === "mouse" && keyboardInput) setKeyboardInput(false);
         }}
       >
-        <div className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2 sm:gap-3 sm:px-5 sm:py-3">
-          <div
-            className="flex shrink-0 rounded-xl bg-secondary p-1"
-            role="group"
-            aria-label="图谱视图"
-          >
+        <div className={styles.toolbar}>
+          <div className={styles.viewSwitch} role="group" aria-label="图谱视图">
             {(
               [
                 { id: "2d", label: "Map", icon: Layers2 },
-                { id: "3d", label: "Space", icon: Sparkles },
+                { id: "3d", label: "Space", icon: Box },
               ] as const
             ).map(({ id, label, icon: Icon }) => (
               <button
@@ -324,7 +382,7 @@ export function VaultGraph({
                 type="button"
                 aria-pressed={mode === id}
                 onClick={() => changeMode(id)}
-                className={`flex items-center gap-2 rounded-lg px-3 py-2 text-caption transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${mode === id ? "bg-card font-medium text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                className={styles.viewButton}
               >
                 <Icon size={14} aria-hidden />
                 {label}
@@ -332,7 +390,7 @@ export function VaultGraph({
               </button>
             ))}
           </div>
-          <div className="relative order-3 w-full min-w-0 flex-auto sm:order-none sm:w-auto sm:flex-1 sm:max-w-[330px]">
+          <div className={styles.search}>
             <Search
               size={15}
               className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
@@ -343,18 +401,61 @@ export function VaultGraph({
               onChange={(event) => setQuery(event.target.value)}
               aria-label="搜索图谱页面"
               placeholder="搜索标题、标签…"
-              className="h-10 w-full rounded-xl border border-border bg-background pl-9 pr-9 text-ui outline-none transition-colors focus:border-primary/60 focus:ring-2 focus:ring-primary/10"
+              className={styles.searchInput}
             />
             {query && (
               <button
                 type="button"
                 onClick={() => setQuery("")}
-                className="absolute right-1 top-1 h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground"
+                className={styles.clearSearch}
                 aria-label="清除搜索"
               >
                 <X size={14} className="mx-auto" />
               </button>
             )}
+          </div>
+          <button
+            type="button"
+            ref={filtersToggleRef}
+            className={styles.filtersToggle}
+            aria-label="图谱筛选"
+            aria-expanded={filtersExpanded}
+            aria-controls="graph-scope-filters graph-type-filters"
+            onClick={() => setFiltersExpanded((value) => !value)}
+          >
+            筛选{activeFilterCount > 0 && <span> · {activeFilterCount}</span>}
+          </button>
+          <div id="graph-scope-filters" ref={scopeFiltersRef} className={styles.scopeFilters}>
+            <label>
+              <span>专题</span>
+              <select
+                aria-label="图谱专题"
+                value={collectionId}
+                onChange={(event) => changeCollection(event.target.value)}
+              >
+                <option value="">整个知识库</option>
+                {collectionId &&
+                  !collections.some((collection) => collection.id === collectionId) && (
+                    <option value={collectionId}>该专题已不存在</option>
+                  )}
+                {collections.map((collection) => (
+                  <option key={collection.id} value={collection.id}>
+                    {collection.title}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>范围</span>
+              <select
+                aria-label="图谱范围"
+                value={isolatedOnly ? "isolated" : "all"}
+                onChange={(event) => setIsolatedOnly(event.target.value === "isolated")}
+              >
+                <option value="all">全部页面</option>
+                <option value="isolated">尚无引用的页面</option>
+              </select>
+            </label>
           </div>
           {canFullscreen && (
             <button
@@ -370,24 +471,24 @@ export function VaultGraph({
           <Link
             href="/wiki"
             aria-label="返回 Wiki"
-            className={`${canFullscreen ? "" : "ml-auto"} inline-flex items-center gap-1.5 px-1 text-caption text-muted-foreground hover:text-primary`}
+            className={`${styles.returnLink} ${canFullscreen ? "" : "ml-auto"} inline-flex items-center gap-1.5 px-1 text-ui text-muted-foreground hover:text-primary`}
           >
             <span className="hidden sm:inline">返回 Wiki</span>
             <ArrowUpRight size={13} aria-hidden />
           </Link>
         </div>
         <div
-          className="app-navigation flex items-center gap-1 overflow-x-auto whitespace-nowrap border-b border-border/70 px-3 py-2 sm:flex-wrap sm:gap-2 sm:px-5 sm:py-3"
+          id="graph-type-filters"
+          ref={typeFiltersRef}
+          className={styles.typeFilters}
           aria-label="按页面类型筛选"
         >
-          <span className="mr-1 hidden text-xs uppercase tracking-[0.16em] sm:inline text-muted-foreground">
-            Page types
-          </span>
+          <span className={styles.filterLabel}>页面类型</span>
           <button
             type="button"
             aria-pressed={!group}
             onClick={() => setGroup("")}
-            className={`shrink-0 rounded-full border px-3 py-1.5 text-caption ${!group ? "border-foreground/25 bg-secondary text-foreground" : "border-transparent text-muted-foreground hover:bg-secondary"}`}
+            className={styles.typeButton}
           >
             全部
           </button>
@@ -397,7 +498,7 @@ export function VaultGraph({
               type="button"
               aria-pressed={group === type}
               onClick={() => setGroup(group === type ? "" : type)}
-              className={`inline-flex shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 text-caption transition-colors ${group === type ? "border-foreground/25 bg-secondary text-foreground" : "border-transparent text-muted-foreground hover:bg-secondary"}`}
+              className={styles.typeButton}
             >
               <span
                 className="h-1.5 w-1.5 rounded-full"
@@ -409,26 +510,36 @@ export function VaultGraph({
               </span>
             </button>
           ))}
+          {collectionId && collections.some((collection) => collection.id === collectionId) && (
+            <Link
+              href={`/workspace?collection=${encodeURIComponent(collectionId)}`}
+              className={styles.scopeLink}
+            >
+              专题阅读 <ArrowUpRight size={15} aria-hidden />
+            </Link>
+          )}
+          {(query || group || localOnly || collectionId || isolatedOnly) && (
+            <button type="button" onClick={clearFilters} className={styles.clearFilters}>
+              清除筛选 <X size={14} aria-hidden />
+            </button>
+          )}
         </div>
 
-        <div
-          className={`${styles.body} grid lg:grid-cols-[minmax(0,1fr)_300px] xl:grid-cols-[minmax(0,1fr)_320px]`}
-        >
-          <div
-            ref={surfaceRef}
-            className={`${styles.surface} relative h-[460px] min-w-0 overflow-hidden sm:h-[580px]`}
-          >
-            <div className="pointer-events-none absolute left-4 top-4 z-10 w-[232px] max-w-[calc(100%-96px)] rounded-xl border border-border/50 bg-card/85 px-3 py-2.5 backdrop-blur-md sm:left-5 sm:top-5">
-              <p className="flex items-center gap-2 text-[16px] font-medium leading-6 tracking-wide text-muted-foreground">
-                <span className="h-1.5 w-1.5 rounded-full bg-primary/70" />
-                {mode === "2d" ? "Knowledge atlas" : "Knowledge orbit"}
+        <div className={styles.body}>
+          <div ref={surfaceRef} className={styles.surface}>
+            <div className={styles.canvasCaption}>
+              <p
+                className="truncate text-[16px] font-medium leading-6 tracking-wide text-muted-foreground"
+                title={canvasTitle}
+              >
+                {canvasTitle}
               </p>
               <p className="mt-1 text-[16px] leading-6 text-muted-foreground" aria-live="polite">
                 {filtered.nodes.length} 个页面 · {filtered.links.length} 条关联
-                {(query || group || localOnly) && " · 已筛选"}
+                {(query || group || localOnly || collectionId || isolatedOnly) && " · 已筛选"}
               </p>
             </div>
-            <div className="absolute right-4 top-4 z-10 flex gap-1 rounded-xl border border-border/50 bg-card/85 p-1 shadow-sm backdrop-blur-md sm:right-5 sm:top-5">
+            <div className={styles.labelControl}>
               <button
                 type="button"
                 aria-label="显示页面标签"
@@ -444,9 +555,14 @@ export function VaultGraph({
               <div className="absolute inset-0 grid place-items-center px-8">
                 <div className="max-w-xs text-center">
                   <Search className="mx-auto mb-4 text-muted-foreground/50" size={28} />
-                  <h2 className="font-display text-h3">没有找到匹配页面</h2>
+                  <h2 className="font-display text-h3">
+                    {collectionId &&
+                    !collections.some((collection) => collection.id === collectionId)
+                      ? "该专题已不存在"
+                      : "没有找到匹配页面"}
+                  </h2>
                   <p className="mt-2 text-ui leading-relaxed text-muted-foreground">
-                    试试其他关键词，或清除类型筛选，重新查看整个知识库。
+                    调整关键词、专题或页面范围，重新查看知识之间的连接。
                   </p>
                   <button
                     type="button"
@@ -563,13 +679,6 @@ export function VaultGraph({
                 }}
               >
                 <defs>
-                  {groups.map((type) => (
-                    <radialGradient key={type} id={`graph-pearl-${type}`} cx="32%" cy="25%" r="75%">
-                      <stop offset="0%" stopColor="hsl(var(--card))" />
-                      <stop offset="38%" stopColor={graphType(type).color} stopOpacity="0.65" />
-                      <stop offset="100%" stopColor={graphType(type).color} />
-                    </radialGradient>
-                  ))}
                   <marker
                     id="graph-arrow"
                     viewBox="0 0 10 10"
@@ -605,9 +714,9 @@ export function VaultGraph({
                         d={`M ${source.x} ${source.y} Q ${(source.x + target.x) / 2 + Math.sin(angle) * 22} ${(source.y + target.y) / 2 - Math.cos(angle) * 22} ${target.x - Math.cos(angle) * r} ${target.y - Math.sin(angle) * r}`}
                         fill="none"
                         stroke={
-                          active ? "hsl(var(--primary) / .65)" : "hsl(var(--foreground) / .18)"
+                          active ? "hsl(var(--primary) / .8)" : "hsl(var(--muted-foreground) / .32)"
                         }
-                        strokeWidth={active ? 1.8 : 1.1}
+                        strokeWidth={active ? 1.5 : 0.85}
                         vectorEffect="non-scaling-stroke"
                         opacity={activeId && !active ? 0.16 : active ? 0.85 : 1}
                         markerEnd={active ? "url(#graph-arrow)" : undefined}
@@ -653,36 +762,27 @@ export function VaultGraph({
                         <title>{node.title}</title>
                         <circle
                           pointerEvents="none"
-                          r={radius + (focused || hovered ? 20 : 12)}
-                          fill={graphType(node.group).color}
-                          opacity={focused || hovered ? 0.1 : 0.04}
-                        />
-                        <circle
-                          pointerEvents="none"
-                          r={radius + 6}
+                          r={radius + 6 / camera.zoom}
                           fill="none"
-                          stroke={graphType(node.group).color}
-                          strokeWidth={focused || hovered ? 1.2 : 0}
-                          strokeDasharray={focused ? "3 4" : undefined}
+                          stroke="hsl(var(--primary))"
+                          strokeWidth={focused || hovered ? 1 : 0}
                           vectorEffect="non-scaling-stroke"
-                          opacity={0.6}
+                          opacity={focused ? 0.8 : 0.45}
                           className="group-focus-visible:stroke-[2]"
                         />
                         <circle
                           r={radius}
                           className={styles.nodeCore}
-                          fill={`url(#graph-pearl-${node.group})`}
-                          stroke={graphType(node.group).color}
-                          strokeWidth={focused || hovered ? 1.7 : 0.6}
+                          fill={graphType(node.group).color}
+                          stroke="hsl(var(--card))"
+                          strokeWidth={2}
                           vectorEffect="non-scaling-stroke"
                         />
                         <circle
                           pointerEvents="none"
-                          r={radius * 0.25}
-                          cx={-radius * 0.28}
-                          cy={-radius * 0.33}
-                          fill="white"
-                          opacity={0.48}
+                          r={2.2 / camera.zoom}
+                          fill="hsl(var(--card))"
+                          opacity={focused ? 1 : 0}
                         />
                         {label && (
                           <g
@@ -691,11 +791,11 @@ export function VaultGraph({
                             <rect
                               width={label.w}
                               height={label.h}
-                              rx={7}
+                              rx={2}
                               fill="hsl(var(--card))"
-                              fillOpacity={focused || hovered ? 0.97 : 0.8}
-                              stroke={focused ? graphType(node.group).color : "hsl(var(--border))"}
-                              strokeOpacity={focused ? 0.5 : 0.4}
+                              fillOpacity={focused || hovered ? 1 : 0.93}
+                              stroke={focused ? "hsl(var(--primary))" : "none"}
+                              strokeOpacity={0.35}
                               strokeWidth={0.7}
                             />
                             <text
@@ -704,7 +804,8 @@ export function VaultGraph({
                               textAnchor="middle"
                               fill="hsl(var(--foreground))"
                               fontSize={GRAPH_LABEL_FONT_SIZE}
-                              fontWeight={focused ? 600 : 500}
+                              fontFamily="var(--font-serif)"
+                              fontWeight={focused ? 600 : 400}
                             >
                               {label.lines.map((line, index) => (
                                 <tspan
@@ -725,7 +826,7 @@ export function VaultGraph({
               </svg>
             )}
             {filtered.nodes.length > 0 && (
-              <div className="absolute bottom-5 right-4 z-10 flex items-center gap-0.5 rounded-xl border border-border/80 bg-card/95 p-1 shadow-sm backdrop-blur sm:right-5">
+              <div className={styles.zoomControls}>
                 <button
                   type="button"
                   onClick={(event) => command("out", event.detail === 0)}
@@ -736,7 +837,7 @@ export function VaultGraph({
                   <Minus size={16} />
                 </button>
                 {mode === "2d" && (
-                  <span className="w-11 text-center font-mono text-xs tabular-nums text-muted-foreground">
+                  <span className="w-11 text-center text-xs tabular-nums text-muted-foreground">
                     {Math.round(camera.zoom * 100)}%
                   </span>
                 )}
@@ -775,14 +876,11 @@ export function VaultGraph({
             </p>
           </div>
 
-          <aside
-            className={`${styles.details} ${styles.detailAccent} min-w-0 border-t border-border bg-card p-5 lg:max-h-[760px] lg:overflow-y-auto lg:border-l lg:border-t-0 sm:p-6`}
-            aria-label="图谱页面详情"
-          >
+          <aside className={styles.details} data-graph-details aria-label="图谱页面详情">
             {selected ? (
               <>
-                <div className="mb-5 flex items-center justify-between">
-                  <span className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.15em] text-muted-foreground">
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="inline-flex items-center gap-2 text-xs text-muted-foreground">
                     <span
                       className="h-2 w-2 rounded-full"
                       style={{ background: graphType(selected.group).color }}
@@ -804,23 +902,18 @@ export function VaultGraph({
                 <p className="mt-2 text-caption text-muted-foreground">
                   {connected.length} 个相邻页面 · {selected.degree} 条有向关联
                 </p>
-                {selected.tags.length > 0 && (
-                  <div className="mt-4 flex flex-wrap gap-1.5">
-                    {selected.tags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="max-w-full break-words rounded-md bg-secondary px-2 py-1 text-xs text-muted-foreground"
-                      >
-                        #{tag}
-                      </span>
-                    ))}
-                  </div>
-                )}
-                {selected.preview && (
-                  <p className="mt-5 break-words text-ui leading-7 text-muted-foreground">
-                    {selected.preview}
-                  </p>
-                )}
+                <div className={styles.readingState}>
+                  <span>
+                    <BookOpen size={15} aria-hidden />
+                    {READING_LABELS[selectedState?.readingStatus ?? "unread"]}
+                  </span>
+                  {selectedState?.starred && (
+                    <span>
+                      <Bookmark size={15} aria-hidden />
+                      已收藏
+                    </span>
+                  )}
+                </div>
                 {!selectedVisible && (
                   <p className="mt-4 rounded-lg bg-secondary p-3 text-caption leading-relaxed text-muted-foreground">
                     当前页面不在筛选结果中。
@@ -836,7 +929,7 @@ export function VaultGraph({
                 <div className="mt-5 flex gap-2">
                   <Link
                     href={`/wiki/${encodeURIComponent(selected.id)}`}
-                    className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-foreground px-3 py-2.5 text-ui text-background transition-opacity hover:opacity-85"
+                    className={styles.readLink}
                   >
                     阅读页面
                     <ArrowUpRight size={14} />
@@ -860,79 +953,133 @@ export function VaultGraph({
                     setGroup("");
                     setLocalOnly((value) => !value);
                   }}
-                  className={`mt-3 flex w-full items-center justify-center gap-2 rounded-lg border px-3 py-2 text-caption transition-colors ${localOnly ? "border-primary/30 bg-primary/5 text-primary" : "border-border text-muted-foreground hover:bg-secondary"}`}
+                  className={`mt-3 flex w-full items-center justify-center gap-2 rounded-lg border px-3 py-2 text-ui transition-colors ${localOnly ? "border-primary/30 bg-primary/5 text-primary" : "border-border text-muted-foreground hover:bg-secondary"}`}
                 >
                   <Network size={14} />
                   仅看相邻
                   <span className="ml-auto font-mono text-xs">{localOnly ? "ON" : "OFF"}</span>
                 </button>
-                <div className="mt-7 border-t border-border pt-5">
-                  <p className="mb-3 text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                    Connected pages
-                    <span className="ml-2">{connected.length.toString().padStart(2, "0")}</span>
-                  </p>
-                  {connected.length ? (
-                    <ul className="space-y-1">
-                      {connected.map((node) => {
-                        const outgoing = data.links.some(
-                          (link) => link.source === selectedId && link.target === node.id,
-                        );
-                        const incoming = data.links.some(
-                          (link) => link.target === selectedId && link.source === node.id,
-                        );
-                        return (
-                          <li key={node.id}>
-                            <button
-                              type="button"
-                              onClick={() => selectRelated(node.id)}
-                              className="flex w-full items-start gap-2.5 rounded-lg px-2 py-2.5 text-left hover:bg-secondary"
-                            >
-                              <span
-                                className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full"
-                                style={{ background: graphType(node.group).color }}
-                              />
-                              <span className="min-w-0 flex-1 break-words text-ui">
-                                {node.title}
-                                <span className="mt-1 block text-xs text-muted-foreground">
-                                  {outgoing && incoming
-                                    ? "互相引用"
-                                    : outgoing
-                                      ? "此页引用"
-                                      : "引用此页"}
+                <div className={styles.relations}>
+                  {[
+                    {
+                      id: "outgoing",
+                      title: "此页引用",
+                      description: "这篇知识从何处延伸",
+                      nodes: relations.outgoing,
+                    },
+                    {
+                      id: "incoming",
+                      title: "引用此页",
+                      description: "哪些页面引用了它",
+                      nodes: relations.incoming,
+                    },
+                    {
+                      id: "bidirectional",
+                      title: "双向引用",
+                      description: "彼此引用的知识",
+                      nodes: relations.bidirectional,
+                    },
+                  ].map((relation) => (
+                    <section
+                      key={relation.id}
+                      data-relation={relation.id}
+                      aria-label={relation.title}
+                      className={styles.relationGroup}
+                    >
+                      <h3>
+                        {relation.title}
+                        <span>{relation.nodes.length}</span>
+                      </h3>
+                      <p className={styles.relationDescription}>{relation.description}</p>
+                      {relation.nodes.length > 0 ? (
+                        <ul>
+                          {relation.nodes.map((node) => (
+                            <li key={node.id}>
+                              <button
+                                type="button"
+                                onClick={() => selectRelated(node.id)}
+                                className={styles.relationPage}
+                              >
+                                <span
+                                  className={styles.relationDot}
+                                  style={{ background: graphType(node.group).color }}
+                                />
+                                <span>
+                                  {node.title}
+                                  {!positions.has(node.id) && (
+                                    <small>
+                                      {collectionGraph.nodes.some((page) => page.id === node.id)
+                                        ? "清除搜索与类型筛选后查看"
+                                        : "在全库查看"}
+                                    </small>
+                                  )}
                                 </span>
-                              </span>
-                              <ArrowUpRight
-                                size={13}
-                                className="mt-1 shrink-0 text-muted-foreground"
-                              />
-                            </button>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  ) : (
-                    <p className="text-ui leading-relaxed text-muted-foreground">
-                      这个页面暂时没有关联。在 Wiki 正文中加入 [[页面 slug]] 链接，即可建立连接。
+                                <ArrowUpRight size={14} aria-hidden />
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className={styles.relationEmpty}>暂无</p>
+                      )}
+                    </section>
+                  ))}
+                  {connected.length === 0 && (
+                    <p className="mt-4 text-caption leading-relaxed text-muted-foreground">
+                      这篇知识还没有连接。阅读后，可在 Wiki 正文中用 [[页面 slug]]
+                      记录真实的引用关系。
                     </p>
                   )}
                 </div>
+                <section className={styles.pageContext} aria-label="页面摘要与专题">
+                  <h3 className="text-ui font-semibold">页面信息</h3>
+                  {selectedCollections.length > 0 && (
+                    <div className={styles.collectionLinks} aria-label="所属专题">
+                      {selectedCollections.map((collection) => (
+                        <Link
+                          key={collection.id}
+                          href={`/workspace?collection=${encodeURIComponent(collection.id)}`}
+                        >
+                          {collection.title}
+                          <ArrowUpRight size={13} aria-hidden />
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                  {selected.tags.length > 0 && (
+                    <div className="mt-4 flex flex-wrap gap-1.5">
+                      {selected.tags.map((tag) => (
+                        <span
+                          key={tag}
+                          className="max-w-full break-words rounded-md bg-secondary px-2 py-1 text-xs text-muted-foreground"
+                        >
+                          #{tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {selected.preview && (
+                    <p className="mt-5 break-words text-ui leading-7 text-muted-foreground">
+                      {selected.preview}
+                    </p>
+                  )}
+                </section>
               </>
             ) : (
               <>
-                <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                  A closer look
-                </p>
-                <div className="mb-5 mt-6 flex h-12 w-12 items-center justify-center rounded-2xl border border-primary/10 bg-primary/5">
-                  <Network size={25} strokeWidth={1.25} className="text-primary/70" />
-                </div>
-                <h2 className="font-display text-h2">从一个节点开始</h2>
+                <p className={styles.marginNote}>阅读线索</p>
+                <h2 className={styles.emptyTitle}>
+                  每个连接，
+                  <br />
+                  都是新的视角。
+                </h2>
                 <p className="mt-3 text-ui leading-7 text-muted-foreground">
-                  每一条连线，都是知识的另一条阅读路径。选择一个页面，展开它的关联。
+                  选一篇知识，看看它引用了什么，又被哪些页面引用。
                 </p>
                 {entryNodes.length > 0 && (
                   <div className="mt-7 border-t border-border/70 pt-5">
-                    <p className="mb-3 flex items-center justify-between text-xs uppercase tracking-[0.16em] text-muted-foreground">
-                      Start exploring<span className="tracking-normal">按关联数</span>
+                    <p className="mb-3 flex items-center justify-between text-xs text-muted-foreground">
+                      从这里读起<span>按关联数</span>
                     </p>
                     <ul className="space-y-1">
                       {entryNodes.map((node) => (
@@ -943,14 +1090,8 @@ export function VaultGraph({
                             className="group flex w-full items-center gap-3 rounded-xl px-2 py-3 text-left transition-colors hover:bg-secondary"
                           >
                             <span
-                              className="h-2 w-2 shrink-0 rounded-full ring-4 ring-offset-0"
-                              style={
-                                {
-                                  background: graphType(node.group).color,
-                                  boxShadow: `0 0 0 4px ${graphType(node.group).color}14`,
-                                  "--tw-ring-color": "transparent",
-                                } as React.CSSProperties
-                              }
+                              className="h-2 w-2 shrink-0 rounded-full"
+                              style={{ background: graphType(node.group).color }}
                             />
                             <span className="min-w-0 flex-1">
                               <span className="line-clamp-2 text-ui leading-relaxed">
@@ -970,6 +1111,19 @@ export function VaultGraph({
                     </ul>
                   </div>
                 )}
+                {!isolatedOnly && isolatedCount > 0 && (
+                  <button
+                    type="button"
+                    className={styles.isolatedLink}
+                    onClick={() => {
+                      clearFilters();
+                      setIsolatedOnly(true);
+                    }}
+                  >
+                    <span>还有 {isolatedCount} 篇知识尚无引用</span>
+                    <ArrowUpRight size={15} aria-hidden />
+                  </button>
+                )}
                 <p className="mt-8 border-t border-border pt-4 text-xs leading-relaxed text-muted-foreground">
                   颜色区分页面类型，大小表示关联数量。连线来自实际页面引用，空间距离不代表语义相似度。
                 </p>
@@ -979,10 +1133,7 @@ export function VaultGraph({
         </div>
       </div>
       <p className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-        <span>
-          KNOWWEAVE <span className="mx-2 opacity-40">/</span> Connected knowledge, clearer
-          thinking.
-        </span>
+        <span>连线记录实际引用，距离不代表语义相似度。</span>
         <button
           type="button"
           onClick={(event) => {
@@ -992,7 +1143,7 @@ export function VaultGraph({
             setShowLabels(true);
             command("fit", event.detail === 0);
           }}
-          className="inline-flex items-center gap-1.5 py-1 hover:text-foreground"
+          className="inline-flex items-center gap-1.5 py-1 text-ui hover:text-foreground"
         >
           <RotateCcw size={11} />
           重置探索

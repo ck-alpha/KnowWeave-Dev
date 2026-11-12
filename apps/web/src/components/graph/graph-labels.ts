@@ -71,6 +71,58 @@ export function graphRectsOverlap(a: Rect, b: Rect, gap = 0): boolean {
   );
 }
 
+type ProjectedNode = { x: number; y: number; r: number };
+
+/** Keep a selected 3D title readable when perspective closes all four nearby gaps. */
+export function placeSpatialGraphLabel(
+  point: ProjectedNode,
+  metrics: { w: number; h: number },
+  size: Size,
+  nodes: ProjectedNode[],
+  occupied: GraphRect[],
+  emphasized: boolean,
+): GraphRect | undefined {
+  const { w, h } = metrics;
+  const distance = Math.max(16, point.r + 8);
+  const offsets = graphLabelOffsets(distance, w, h, size.w < 600);
+  if (size.w < 600) {
+    offsets.push({ x: -w / 2, y: distance + 8 }, { x: -w / 2, y: -distance - h - 8 });
+  }
+  // Only the selected/hovered title gets a bounded wider search. Ordinary labels
+  // keep their compact placement, and every fallback obeys the same clearances.
+  if (emphasized) {
+    for (const extra of [0, 16, 32, 56, 88]) {
+      const gap = distance + extra;
+      offsets.push(
+        ...graphLabelOffsets(gap, w, h, true),
+        { x: gap, y: gap },
+        { x: -gap - w, y: gap },
+        { x: gap, y: -gap - h },
+        { x: -gap - w, y: -gap - h },
+      );
+    }
+  }
+  const reserved = graphControlRects(size, true);
+  for (const offset of offsets) {
+    const rect = { x: point.x + offset.x, y: point.y + offset.y, w, h };
+    if (
+      rect.x < 4 ||
+      rect.x + w > size.w - 4 ||
+      rect.y < 4 ||
+      rect.y + h > size.h - 78 ||
+      reserved.some((box) => graphRectsOverlap(rect, box)) ||
+      occupied.some((box) => graphRectsOverlap(rect, box, 5))
+    )
+      continue;
+    const coversNode = nodes.some((other) => {
+      const dx = other.x - Math.max(rect.x, Math.min(other.x, rect.x + w));
+      const dy = other.y - Math.max(rect.y, Math.min(other.y, rect.y + h));
+      return dx * dx + dy * dy < (other.r + 4) ** 2;
+    });
+    if (!coversNode) return rect;
+  }
+}
+
 /**
  * Place the same screen-sized rectangles that the SVG draws. Returned coordinates
  * are relative to each node's projected centre, so zoom never scales label text.

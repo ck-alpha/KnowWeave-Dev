@@ -13,17 +13,16 @@ import { layoutGraph } from "./graph-layout";
 import {
   GRAPH_LABEL_FONT_SIZE,
   GRAPH_LABEL_LINE_HEIGHT,
-  graphControlRects,
   graphLabelMetrics,
-  graphLabelOffsets,
-  graphRectsOverlap,
+  placeSpatialGraphLabel,
   type GraphLabel,
 } from "./graph-labels";
 import { createSpatialNode, spatialLights } from "./spatial-materials";
+import styles from "./graph.module.css";
 
 type SceneNode = NodeObject<GraphNode>;
 type SceneLink = LinkObject<GraphNode>;
-type Label = GraphLabel & { id: string; opacity: number };
+type Label = GraphLabel & { id: string; opacity: number; anchorX?: number; anchorY?: number };
 type OrbitControls = {
   minDistance: number;
   maxDistance: number;
@@ -120,8 +119,8 @@ export function SpatialGraph({
       [...sceneData.nodes]
         .sort(
           (a, b) =>
-            Number(b.id === selectedId || b.id === hoverId) -
-              Number(a.id === selectedId || a.id === hoverId) ||
+            Number(b.id === selectedId) - Number(a.id === selectedId) ||
+            Number(b.id === hoverId) - Number(a.id === hoverId) ||
             Number(neighbors.has(b.id)) - Number(neighbors.has(a.id)) ||
             b.degree - a.degree,
         )
@@ -293,7 +292,6 @@ export function SpatialGraph({
           return [{ id: node.id, ...point, depth, r }];
         });
         const pointsById = new Map(projected.map((point) => [point.id, point]));
-        const reserved = graphControlRects(size, true);
         for (const node of labelNodes) {
           const point = pointsById.get(node.id);
           if (!point) continue;
@@ -302,42 +300,15 @@ export function SpatialGraph({
             node.id === selectedId,
             size.w < 600,
           );
-          const offset = Math.max(16, point.r + 8);
-          const candidates = graphLabelOffsets(offset, w, h, size.w < 600).map((position) => ({
-            x: point.x + position.x,
-            y: point.y + position.y,
-            w,
-            h,
-          }));
-          // Perspective can close an otherwise usable gap by a few pixels.
-          // Keep this mobile fallback close to its node and under the same culling checks.
-          if (size.w < 600)
-            candidates.push(
-              { x: point.x - w / 2, y: point.y + offset + 8, w, h },
-              { x: point.x - w / 2, y: point.y - offset - h - 8, w, h },
-            );
-          const rect = candidates.find((candidate) => {
-            if (
-              candidate.x < 4 ||
-              candidate.x + w > size.w - 4 ||
-              candidate.y < 4 ||
-              candidate.y + h > size.h - 78 ||
-              reserved.some((box) => graphRectsOverlap(candidate, box)) ||
-              next.some((box) => graphRectsOverlap(candidate, box, 5))
-            )
-              return false;
-            return !projected.some((other) => {
-              const dx = other.x - Math.max(candidate.x, Math.min(other.x, candidate.x + w));
-              const dy = other.y - Math.max(candidate.y, Math.min(other.y, candidate.y + h));
-              return dx * dx + dy * dy < (other.r + 4) ** 2;
-            });
-          });
-          if (!rect) continue;
           const emphasized = node.id === selectedId || node.id === hoverId;
+          const rect = placeSpatialGraphLabel(point, { w, h }, size, projected, next, emphasized);
+          if (!rect) continue;
           next.push({
             id: node.id,
             ...rect,
             lines,
+            anchorX: emphasized ? point.x : undefined,
+            anchorY: emphasized ? point.y : undefined,
             opacity: emphasized
               ? 1
               : activeId && !neighbors.has(node.id)
@@ -355,6 +326,8 @@ export function SpatialGraph({
               Math.abs(label.opacity - next[i]!.opacity) < 0.02 &&
               label.w === next[i]!.w &&
               label.h === next[i]!.h &&
+              label.anchorX === next[i]!.anchorX &&
+              label.anchorY === next[i]!.anchorY &&
               label.lines.join("\n") === next[i]!.lines.join("\n"),
           )
             ? current
@@ -459,14 +432,14 @@ export function SpatialGraph({
         linkColor={(link) =>
           isActiveLink(link)
             ? dark
-              ? "#dca597"
-              : "#a85850"
+              ? "#e5a0a3"
+              : "#721c2b"
             : activeId
               ? dark
-                ? "rgba(170,170,180,0.12)"
+                ? "rgba(188,172,155,0.12)"
                 : "rgba(140,125,120,0.1)"
               : dark
-                ? "rgba(173,179,190,0.38)"
+                ? "rgba(188,172,155,0.38)"
                 : "rgba(124,113,105,0.28)"
         }
         linkWidth={(link) => (isActiveLink(link) ? 1.1 : 0.45)}
@@ -475,7 +448,7 @@ export function SpatialGraph({
         linkDirectionalParticles={0}
         linkDirectionalArrowLength={(link) => (isActiveLink(link) ? 3.6 : 0)}
         linkDirectionalArrowRelPos={0.87}
-        linkDirectionalArrowColor={() => (dark ? "#dca597" : "#a85850")}
+        linkDirectionalArrowColor={() => (dark ? "#e5a0a3" : "#721c2b")}
         warmupTicks={0}
         cooldownTicks={0}
         enableNodeDrag={false}
@@ -488,27 +461,38 @@ export function SpatialGraph({
           if (window.matchMedia("(hover: hover) and (pointer: fine)").matches) setHoverId(node?.id);
         }}
       />
-      <div
-        className="pointer-events-none absolute inset-0"
-        aria-hidden
-        style={{
-          background: dark
-            ? "radial-gradient(ellipse at 50% 42%, transparent 35%, rgba(12,13,17,.22))"
-            : "radial-gradient(ellipse at 50% 42%, transparent 35%, rgba(214,202,183,.12))",
-        }}
-      />
       <button
         type="button"
         aria-pressed={orbiting}
         disabled={reducedMotion}
         onClick={() => setOrbiting((value) => !value)}
         title={reducedMotion ? "已遵循系统的减少动态效果设置" : "拖动图谱或选择节点会暂停环绕"}
-        className="absolute right-4 top-32 z-10 inline-flex min-h-11 items-center gap-1.5 rounded-full border border-border/70 bg-card/85 px-3 py-2 text-sm leading-6 text-muted-foreground shadow-sm backdrop-blur-md transition-colors hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-45 sm:right-5"
+        className={styles.orbitControl}
       >
         {orbiting ? <Pause size={13} aria-hidden /> : <Orbit size={13} aria-hidden />}
         {orbiting ? "暂停环绕" : "缓慢环绕"}
       </button>
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <svg
+          width={size.w}
+          height={size.h}
+          className="pointer-events-none absolute inset-0"
+          aria-hidden
+        >
+          {labels
+            .filter((label) => label.anchorX !== undefined && label.anchorY !== undefined)
+            .map((label) => (
+              <line
+                key={label.id}
+                x1={label.anchorX}
+                y1={label.anchorY}
+                x2={Math.max(label.x, Math.min(label.anchorX!, label.x + label.w))}
+                y2={Math.max(label.y, Math.min(label.anchorY!, label.y + label.h))}
+                stroke="hsl(var(--primary) / .45)"
+                strokeWidth={0.75}
+              />
+            ))}
+        </svg>
         {labels.map((label) => {
           const node = nodesById.get(label.id);
           if (!node) return null;
@@ -533,7 +517,7 @@ export function SpatialGraph({
               onBlur={() => setHoverId(undefined)}
               aria-pressed={selected}
               title={node.title}
-              className={`pointer-events-auto absolute rounded-lg border px-2.5 py-1.5 text-center backdrop-blur-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${selected ? "border-primary/40 bg-card/95 font-medium text-foreground shadow-md" : "border-border/45 bg-card/75 text-foreground/80 shadow-sm hover:border-primary/30 hover:text-foreground"}`}
+              className={styles.spatialLabel}
               style={{
                 left: label.x,
                 top: label.y,

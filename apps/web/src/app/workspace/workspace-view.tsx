@@ -3,7 +3,17 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowUpRight, Bookmark, BookOpen, Check, FolderOpen, Plus, Search } from "lucide-react";
+import {
+  ArrowUpRight,
+  Bookmark,
+  BookOpen,
+  Check,
+  Download,
+  FolderOpen,
+  Network,
+  Plus,
+  Search,
+} from "lucide-react";
 
 import type {
   ReadingStatus,
@@ -17,6 +27,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { PAGE_TYPE_LABELS } from "@/components/wiki/library-model";
+import { collectionExportFilename, collectionMarkdown } from "@/lib/collection-export";
 
 import styles from "./workspace.module.css";
 
@@ -86,6 +97,35 @@ export function WorkspaceView({
   const availablePages = collection
     ? data.pages.filter((page) => !page.collectionIds.includes(collection.id))
     : [];
+
+  function exportCollection() {
+    if (!collection) return;
+    setError("");
+    setNotice("");
+    try {
+      const markdown = collectionMarkdown({
+        collection,
+        pages: data.pages,
+        origin: window.location.origin,
+      });
+      const href = URL.createObjectURL(
+        new Blob([markdown], { type: "text/markdown;charset=utf-8" }),
+      );
+      const anchor = document.createElement("a");
+      anchor.href = href;
+      anchor.download = collectionExportFilename(collection.title);
+      document.body.appendChild(anchor);
+      try {
+        anchor.click();
+      } finally {
+        anchor.remove();
+        window.setTimeout(() => URL.revokeObjectURL(href), 1000);
+      }
+      setNotice("已准备专题阅读清单下载，包含全部专题页面与个人笔记，不含正文或原始文件。");
+    } catch {
+      setError("浏览器未能准备阅读清单下载，请重试。");
+    }
+  }
 
   async function mutate(url: string, method: string, body?: unknown): Promise<boolean> {
     setBusy(true);
@@ -369,7 +409,22 @@ export function WorkspaceView({
               </p>
             </div>
             {collection && (
-              <div className="flex gap-1">
+              <div className="flex flex-wrap gap-1">
+                <Button variant="ghost" size="sm" asChild>
+                  <Link href={`/graph?collection=${encodeURIComponent(collection.id)}`}>
+                    <Network className="mr-1.5 h-4 w-4" aria-hidden />
+                    专题图谱
+                  </Link>
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={exportCollection}
+                  title="导出全部专题成员、阅读状态与个人笔记，不受当前筛选影响；不含正文或原始文件"
+                >
+                  <Download className="mr-1.5 h-4 w-4" aria-hidden />
+                  导出阅读清单
+                </Button>
                 <Button
                   variant="ghost"
                   size="sm"

@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { GraphData, GraphNode } from "@llm-wiki/core";
-import { nodeRadius, placeGraphLabels } from "../apps/web/src/components/graph/graph-labels";
+import {
+  nodeRadius,
+  placeGraphLabels,
+  placeSpatialGraphLabel,
+  graphLabelMetrics,
+  graphControlRects,
+  graphRectsOverlap,
+} from "../apps/web/src/components/graph/graph-labels";
 import {
   filterGraph,
   layoutGraph,
@@ -283,5 +290,64 @@ describe("graph label placement", () => {
         }
       });
     }
+  });
+});
+
+describe("compact spatial graph priority labels", () => {
+  it("finds a clear selected title beyond a dense centre while preserving every obstacle", () => {
+    // Representative screen coordinates from the compact 18-page 3D fixture:
+    // the selected knowledge-map sits among neighbours within 20–60 pixels.
+    const size = { w: 1007, h: 460 };
+    const selected = { x: 515, y: 203, r: 6 };
+    const nodes = [
+      selected,
+      ...[
+        [554, 231],
+        [501, 267],
+        [474, 225],
+        [451, 187],
+        [474, 177],
+        [490, 154],
+        [548, 199],
+        [571, 232],
+        [591, 257],
+        [594, 261],
+        [549, 284],
+        [589, 301],
+        [532, 369],
+        [463, 130],
+        [447, 156],
+        [389, 221],
+        [400, 200],
+      ].map(([x, y]) => ({ x: x!, y: y!, r: 5 })),
+    ];
+    const metrics = graphLabelMetrics("知识库与知识连接", true);
+    expect(placeSpatialGraphLabel(selected, metrics, size, nodes, [], false)).toBeUndefined();
+    const rect = placeSpatialGraphLabel(selected, metrics, size, nodes, [], true)!;
+    expect(rect).toBeDefined();
+    expect(rect.x).toBeGreaterThanOrEqual(4);
+    expect(rect.x + rect.w).toBeLessThanOrEqual(size.w - 4);
+    expect(rect.y).toBeGreaterThanOrEqual(4);
+    expect(rect.y + rect.h).toBeLessThanOrEqual(size.h - 78);
+    expect(graphControlRects(size, true).some((box) => graphRectsOverlap(rect, box))).toBe(false);
+    for (const point of nodes) {
+      const dx = point.x - Math.max(rect.x, Math.min(point.x, rect.x + rect.w));
+      const dy = point.y - Math.max(rect.y, Math.min(point.y, rect.y + rect.h));
+      expect(Math.hypot(dx, dy)).toBeGreaterThanOrEqual(point.r + 4);
+    }
+    const second = placeSpatialGraphLabel(selected, metrics, size, nodes, [rect], true)!;
+    expect(second).toBeDefined();
+    expect(graphRectsOverlap(rect, second, 5)).toBe(false);
+    // No fallback may draw through reserved controls or ignore existing labels.
+    expect(
+      placeSpatialGraphLabel(
+        selected,
+        metrics,
+        size,
+        nodes,
+        [{ x: 0, y: 0, w: size.w, h: size.h }],
+        true,
+      ),
+    ).toBeUndefined();
   });
 });
