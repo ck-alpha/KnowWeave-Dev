@@ -12,6 +12,7 @@ type PageSummary = {
   title: string;
   type: string;
   updated_at: string;
+  tags?: string[];
 };
 
 const TYPE_ORDER = ["overview", "concept", "entity", "comparison", "source"];
@@ -51,7 +52,11 @@ export function WikiSidebar() {
     if (!pages) return null;
     const needle = filter.trim().toLowerCase();
     const filtered = needle
-      ? pages.filter((p) => p.slug.includes(needle) || p.title.toLowerCase().includes(needle))
+      ? pages.filter((p) =>
+          [p.slug, p.title, ...(p.tags ?? [])].some((value) =>
+            value.toLowerCase().includes(needle),
+          ),
+        )
       : pages;
     const byType = new Map<string, PageSummary[]>();
     for (const p of filtered) {
@@ -63,7 +68,7 @@ export function WikiSidebar() {
     return byType;
   }, [pages, filter]);
 
-  const activeSlug = pathname.startsWith("/wiki/") ? pathname.slice("/wiki/".length) : null;
+  const activeSlug = pathname.startsWith("/wiki/") ? pathname.split("/")[2] : null;
   const isIndex = pathname === "/wiki";
 
   return (
@@ -71,7 +76,8 @@ export function WikiSidebar() {
       <div className="px-4 pb-2 pt-4">
         <Input
           type="search"
-          placeholder="搜索页面…"
+          placeholder="查找标题或标签…"
+          aria-label="查找 Wiki 页面"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           className="h-8 border-border/70 bg-background/60 text-ui"
@@ -87,9 +93,26 @@ export function WikiSidebar() {
           )}
         >
           <span className="font-mono text-[10px] text-primary">¶</span>
-          Wiki index
+          Wiki · 全部知识
+          {pages && (
+            <span className="ml-auto text-xs tabular-nums text-muted-foreground">
+              {pages.length}
+            </span>
+          )}
         </Link>
 
+        <Link
+          href="/workspace"
+          className="mx-2 mb-3 flex items-center gap-2 rounded-md px-2 py-1.5 text-foreground/70 hover:bg-accent/60"
+        >
+          <span className="font-mono text-primary">◇</span> 专题与阅读{" "}
+          <span className="ml-auto text-xs text-muted-foreground">↗</span>
+        </Link>
+        {grouped?.size === 0 && pages && pages.length > 0 && (
+          <p role="status" className="px-3 py-4 text-xs text-muted-foreground">
+            没有匹配页面，试试其他关键词。
+          </p>
+        )}
         {error ? <p className="px-3 text-caption text-destructive">{error}</p> : null}
         {!pages && !error ? (
           <p className="px-3 text-caption text-muted-foreground">加载中…</p>
@@ -105,34 +128,40 @@ export function WikiSidebar() {
         ) : null}
 
         {grouped
-          ? TYPE_ORDER.filter((t) => grouped.has(t)).map((type) => {
-              const items = grouped.get(type)!;
-              return (
-                <section key={type} className="mb-3">
-                  <h3 className="mt-3 px-3 pb-1 text-caption font-semibold uppercase tracking-wider text-muted-foreground">
-                    {TYPE_LABEL[type] ?? type}
-                  </h3>
-                  <ul>
-                    {items.map((p) => (
-                      <li key={p.slug}>
-                        <Link
-                          href={`/wiki/${p.slug}`}
-                          className={cn(
-                            "mx-2 block truncate rounded-md px-2 py-1",
-                            activeSlug === p.slug
-                              ? "bg-primary/10 text-foreground"
-                              : "text-foreground/70 hover:bg-accent/60",
-                          )}
-                          title={p.title}
-                        >
-                          {p.title}
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              );
-            })
+          ? [
+              ...TYPE_ORDER,
+              ...Array.from(grouped.keys()).filter((type) => !TYPE_ORDER.includes(type)),
+            ]
+              .filter((t) => grouped.has(t))
+              .map((type) => {
+                const items = grouped.get(type)!;
+                return (
+                  <section key={type} className="mb-3">
+                    <h3 className="mt-3 px-3 pb-1 text-caption font-semibold uppercase tracking-wider text-muted-foreground">
+                      {TYPE_LABEL[type] ?? type}
+                    </h3>
+                    <ul>
+                      {items.map((p) => (
+                        <li key={p.slug}>
+                          <Link
+                            href={`/wiki/${p.slug}`}
+                            className={cn(
+                              "mx-2 block truncate rounded-md px-2 py-1",
+                              activeSlug === p.slug
+                                ? "bg-primary/10 text-foreground"
+                                : "text-foreground/70 hover:bg-accent/60",
+                            )}
+                            title={p.title}
+                            aria-current={activeSlug === p.slug ? "page" : undefined}
+                          >
+                            {p.title}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                );
+              })
           : null}
       </nav>
     </aside>

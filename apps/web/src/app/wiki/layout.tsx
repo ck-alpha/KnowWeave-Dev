@@ -1,6 +1,8 @@
+import { createHash } from "node:crypto";
+
 import { SidebarLayoutWrapper } from "@/components/sidebar-layout-wrapper";
 import { WikiSidebar } from "@/components/wiki/sidebar";
-import { requireSetup } from "@/lib/server-wiki";
+import { requireSetup, resolveWikiPath } from "@/lib/server-wiki";
 
 // Sidebar (left) + content (right) split. On desktop: side-by-side, sidebar's
 // fixed width takes over. On mobile: sidebar collapses to an off-canvas drawer
@@ -12,7 +14,10 @@ import { requireSetup } from "@/lib/server-wiki";
 export default async function WikiLayout({ children }: { children: React.ReactNode }) {
   await requireSetup();
   return (
-    <SidebarLayoutWrapper sidebar={<WikiSidebar />} triggerLabel="打开 Wiki 页面列表">
+    <SidebarLayoutWrapper
+      sidebar={<WikiSidebar key={createHash("sha256").update(resolveWikiPath()).digest("hex")} />}
+      triggerLabel="打开 Wiki 页面列表"
+    >
       {children}
     </SidebarLayoutWrapper>
   );

@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import { notFound } from "next/navigation";
 
 import {
@@ -47,6 +49,7 @@ export default async function WikiSlugPage({ params }: { params: { slug: string 
 
     return (
       <PageView
+        key={`${createHash("sha256").update(ctx.wikiPath).digest("hex")}:${page.slug}`}
         slug={page.slug}
         title={page.frontmatter.title}
         type={page.frontmatter.type}
@@ -57,7 +60,9 @@ export default async function WikiSlugPage({ params }: { params: { slug: string 
         backlinks={backlinks}
         knownSlugs={knownSlugs}
         sources={sources}
-        missingSourceCount={(page.frontmatter.sources ?? []).filter((id) => !getSource(ctx.db, id)).length}
+        missingSourceCount={
+          (page.frontmatter.sources ?? []).filter((id) => !getSource(ctx.db, id)).length
+        }
       />
     );
   } finally {

@@ -1,265 +1,257 @@
+import { ArrowUpRight, BookOpen, Search, SlidersHorizontal } from "lucide-react";
 import Link from "next/link";
 
-import { listPageRows, parseIndexEntries, readIndex, type PageRow } from "@llm-wiki/core";
+import { listPageRows, parseIndexEntries, readIndex } from "@llm-wiki/core";
 
 import { PageContainer, PageHeader } from "@/components/page-shell";
+import { CreatePageButton } from "@/components/wiki/create-page-button";
+import {
+  filterLibrary,
+  PAGE_TYPE_LABELS,
+  type LibraryFilters,
+  type LibraryPage,
+} from "@/components/wiki/library-model";
 import { UndoDeleteBanner } from "@/components/wiki/undo-delete-banner";
 import { openWikiContext } from "@/lib/server-wiki";
 
 export const dynamic = "force-dynamic";
+type SearchParams = LibraryFilters & { deleted?: string; deletedTitle?: string; trash?: string };
 
-type SearchParams = {
-  deleted?: string;
-  deletedTitle?: string;
-  trash?: string;
-};
-
-// Category order on the page. Overviews first because they're the wiki's
-// high-level synthesis — a researcher landing here wants the bird's-eye
-// view before the specifics.
-const TYPE_ORDER = ["overview", "concept", "entity", "comparison", "source"] as const;
-type TypeKey = (typeof TYPE_ORDER)[number];
-
-const TYPE_LABEL: Record<TypeKey, string> = {
-  overview: "Overview",
-  concept: "Concept",
-  entity: "Entity",
-  comparison: "Comparison",
-  source: "Source",
-};
-
-const TYPE_HEADING: Record<TypeKey, string> = {
-  overview: "Overviews",
-  concept: "Concepts",
-  entity: "Entities",
-  comparison: "Comparisons",
-  source: "Sources",
-};
-
-const TYPE_DESCRIPTION: Record<TypeKey, string> = {
-  overview: "从全局理解主题，串联相关知识。",
-  concept: "整理核心概念、方法、框架与理论。",
-  entity: "了解相关人物、组织、产品与地点。",
-  comparison: "并列比较，梳理共同点与差异。",
-  source: "保留单篇来源的摘要与要点。",
-};
-
-function relativeDate(iso: string): string {
-  const t = new Date(iso).getTime();
-  if (Number.isNaN(t)) return iso;
-  const days = Math.floor((Date.now() - t) / (1000 * 60 * 60 * 24));
-  if (days < 1) return "今天";
-  if (days === 1) return "昨天";
-  if (days < 7) return `${days} 天前`;
-  if (days < 30) return `${Math.floor(days / 7)} 周前`;
-  if (days < 365) return `${Math.floor(days / 30)} 个月前`;
-  return `${Math.floor(days / 365)} 年前`;
-}
-
-// Defensive: strip any [[wikilink]] markup that snuck into a summary so the
-// card body reads as prose. Upstream firstSentence() handles this on rebuild,
-// but old summaries may still carry brackets.
-function cleanSummary(s: string): string {
-  return s
-    .replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, "$2")
-    .replace(/\[\[([^\]]+)\]\]/g, "$1")
-    .trim();
-}
-
-type EnrichedPage = PageRow & { summary: string };
-
-export default async function WikiIndexPage({ searchParams }: { searchParams?: SearchParams }) {
+export default async function WikiIndexPage({
+  searchParams: rawSearchParams = {},
+}: {
+  searchParams?: SearchParams;
+}) {
+  const searchParams = Object.fromEntries(
+    Object.entries(rawSearchParams).map(([key, value]) => [
+      key,
+      Array.isArray(value) ? (value[0] ?? "") : (value ?? ""),
+    ]),
+  ) as LibraryFilters & { deleted?: string; deletedTitle?: string; trash?: string };
   const ctx = await openWikiContext();
-  let pageRows: PageRow[] = [];
-  let summaries = new Map<string, string>();
-  let wikiPath = ctx.wikiPath;
+  let pages: LibraryPage[];
   try {
-    pageRows = listPageRows(ctx.db);
-    const idx = await readIndex(ctx.wikiPath).catch(() => "");
-    const parsed = parseIndexEntries(idx);
-    summaries = new Map(Array.from(parsed.entries()).map(([slug, e]) => [slug, e.summary]));
+    const rows = listPageRows(ctx.db);
+    const summaries = parseIndexEntries(await readIndex(ctx.wikiPath).catch(() => ""));
+    pages = rows.map((page) => ({
+      ...page,
+      summary: (summaries.get(page.slug)?.summary ?? "")
+        .replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, "$2")
+        .replace(/\[\[([^\]]+)\]\]/g, "$1")
+        .trim(),
+    }));
   } finally {
     ctx.db.close();
   }
-
-  const enriched: EnrichedPage[] = pageRows.map((p) => ({
-    ...p,
-    summary: cleanSummary(summaries.get(p.slug) ?? ""),
-  }));
-
-  const totalPages = enriched.length;
-
-  // ---- empty state -------------------------------------------------------
-  if (totalPages === 0) {
-    return (
-      <PageContainer width="lg">
-        <PageHeader
-          eyebrow="Knowledge base"
-          title="Wiki"
-          description="从资料中整理而来的知识页面，按类型归类，并通过链接串起相关内容。"
-        />
-        <div className="rounded-lg border border-dashed border-border bg-card p-10 text-center">
-          <p className="font-display text-h3 font-semibold">从第一份资料开始</p>
-          <p className="mx-auto mt-2 max-w-md text-ui text-muted-foreground">
-            前往{" "}
-            <Link href="/sources" className="text-primary underline underline-offset-2">
-              Sources
-            </Link>{" "}
-            粘贴文本、导入网址或文件。模型会整理成 Wiki 页面，你可以继续阅读、编辑与追溯来源。
-          </p>
-        </div>
-      </PageContainer>
-    );
-  }
-
-  // ---- grouped view ------------------------------------------------------
-  const byType = new Map<TypeKey, EnrichedPage[]>();
-  for (const p of enriched) {
-    if (!isKnownType(p.type)) continue;
-    const list = byType.get(p.type) ?? [];
-    list.push(p);
-    byType.set(p.type, list);
-  }
-  for (const list of byType.values()) {
-    list.sort((a, b) => a.title.localeCompare(b.title));
-  }
-
-  const lastUpdate = enriched
-    .map((p) => p.updated_at)
-    .filter((s): s is string => Boolean(s))
-    .sort()
-    .at(-1);
-
-  const summary = formatSummary(byType, totalPages, lastUpdate);
-
-  // Undo banner — server-renders when the page-view's delete flow
-  // redirected here with the trash filename in the URL. One click and the
-  // restore endpoint puts the page back.
-  const deletedSlug = searchParams?.deleted;
-  const deletedTitle = searchParams?.deletedTitle;
-  const trashFilename = searchParams?.trash;
-  const showUndo = !!(deletedSlug && trashFilename);
+  const filtered = filterLibrary(pages, searchParams);
+  const tags = [...new Set(pages.flatMap((page) => page.tags))].sort((a, b) =>
+    a.localeCompare(b, "zh-CN"),
+  );
+  const types = [...new Set(pages.map((page) => page.type))];
+  const hasFilters = !!(searchParams.q || searchParams.type || searchParams.tag);
 
   return (
     <PageContainer width="wide">
       <PageHeader
-        eyebrow="Knowledge base"
-        title="Wiki"
-        description={summary}
-        actions={
-          <div className="flex flex-wrap items-center gap-4">
-            <Link
-              href="/graph"
-              className="text-ui text-muted-foreground underline underline-offset-2 hover:text-primary"
-            >
-              探索 Graph →
-            </Link>
-            <Link
-              href="/query"
-              className="text-ui text-primary underline underline-offset-2 hover:text-primary/80"
-            >
-              向知识库提问 →
-            </Link>
-          </div>
-        }
+        eyebrow="Your knowledge library"
+        title="Wiki · 知识馆藏"
+        description="让每一次阅读留下积累。查找、连接，再把知识变成自己的理解。"
+        actions={<CreatePageButton />}
       />
-
-      {showUndo ? (
+      {searchParams.deleted && searchParams.trash && (
         <UndoDeleteBanner
-          slug={deletedSlug!}
-          title={deletedTitle ?? deletedSlug!}
-          trashFilename={trashFilename!}
+          slug={searchParams.deleted}
+          title={searchParams.deletedTitle ?? searchParams.deleted}
+          trashFilename={searchParams.trash}
         />
-      ) : null}
+      )}
 
-      <div className="space-y-12">
-        {TYPE_ORDER.filter((t) => byType.has(t)).map((type) => {
-          const pages = byType.get(type)!;
-          return (
-            <section key={type}>
-              <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2 border-b border-border pb-2">
-                <div>
-                  <h2 className="font-display text-h2 font-semibold tracking-tight">
-                    {TYPE_HEADING[type]}
-                    <span className="ml-2 text-caption font-normal tabular-nums text-muted-foreground">
-                      {pages.length}
-                    </span>
-                  </h2>
-                  <p className="mt-0.5 text-caption text-muted-foreground">
-                    {TYPE_DESCRIPTION[type]}
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 text-sm">
+        <p className="text-muted-foreground">
+          <span className="font-medium text-foreground">{pages.length}</span> 个知识页面{" "}
+          <span className="mx-2 text-border">/</span> {tags.length} 个标签
+        </p>
+        <div className="flex gap-4">
+          <Link href="/workspace" className="text-primary hover:underline">
+            专题与阅读 →
+          </Link>
+          <Link href="/graph" className="text-muted-foreground hover:text-primary">
+            探索 Graph ↗
+          </Link>
+        </div>
+      </div>
+      <form
+        action="/wiki"
+        method="get"
+        className="mb-8 rounded-xl border border-border bg-card p-4"
+      >
+        <div className="relative">
+          <Search
+            aria-hidden="true"
+            className="absolute left-3 top-3 h-4 w-4 text-muted-foreground"
+          />
+          <label htmlFor="library-query" className="sr-only">
+            搜索知识馆藏
+          </label>
+          <input
+            id="library-query"
+            name="q"
+            type="search"
+            defaultValue={searchParams.q ?? ""}
+            placeholder="搜索标题、摘要或标签…"
+            className="h-10 w-full rounded-lg border border-input bg-background pl-10 pr-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          />
+        </div>
+        <div className="mt-3 flex flex-wrap items-end gap-3">
+          <SlidersHorizontal
+            aria-hidden="true"
+            className="mb-2.5 hidden h-4 w-4 text-muted-foreground sm:block"
+          />
+          <label className="min-w-0 flex-1 text-xs text-muted-foreground sm:flex-none">
+            类型
+            <select
+              name="type"
+              defaultValue={searchParams.type ?? ""}
+              className="mt-1 block h-9 w-full min-w-0 rounded-md border border-input bg-background px-2 text-sm text-foreground"
+            >
+              <option value="">全部类型</option>
+              {types.map((type) => (
+                <option value={type} key={type}>
+                  {PAGE_TYPE_LABELS[type] ?? type}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="min-w-0 flex-1 text-xs text-muted-foreground sm:flex-none">
+            标签
+            <select
+              name="tag"
+              defaultValue={searchParams.tag ?? ""}
+              className="mt-1 block h-9 w-full min-w-0 max-w-52 rounded-md border border-input bg-background px-2 text-sm text-foreground"
+            >
+              <option value="">全部标签</option>
+              {tags.map((tag) => (
+                <option key={tag} value={tag}>
+                  {tag}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="min-w-0 text-xs text-muted-foreground">
+            排序
+            <select
+              name="sort"
+              defaultValue={searchParams.sort ?? "updated"}
+              className="mt-1 block h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground"
+            >
+              <option value="updated">最近更新</option>
+              <option value="oldest">最早更新</option>
+              <option value="title">标题 A–Z</option>
+            </select>
+          </label>
+          <button
+            type="submit"
+            className="h-9 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          >
+            查找
+          </button>
+          {hasFilters && (
+            <Link href="/wiki" className="mb-2 text-xs text-muted-foreground hover:text-primary">
+              清除筛选
+            </Link>
+          )}
+        </div>
+        <p className="mt-3 text-xs text-muted-foreground">
+          搜索标题、目录摘要与标签；需要按正文寻找证据时，前往{" "}
+          <Link href="/query" className="text-primary hover:underline">
+            Query 提问
+          </Link>
+          。
+        </p>
+      </form>
+
+      {filtered.length > 0 ? (
+        <>
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="font-display text-lg font-semibold">
+              {hasFilters ? "查找结果" : "全部知识"}
+            </h2>
+            <p className="text-xs text-muted-foreground">{filtered.length} 个页面</p>
+          </div>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {filtered.map((page) => (
+              <Link
+                key={page.slug}
+                href={`/wiki/${encodeURIComponent(page.slug)}`}
+                className="group flex min-w-0 flex-col rounded-xl border border-border/80 bg-card p-5 transition-colors hover:border-primary/50 hover:bg-accent/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-primary">
+                    {PAGE_TYPE_LABELS[page.type] ?? page.type}
+                  </span>
+                  <ArrowUpRight
+                    aria-hidden="true"
+                    className="h-4 w-4 shrink-0 text-muted-foreground/50 transition-colors group-hover:text-primary"
+                  />
+                </div>
+                <h3 className="mt-3 break-words font-display text-xl font-semibold leading-snug group-hover:text-primary">
+                  {page.title}
+                </h3>
+                <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-muted-foreground">
+                  {page.summary || "尚无目录摘要，打开页面阅读全文。"}
+                </p>
+                <div className="mt-auto pt-5">
+                  {page.tags.length > 0 && (
+                    <div className="mb-3 flex flex-wrap gap-1.5">
+                      {page.tags.slice(0, 4).map((tag) => (
+                        <span
+                          key={tag}
+                          className="max-w-full truncate rounded-md bg-muted px-2 py-0.5 text-[10px] text-muted-foreground"
+                        >
+                          #{tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <p className="border-t border-border/60 pt-3 text-[11px] text-muted-foreground">
+                    更新于 {formatDate(page.updated_at)}
                   </p>
                 </div>
-              </div>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {pages.map((p) => (
-                  <Link
-                    key={p.slug}
-                    href={`/wiki/${p.slug}`}
-                    prefetch
-                    className="group flex flex-col rounded-lg border border-border/70 bg-card p-5 transition-all duration-100 hover:border-primary/50 hover:bg-accent/30 active:scale-[0.99] active:bg-accent/40"
-                  >
-                    <div className="flex items-baseline justify-between gap-2">
-                      <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                        {TYPE_LABEL[type]}
-                      </span>
-                      <span className="text-[11px] tabular-nums text-muted-foreground/80">
-                        {relativeDate(p.updated_at)}
-                      </span>
-                    </div>
-                    <h3 className="mt-2 font-display text-xl font-semibold leading-tight tracking-tight text-foreground group-hover:text-primary">
-                      {p.title}
-                    </h3>
-                    {p.summary ? (
-                      <p className="mt-2 line-clamp-3 text-ui leading-relaxed text-muted-foreground">
-                        {p.summary}
-                      </p>
-                    ) : (
-                      <p className="mt-2 text-ui italic text-muted-foreground/60">
-                        暂无摘要，打开页面阅读全文。
-                      </p>
-                    )}
-                    {p.tags && p.tags.length > 0 ? (
-                      <div className="mt-auto flex flex-wrap gap-1.5 pt-3">
-                        {p.tags.slice(0, 4).map((tag) => (
-                          <span
-                            key={tag}
-                            className="rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-[10px] text-muted-foreground"
-                          >
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    ) : null}
-                  </Link>
-                ))}
-              </div>
-            </section>
-          );
-        })}
-      </div>
-
-      <p className="mt-10 text-caption text-muted-foreground">
-        Wiki 目录： <code className="font-mono break-all text-foreground/70">{wikiPath}</code>
-      </p>
+              </Link>
+            ))}
+          </div>
+        </>
+      ) : (
+        <div className="rounded-xl border border-dashed border-border bg-card px-6 py-14 text-center">
+          <BookOpen aria-hidden="true" className="mx-auto h-8 w-8 text-primary/60" />
+          <h2 className="mt-4 font-display text-xl font-semibold">
+            {pages.length ? "没有找到匹配的页面" : "从第一篇笔记开始积累"}
+          </h2>
+          <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">
+            {pages.length
+              ? "试试更短的关键词，或清除类型与标签筛选。"
+              : "可以直接写下自己的理解，也可以导入论文、文章或工作资料，让模型整理成相互关联的 Wiki。"}
+          </p>
+          <Link
+            href={pages.length ? "/wiki" : "/sources"}
+            className="mt-5 inline-flex rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+          >
+            {pages.length ? "查看全部知识" : "导入第一份资料 →"}
+          </Link>
+        </div>
+      )}
     </PageContainer>
   );
 }
 
-function isKnownType(t: string): t is TypeKey {
-  return (TYPE_ORDER as readonly string[]).includes(t);
-}
-
-function formatSummary(
-  byType: Map<TypeKey, EnrichedPage[]>,
-  total: number,
-  lastUpdate: string | undefined,
-): string {
-  const parts: string[] = [`${total} 个页面`];
-  for (const t of TYPE_ORDER) {
-    const list = byType.get(t);
-    if (!list || list.length === 0) continue;
-    parts.push(`${list.length} ${TYPE_LABEL[t].toLowerCase()}${list.length === 1 ? "" : "s"}`);
-  }
-  if (lastUpdate) parts.push(`最近更新于${relativeDate(lastUpdate)}`);
-  return parts.join(" · ");
+function formatDate(value: string): string {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? "日期未知"
+    : date.toLocaleDateString("zh-CN", {
+        timeZone: "Asia/Shanghai",
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      });
 }

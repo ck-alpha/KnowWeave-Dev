@@ -55,7 +55,32 @@ type Action =
       value: string;
     };
 
+const GROUP_LABELS: Record<Action["group"], string> = {
+  Pages: "知识页面",
+  Chats: "会话",
+  "Go to": "前往",
+  Wikis: "知识库",
+  App: "应用",
+  "Cross-wiki pages": "其他知识库的页面",
+};
+
 const STATIC_NAV_ACTIONS: Action[] = [
+  {
+    type: "navigate",
+    id: "go-home",
+    label: "Home · 工作台",
+    hint: "继续最近的知识工作",
+    group: "Go to",
+    href: "/",
+  },
+  {
+    type: "navigate",
+    id: "go-workspace",
+    label: "Workspace · 专题与阅读",
+    hint: "收藏、阅读进度与个人笔记",
+    group: "Go to",
+    href: "/workspace",
+  },
   {
     type: "navigate",
     id: "go-wiki",
@@ -168,6 +193,7 @@ export function CommandPalette() {
   const [chats, setChats] = useState<ChatItem[]>([]);
   const [wikis, setWikis] = useState<WikiItem[]>([]);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
@@ -185,15 +211,24 @@ export function CommandPalette() {
         router.push("/settings");
       }
     }
+    const openSearch = () => setOpen(true);
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("knowweave:open-search", openSearch);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("knowweave:open-search", openSearch);
+    };
   }, [router]);
 
-  // Fetch on open. Cached for the rest of the session via the closure.
+  // Refresh on each opening so new pages and Wiki switches are reflected.
   useEffect(() => {
     if (!open) return;
     setQuery("");
+    setError("");
     setActiveIndex(0);
+    const previousFocus = document.activeElement as HTMLElement | null;
+    inputRef.current?.focus();
+    let cancelled = false;
     void (async () => {
       try {
         const [pagesRes, chatsRes, wikisRes, crossPagesRes] = await Promise.all([
@@ -202,6 +237,7 @@ export function CommandPalette() {
           fetch("/api/wikis", { cache: "no-store" }),
           fetch("/api/wikis/pages", { cache: "no-store" }),
         ]);
+        if (cancelled) return;
         if (pagesRes.ok) {
           const data = (await pagesRes.json()) as { pages: PageItem[] };
           setPages(data.pages.map((p) => ({ slug: p.slug, title: p.title })));
@@ -236,10 +272,11 @@ export function CommandPalette() {
       } catch {
         // ignore — input still works against the actions list
       }
-      // Focus after data fetch so it doesn't steal focus from typing the user
-      // started before we mounted.
-      requestAnimationFrame(() => inputRef.current?.focus());
     })();
+    return () => {
+      cancelled = true;
+      previousFocus?.focus();
+    };
   }, [open]);
 
   const items = useMemo<Action[]>(() => {
@@ -280,7 +317,7 @@ export function CommandPalette() {
       {
         type: "toggle-theme",
         id: "toggle-theme",
-        label: `切换主题（当前 ${theme}）`,
+        label: `切换主题（当前 ${{ light: "浅色", dark: "深色", auto: "跟随系统" }[theme]}）`,
         hint: "浅色 → 深色 → 跟随系统",
         group: "App",
       },
@@ -311,7 +348,7 @@ export function CommandPalette() {
       (a) =>
         a.label.toLowerCase().includes(needle) || (a.hint?.toLowerCase().includes(needle) ?? false),
     );
-  }, [pages, chats, query]);
+  }, [pages, chats, query, wikis, crossWikiPages, theme, activeWikiPath]);
 
   const grouped = useMemo(() => {
     const map = new Map<Action["group"], Action[]>();
@@ -323,7 +360,8 @@ export function CommandPalette() {
     return map;
   }, [items]);
 
-  const flatItems = items; // for index-based navigation
+  // Match keyboard indices to the actual grouped rendering order.
+  const flatItems = Array.from(grouped.values()).flat();
 
   const close = useCallback(() => {
     setOpen(false);
@@ -332,6 +370,8 @@ export function CommandPalette() {
   }, []);
 
   async function activate(item: Action) {
+    if (busy) return;
+    setError("");
     if (item.type === "navigate") {
       close();
       router.push(item.href);
@@ -347,8 +387,8 @@ export function CommandPalette() {
       try {
         await navigator.clipboard.writeText(item.value);
       } catch {
-        // Clipboard API blocked (rare in localhost dev). Fall back: silently
-        // close — the next user attempt is one keystroke away.
+        setError("无法访问剪贴板，请检查浏览器权限。");
+        return;
       }
       close();
       return;
@@ -366,12 +406,14 @@ export function CommandPalette() {
         });
         if (!res.ok) {
           const j = (await res.json().catch(() => ({}))) as { error?: string };
-          // eslint-disable-next-line no-alert
-          alert(j.error ?? `切换失败（HTTP ${res.status}）`);
+          setError(j.error ?? `切换失败（HTTP ${res.status}）`);
           return;
         }
         close();
         router.push(`/wiki/${item.pageSlug}`);
+        router.refresh();
+      } catch {
+        setError("切换失败，请检查连接后重试。");
       } finally {
         setBusy(false);
       }
@@ -388,12 +430,13 @@ export function CommandPalette() {
       });
       if (!res.ok) {
         const j = (await res.json().catch(() => ({}))) as { error?: string };
-        // eslint-disable-next-line no-alert
-        alert(j.error ?? `切换失败（HTTP ${res.status}）`);
+        setError(j.error ?? `切换失败（HTTP ${res.status}）`);
         return;
       }
       close();
       router.refresh();
+    } catch {
+      setError("切换失败，请检查连接后重试。");
     } finally {
       setBusy(false);
     }
@@ -432,7 +475,30 @@ export function CommandPalette() {
       onClick={close}
     >
       <div
-        className="w-full max-w-xl overflow-hidden rounded-lg border border-border bg-popover text-popover-foreground shadow-2xl"
+        role="dialog"
+        aria-modal="true"
+        aria-label="搜索页面与功能"
+        className="w-full max-w-xl overflow-hidden rounded-xl border border-border bg-popover text-popover-foreground shadow-2xl"
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            close();
+          }
+          if (event.key === "Tab") {
+            const focusable = Array.from(
+              event.currentTarget.querySelectorAll<HTMLElement>("input, button:not(:disabled)"),
+            );
+            const first = focusable[0];
+            const last = focusable.at(-1);
+            if (event.shiftKey && document.activeElement === first) {
+              event.preventDefault();
+              last?.focus();
+            } else if (!event.shiftKey && document.activeElement === last) {
+              event.preventDefault();
+              first?.focus();
+            }
+          }
+        }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="border-b border-border p-2">
@@ -445,6 +511,8 @@ export function CommandPalette() {
             }}
             onKeyDown={onKeyDown}
             placeholder="搜索页面、会话或功能…"
+            aria-label="搜索页面、会话或功能"
+            autoComplete="off"
             className="h-10 border-0 bg-transparent text-base focus-visible:ring-0"
           />
         </div>
@@ -457,7 +525,7 @@ export function CommandPalette() {
             Array.from(grouped.entries()).map(([group, list]) => (
               <li key={group}>
                 <div className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  {group}
+                  {GROUP_LABELS[group]}
                 </div>
                 <ul>
                   {list.map((item) => {
@@ -477,7 +545,7 @@ export function CommandPalette() {
                         >
                           <span className="truncate">{item.label}</span>
                           {item.hint ? (
-                            <span className="shrink-0 truncate text-xs text-muted-foreground">
+                            <span className="max-w-[45%] shrink-0 truncate text-xs text-muted-foreground">
                               {item.hint}
                             </span>
                           ) : null}
@@ -490,6 +558,11 @@ export function CommandPalette() {
             ))
           )}
         </ul>
+        {error && (
+          <p role="alert" className="border-t border-border px-3 py-2 text-xs text-destructive">
+            {error}
+          </p>
+        )}
         <div className="border-t border-border px-3 py-1.5 text-[11px] text-muted-foreground">
           ↑↓ 选择 · Enter 打开 · Esc 关闭 · Cmd/Ctrl + K 唤起
         </div>

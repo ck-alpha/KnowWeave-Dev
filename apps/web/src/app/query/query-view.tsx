@@ -10,6 +10,7 @@ import { PageContainer, PageHeader } from "@/components/page-shell";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { MarkdownView } from "@/components/wiki/markdown-view";
+import { answerMarkdown } from "@/lib/answer-export";
 import { useWikiSettings } from "@/lib/use-wiki-settings";
 import { cn } from "@/lib/utils";
 
@@ -36,6 +37,8 @@ export function QueryView() {
   const settings = useWikiSettings();
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<QuerySuccess | null>(null);
+  const [answeredQuestion, setAnsweredQuestion] = useState("");
+  const [exportMessage, setExportMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<RetrievalMode>("bm25");
   const [indexStatus, setIndexStatus] = useState<string>("正在检查向量索引…");
@@ -106,7 +109,11 @@ export function QueryView() {
         body: JSON.stringify({ force }),
       });
       const data = (await res.json()) as {
-        ok?: boolean; error?: string; ready?: boolean; embedded?: number; skipped?: number;
+        ok?: boolean;
+        error?: string;
+        ready?: boolean;
+        embedded?: number;
+        skipped?: number;
       };
       if (!res.ok || !data.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
       await refreshIndexStatus();
@@ -131,11 +138,13 @@ export function QueryView() {
     setError(null);
     setPromoteResult(null);
     setPromoteError(null);
+    setExportMessage(null);
+    const submittedQuestion = question.trim();
     try {
       const res = await fetch("/api/query", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ question, mode }),
+        body: JSON.stringify({ question: submittedQuestion, mode }),
       });
       const json = (await res.json()) as QuerySuccess | QueryFailure;
       if (!res.ok || !("ok" in json) || json.ok !== true) {
@@ -143,6 +152,7 @@ export function QueryView() {
         throw new Error(msg);
       }
       setResult(json);
+      setAnsweredQuestion(submittedQuestion);
       setKnownSlugs((prev) => [...new Set([...prev, ...json.response.pagesUsed])]);
     } catch (err) {
       setError((err as Error).message);
@@ -180,16 +190,81 @@ export function QueryView() {
     }
   }
 
+  async function exportAnswer(copy: boolean) {
+    if (!result) return;
+    const markdown = answerMarkdown({
+      ...result,
+      question: answeredQuestion,
+      origin: window.location.origin,
+    });
+    try {
+      if (copy) {
+        await navigator.clipboard.writeText(markdown);
+        setExportMessage("已复制问题、回答与引用。");
+      } else {
+        const href = URL.createObjectURL(
+          new Blob([markdown], { type: "text/markdown;charset=utf-8" }),
+        );
+        const anchor = document.createElement("a");
+        anchor.href = href;
+        anchor.download = `knowweave-answer-${new Date().toISOString().slice(0, 10)}.md`;
+        anchor.click();
+        setTimeout(() => URL.revokeObjectURL(href), 1000);
+        setExportMessage("已导出 Markdown，包含本次问题与引用链接。");
+      }
+    } catch {
+      setExportMessage("浏览器未允许复制，请使用「导出 Markdown」。");
+    }
+  }
+
   return (
     <PageContainer>
       <PageHeader
         eyebrow="Ask your knowledge"
-        title="Query"
-        description="选择检索方式，围绕 Wiki 提问。点击回答中的引用核对依据；需要连续追问时，可使用 Chats。"
+        title="Query · 让知识回应问题"
+        description="从资料中寻找答案，沿引用核对证据，再把结论带回研究与工作。连续追问可使用 Chats。"
       />
 
-      <form onSubmit={onAsk} className="space-y-3">
-        <div className="rounded-lg border border-border p-3 text-sm">
+      {!result ? (
+        <section className="mb-6 grid gap-3 sm:grid-cols-3" aria-label="问题模板">
+          {[
+            {
+              title: "Compare · 比较研究",
+              text: "这些研究的主要结论有哪些共识与分歧？请列出各自的依据和局限。",
+            },
+            {
+              title: "Brief · 提炼要点",
+              text: "请根据资料整理一份简报：关键结论、支持证据，以及仍待确认的问题。",
+            },
+            {
+              title: "Apply · 支持决策",
+              text: "根据现有资料，有哪些可执行的建议？请区分资料明确支持的建议与尚缺证据的推测。",
+            },
+          ].map((item) => (
+            <button
+              key={item.title}
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                setQuestion(item.text);
+                document.getElementById("question")?.focus();
+              }}
+              className="rounded-xl border border-border/70 bg-card p-4 text-left transition-colors hover:border-primary/40 hover:bg-secondary/40 disabled:opacity-50"
+            >
+              <span className="text-sm font-semibold">{item.title}</span>
+              <span className="mt-2 block text-xs leading-relaxed text-muted-foreground">
+                {item.text}
+              </span>
+            </button>
+          ))}
+        </section>
+      ) : null}
+
+      <form
+        onSubmit={onAsk}
+        className="space-y-4 rounded-2xl border border-border/70 bg-card p-4 sm:p-6"
+      >
+        <div className="rounded-xl border border-border/70 bg-secondary/25 p-3 text-sm">
           <div className="flex flex-wrap items-center gap-3">
             <label htmlFor="retrieval-mode" className="font-medium">
               检索方式
@@ -229,7 +304,8 @@ export function QueryView() {
             {indexStatus}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            首次使用 Embedding / Hybrid 前，请先构建索引；页面新增或修改后再刷新。BM25 无需向量模型。
+            首次使用 Embedding / Hybrid 前，请先构建索引；页面新增或修改后再刷新。BM25
+            无需向量模型。
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
             {mode === "bm25"
@@ -238,7 +314,11 @@ export function QueryView() {
                 ? "Embedding 根据语义寻找相关页面，适合换一种说法提问。语义相近不代表资料支持某个结论，请核对引用。"
                 : "Hybrid 通过 RRF 融合关键词与语义排名。请保持索引最新；如果检索失败，可根据提示处理或手动切换到 BM25。"}
           </p>
-          {indexBuildMessage ? <p role="status" className="mt-2 text-xs">{indexBuildMessage}</p> : null}
+          {indexBuildMessage ? (
+            <p role="status" className="mt-2 text-xs">
+              {indexBuildMessage}
+            </p>
+          ) : null}
           {indexError ? (
             <p role="alert" className="mt-2 text-xs text-destructive">
               {indexError}
@@ -292,6 +372,29 @@ export function QueryView() {
 
       {result ? (
         <section className="mt-10 space-y-6">
+          <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border pb-5">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs uppercase tracking-widest text-muted-foreground">
+                Answer & evidence
+              </p>
+              <h2 className="mt-2 break-words font-display text-xl font-semibold">
+                {answeredQuestion}
+              </h2>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="outline" onClick={() => void exportAnswer(true)}>
+                复制回答与引用
+              </Button>
+              <Button type="button" variant="outline" onClick={() => void exportAnswer(false)}>
+                导出 Markdown
+              </Button>
+            </div>
+          </div>
+          {exportMessage ? (
+            <p className="text-sm text-muted-foreground" role="status">
+              {exportMessage}
+            </p>
+          ) : null}
           <div className="flex flex-wrap items-center gap-2 text-xs">
             <span
               className={cn(
@@ -299,7 +402,7 @@ export function QueryView() {
                 CONFIDENCE_STYLES[result.response.confidence],
               )}
             >
-              置信度：{{ high: "高", medium: "中", low: "低" }[result.response.confidence]}
+              模型置信度：{{ high: "高", medium: "中", low: "低" }[result.response.confidence]}
             </span>
             <span className="text-muted-foreground">via {result.model}</span>
             <span className="text-muted-foreground">· {result.mode.toUpperCase()} 检索</span>
@@ -314,8 +417,8 @@ export function QueryView() {
               回答参考的正文 · {result.response.retrieval.suppliedPages.length} 个页面
             </summary>
             <p className="mt-2 text-xs text-muted-foreground">
-              {result.response.retrieval.mode.toUpperCase()} ·{" "}
-              检索耗时 {result.response.retrieval.elapsedMs.toFixed(0)} ms
+              {result.response.retrieval.mode.toUpperCase()} · 检索耗时{" "}
+              {result.response.retrieval.elapsedMs.toFixed(0)} ms
             </p>
             <ol className="mt-2 list-decimal space-y-1 pl-5">
               {result.response.retrieval.suppliedPages.map((page) => {

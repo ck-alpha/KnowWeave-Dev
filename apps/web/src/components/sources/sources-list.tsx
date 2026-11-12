@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import type { IngestSuccess } from "@/lib/ingest-result";
 
 type SourceItem = {
@@ -61,10 +63,17 @@ type Props = {
 };
 
 export function SourcesList({ refreshNonce, onPreview, onBusyChange, disabled }: Props) {
+  const searchParams = useSearchParams();
   const [sources, setSources] = useState<SourceItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [actionFlash, setActionFlash] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState(
+    searchParams.get("status") === "pending" ? "pending" : "all",
+  );
+  const [format, setFormat] = useState("all");
+  const [visibleCount, setVisibleCount] = useState(12);
 
   const fetchSources = useCallback(async () => {
     try {
@@ -98,7 +107,7 @@ export function SourcesList({ refreshNonce, onPreview, onBusyChange, disabled }:
     const sourceLabel = s.title?.trim() || s.filename;
     console.log(
       `%c[Ingest Retry Send] Retrying ingestion for source: "${sourceLabel}"`,
-      "color: #3b82f6; font-weight: bold;"
+      "color: #3b82f6; font-weight: bold;",
     );
     try {
       const res = await fetch(`/api/sources/${s.id}/retry`, {
@@ -125,21 +134,19 @@ export function SourcesList({ refreshNonce, onPreview, onBusyChange, disabled }:
       }
       console.log(
         `%c[Ingest Retry Success] Selected ${json.providerUsed || "unknown"} to ingest: "${sourceLabel}" -> Status: Success`,
-        "color: #10b981; font-weight: bold;"
+        "color: #10b981; font-weight: bold;",
       );
       console.log(
         `%c[Ingest Retry Success] Model used: ${json.modelUsed || "unknown"}`,
-        "color: #10b981;"
+        "color: #10b981;",
       );
       const newN = json.response?.newPages.length ?? 0;
       const updN = json.response?.pageUpdates.length ?? 0;
-      setActionFlash(
-        `整理完成：新建 ${newN} 个页面，更新 ${updN} 个页面。`,
-      );
+      setActionFlash(`整理完成：新建 ${newN} 个页面，更新 ${updN} 个页面。`);
       await fetchSources();
     } catch (err) {
       console.error(
-        `[Ingest Retry Failed] source: "${sourceLabel}" -> Status: Failed. Error: ${(err as Error).message}`
+        `[Ingest Retry Failed] source: "${sourceLabel}" -> Status: Failed. Error: ${(err as Error).message}`,
       );
       setError((err as Error).message);
     } finally {
@@ -150,12 +157,12 @@ export function SourcesList({ refreshNonce, onPreview, onBusyChange, disabled }:
 
   async function onDelete(s: SourceItem) {
     if (disabled || busyId !== null) return;
-    const label =
-      s.title?.trim() || s.originalName?.trim() || s.url?.trim() || s.filename;
+    const label = s.title?.trim() || s.originalName?.trim() || s.url?.trim() || s.filename;
     const isPending = s.ingestedAt === null;
-    const cascadeNote = s.pageCount > 0
-      ? `该来源关联了 ${s.pageCount} 个 Wiki 页面，页面会保留；失效的来源引用可通过 Lint 检查。`
-      : "";
+    const cascadeNote =
+      s.pageCount > 0
+        ? `该来源关联了 ${s.pageCount} 个 Wiki 页面，页面会保留；失效的来源引用可通过 Lint 检查。`
+        : "";
     const msg = isPending
       ? `移除待整理的来源「${label}」？\n\n原始文件将移入回收站，30 天内可恢复。`
       : `移除来源「${label}」？${cascadeNote}\n\n原始文件将移入回收站，30 天内可恢复。`;
@@ -200,7 +207,18 @@ export function SourcesList({ refreshNonce, onPreview, onBusyChange, disabled }:
   }
 
   // Newest first — most recent ingest is what the user usually wants to see.
-  const sorted = [...sources].sort((a, b) =>
+  const term = search.trim().toLocaleLowerCase();
+  const filtered = sources.filter(
+    (source) =>
+      (status === "all" ||
+        (status === "pending" ? source.ingestedAt === null : source.ingestedAt !== null)) &&
+      (format === "all" || source.format === format) &&
+      (!term ||
+        [source.title, source.originalName, source.filename, source.url].some((value) =>
+          value?.toLocaleLowerCase().includes(term),
+        )),
+  );
+  const sorted = [...filtered].sort((a, b) =>
     a.addedAt < b.addedAt ? 1 : a.addedAt > b.addedAt ? -1 : 0,
   );
 
@@ -208,9 +226,69 @@ export function SourcesList({ refreshNonce, onPreview, onBusyChange, disabled }:
 
   return (
     <div className="space-y-3">
+      <div className="grid gap-3 rounded-xl border border-border/70 bg-secondary/25 p-3 sm:grid-cols-[1fr_auto_auto]">
+        <div>
+          <label htmlFor="source-search" className="mb-1.5 block text-xs font-medium">
+            查找资料
+          </label>
+          <Input
+            id="source-search"
+            type="search"
+            placeholder="搜索标题、文件名或网址…"
+            value={search}
+            onChange={(event) => {
+              setSearch(event.target.value);
+              setVisibleCount(12);
+            }}
+          />
+        </div>
+        <div>
+          <label htmlFor="source-status" className="mb-1.5 block text-xs font-medium">
+            处理状态
+          </label>
+          <select
+            id="source-status"
+            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+            value={status}
+            onChange={(event) => {
+              setStatus(event.target.value);
+              setVisibleCount(12);
+            }}
+          >
+            <option value="all">全部资料 · {sources.length}</option>
+            <option value="pending">待处理 · {pendingCount}</option>
+            <option value="done">已整理 · {sources.length - pendingCount}</option>
+          </select>
+        </div>
+        <div>
+          <label htmlFor="source-format" className="mb-1.5 block text-xs font-medium">
+            文件类型
+          </label>
+          <select
+            id="source-format"
+            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+            value={format}
+            onChange={(event) => {
+              setFormat(event.target.value);
+              setVisibleCount(12);
+            }}
+          >
+            <option value="all">全部格式</option>
+            {[...new Set(sources.map((source) => source.format))].sort().map((value) => (
+              <option key={value} value={value}>
+                {FORMAT_LABEL[value] ?? value.toUpperCase()}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+      <p className="text-xs text-muted-foreground" role="status">
+        找到 {sorted.length} / {sources.length} 份资料 · 按添加时间排列
+      </p>
       {pendingCount > 0 ? (
         <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-200">
-          {pendingCount} 份资料待处理：整理失败或正在等待确认。请查看下方建议，或点击<strong>重试</strong>重新整理；点击<strong>删除</strong>可移除来源。
+          {pendingCount} 份资料待处理：整理失败或正在等待确认。请查看下方建议，或点击
+          <strong>重试</strong>重新整理；点击<strong>删除</strong>可移除来源。
         </p>
       ) : null}
 
@@ -220,26 +298,17 @@ export function SourcesList({ refreshNonce, onPreview, onBusyChange, disabled }:
         </p>
       ) : null}
       {error && sources !== null ? (
-        <p className="rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
-          {error}
-        </p>
+        <p className="rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">{error}</p>
       ) : null}
 
       <ul className="divide-y divide-border">
-        {sorted.map((s) => {
-          const label =
-            s.title?.trim() ||
-            s.originalName?.trim() ||
-            s.url?.trim() ||
-            s.filename;
+        {sorted.slice(0, visibleCount).map((s) => {
+          const label = s.title?.trim() || s.originalName?.trim() || s.url?.trim() || s.filename;
           const formatBadge = FORMAT_LABEL[s.format] ?? s.format.toUpperCase();
           const isPending = s.ingestedAt === null;
           const isBusy = busyId === s.id;
           return (
-            <li
-              key={s.id}
-              className="flex flex-wrap items-baseline justify-between gap-2 py-2.5"
-            >
+            <li key={s.id} className="flex flex-wrap items-baseline justify-between gap-2 py-2.5">
               <div className="min-w-0 flex-1">
                 {/* Title area is a link to /sources/[id] — buttons sit
                     outside the link so clicks don't bubble. */}
@@ -274,9 +343,7 @@ export function SourcesList({ refreshNonce, onPreview, onBusyChange, disabled }:
                     </Button>
                   </>
                 ) : (
-                  <span className="text-muted-foreground">
-                    {s.pageCount} 个页面
-                  </span>
+                  <span className="text-muted-foreground">{s.pageCount} 个页面</span>
                 )}
                 <Button
                   size="sm"
@@ -292,6 +359,35 @@ export function SourcesList({ refreshNonce, onPreview, onBusyChange, disabled }:
           );
         })}
       </ul>
+      {sorted.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-border p-6 text-center">
+          <p className="text-sm text-muted-foreground">
+            没有符合条件的资料，试试其他关键词或清除筛选。
+          </p>
+          <Button
+            type="button"
+            variant="ghost"
+            className="mt-2"
+            onClick={() => {
+              setSearch("");
+              setStatus("all");
+              setFormat("all");
+              setVisibleCount(12);
+            }}
+          >
+            清除筛选
+          </Button>
+        </div>
+      ) : null}
+      {sorted.length > visibleCount ? (
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => setVisibleCount((count) => count + 12)}
+        >
+          加载更多（还有 {sorted.length - visibleCount} 份）
+        </Button>
+      ) : null}
     </div>
   );
 }
