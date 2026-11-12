@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 //  - navigate       → router.push(href)
 //  - switch-wiki    → POST /api/wikis switch + router.refresh()
 //  - switch-then-open → POST switch THEN router.push to the page (cross-wiki nav)
-//  - toggle-theme   → cycle light → dark → auto → light
+//  - toggle-theme   → cycle 浅色 → 深色 → 跟随系统 → light
 //  - copy-text      → navigator.clipboard.writeText(value)
 type Action =
   | {
@@ -56,17 +56,94 @@ type Action =
     };
 
 const STATIC_NAV_ACTIONS: Action[] = [
-  { type: "navigate", id: "go-wiki", label: "Wiki", hint: "browse pages", group: "Go to", href: "/wiki" },
-  { type: "navigate", id: "go-graph", label: "Graph", hint: "3D knowledge view", group: "Go to", href: "/graph" },
-  { type: "navigate", id: "go-sources", label: "Sources", hint: "add a source", group: "Go to", href: "/sources" },
-  { type: "navigate", id: "go-query", label: "Query", hint: "ask a question", group: "Go to", href: "/query" },
-  { type: "navigate", id: "go-chats", label: "Chats", hint: "start or open a chat", group: "Go to", href: "/chats" },
-  { type: "navigate", id: "go-lint", label: "Lint", hint: "wiki health check", group: "Go to", href: "/lint" },
-  { type: "navigate", id: "go-log", label: "Log", hint: "wiki timeline", group: "Go to", href: "/log" },
-  { type: "navigate", id: "go-dashboard", label: "Dashboard", hint: "per-wiki stats + cumulative spend", group: "Go to", href: "/dashboard" },
-  { type: "navigate", id: "go-schema", label: "Schema editor", hint: "edit CLAUDE.md", group: "Go to", href: "/schema" },
-  { type: "navigate", id: "go-settings", label: "Settings", hint: "models, theme, API key", group: "Go to", href: "/settings" },
-  { type: "navigate", id: "manage-wikis", label: "Manage wikis…", hint: "create, switch, remove", group: "Wikis", href: "/settings?tab=wikis" },
+  {
+    type: "navigate",
+    id: "go-wiki",
+    label: "Wiki",
+    hint: "浏览知识页面",
+    group: "Go to",
+    href: "/wiki",
+  },
+  {
+    type: "navigate",
+    id: "go-graph",
+    label: "Graph",
+    hint: "探索知识关系",
+    group: "Go to",
+    href: "/graph",
+  },
+  {
+    type: "navigate",
+    id: "go-sources",
+    label: "Sources",
+    hint: "添加资料来源",
+    group: "Go to",
+    href: "/sources",
+  },
+  {
+    type: "navigate",
+    id: "go-query",
+    label: "Query",
+    hint: "向知识库提问",
+    group: "Go to",
+    href: "/query",
+  },
+  {
+    type: "navigate",
+    id: "go-chats",
+    label: "Chats",
+    hint: "新建或打开会话",
+    group: "Go to",
+    href: "/chats",
+  },
+  {
+    type: "navigate",
+    id: "go-lint",
+    label: "Lint",
+    hint: "检查知识库",
+    group: "Go to",
+    href: "/lint",
+  },
+  {
+    type: "navigate",
+    id: "go-log",
+    label: "Log",
+    hint: "查看更新记录",
+    group: "Go to",
+    href: "/log",
+  },
+  {
+    type: "navigate",
+    id: "go-dashboard",
+    label: "Dashboard",
+    hint: "统计与模型用量",
+    group: "Go to",
+    href: "/dashboard",
+  },
+  {
+    type: "navigate",
+    id: "go-schema",
+    label: "Schema editor",
+    hint: "编辑整理规则",
+    group: "Go to",
+    href: "/schema",
+  },
+  {
+    type: "navigate",
+    id: "go-settings",
+    label: "Settings",
+    hint: "模型、主题与连接设置",
+    group: "Go to",
+    href: "/settings",
+  },
+  {
+    type: "navigate",
+    id: "manage-wikis",
+    label: "管理 Wiki…",
+    hint: "新建、切换、移除",
+    group: "Wikis",
+    href: "/settings?tab=wikis",
+  },
 ];
 
 type PageItem = { slug: string; title: string };
@@ -131,9 +208,7 @@ export function CommandPalette() {
         }
         if (chatsRes.ok) {
           const data = (await chatsRes.json()) as { chats: ChatItem[] };
-          setChats(
-            data.chats.map((c) => ({ id: c.id, title: c.title, folder: c.folder })),
-          );
+          setChats(data.chats.map((c) => ({ id: c.id, title: c.title, folder: c.folder })));
         }
         if (wikisRes.ok) {
           const data = (await wikisRes.json()) as {
@@ -187,7 +262,7 @@ export function CommandPalette() {
     const wikiActions: Action[] = wikis.map((w) => ({
       type: "switch-wiki",
       id: `wiki-${w.path}`,
-      label: `Switch to ${w.topic ?? w.path.split("/").pop() ?? w.path}`,
+      label: `切换到 ${w.topic ?? w.path.split("/").pop() ?? w.path}`,
       hint: w.path,
       group: "Wikis",
       path: w.path,
@@ -205,8 +280,8 @@ export function CommandPalette() {
       {
         type: "toggle-theme",
         id: "toggle-theme",
-        label: `Theme: cycle (currently ${theme})`,
-        hint: "light → dark → auto",
+        label: `切换主题（当前 ${theme}）`,
+        hint: "浅色 → 深色 → 跟随系统",
         group: "App",
       },
       ...(activeWikiPath
@@ -214,7 +289,7 @@ export function CommandPalette() {
             {
               type: "copy-text" as const,
               id: "copy-wiki-path",
-              label: "Copy active wiki folder path",
+              label: "复制当前 Wiki 目录",
               hint: activeWikiPath,
               group: "App" as const,
               value: activeWikiPath,
@@ -234,8 +309,7 @@ export function CommandPalette() {
     if (!needle) return combined;
     return combined.filter(
       (a) =>
-        a.label.toLowerCase().includes(needle) ||
-        (a.hint?.toLowerCase().includes(needle) ?? false),
+        a.label.toLowerCase().includes(needle) || (a.hint?.toLowerCase().includes(needle) ?? false),
     );
   }, [pages, chats, query]);
 
@@ -293,7 +367,7 @@ export function CommandPalette() {
         if (!res.ok) {
           const j = (await res.json().catch(() => ({}))) as { error?: string };
           // eslint-disable-next-line no-alert
-          alert(j.error ?? `Switch failed (HTTP ${res.status})`);
+          alert(j.error ?? `切换失败（HTTP ${res.status}）`);
           return;
         }
         close();
@@ -315,7 +389,7 @@ export function CommandPalette() {
       if (!res.ok) {
         const j = (await res.json().catch(() => ({}))) as { error?: string };
         // eslint-disable-next-line no-alert
-        alert(j.error ?? `Switch failed (HTTP ${res.status})`);
+        alert(j.error ?? `切换失败（HTTP ${res.status}）`);
         return;
       }
       close();
@@ -370,14 +444,14 @@ export function CommandPalette() {
               setActiveIndex(0);
             }}
             onKeyDown={onKeyDown}
-            placeholder="Jump to a page, chat, or screen…"
+            placeholder="搜索页面、会话或功能…"
             className="h-10 border-0 bg-transparent text-base focus-visible:ring-0"
           />
         </div>
         <ul ref={listRef} className="max-h-[50vh] overflow-y-auto py-1">
           {flatItems.length === 0 ? (
             <li className="px-3 py-4 text-center text-sm text-muted-foreground">
-              No matches.
+              没有找到匹配项。
             </li>
           ) : (
             Array.from(grouped.entries()).map(([group, list]) => (
@@ -417,7 +491,7 @@ export function CommandPalette() {
           )}
         </ul>
         <div className="border-t border-border px-3 py-1.5 text-[11px] text-muted-foreground">
-          ↑↓ navigate · ⏎ open · esc close · ⌘K toggle
+          ↑↓ 选择 · Enter 打开 · Esc 关闭 · Cmd/Ctrl + K 唤起
         </div>
       </div>
     </div>

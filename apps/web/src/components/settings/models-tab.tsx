@@ -14,8 +14,8 @@ type Slot = (typeof SLOTS)[number];
 type Provider = "openrouter" | "ollama";
 
 const PROVIDERS: { value: Provider; label: string }[] = [
-  { value: "ollama", label: "Ollama (Local)" },
-  { value: "openrouter", label: "OpenRouter (Optional)" },
+  { value: "ollama", label: "Ollama · 本地" },
+  { value: "openrouter", label: "OpenRouter · 可选" },
 ];
 
 // ─── OpenRouter model catalogue ────────────────────────────────────────────────
@@ -30,44 +30,44 @@ const SUGGESTED: ReadonlyArray<ModelChoice> = [
   {
     id: "anthropic/claude-haiku-4.5",
     label: "Claude Haiku 4.5",
-    notes: "External provider",
+    notes: "外部服务",
     vision: true,
   },
   {
     id: "anthropic/claude-sonnet-4.6",
     label: "Claude Sonnet 4.6",
-    notes: "External provider",
+    notes: "外部服务",
     vision: true,
   },
   {
     id: "anthropic/claude-opus-4.7",
     label: "Claude Opus 4.7",
-    notes: "External provider",
+    notes: "外部服务",
     vision: true,
   },
   {
     id: "openai/gpt-4o-mini",
     label: "GPT-4o mini",
-    notes: "External provider",
+    notes: "外部服务",
     vision: true,
   },
-  { id: "openai/gpt-4o", label: "GPT-4o", notes: "External provider", vision: true },
+  { id: "openai/gpt-4o", label: "GPT-4o", notes: "外部服务", vision: true },
   {
     id: "google/gemini-2.5-pro",
     label: "Gemini 2.5 Pro",
-    notes: "External provider",
+    notes: "外部服务",
     vision: true,
   },
   {
     id: "google/gemini-2.5-flash",
     label: "Gemini 2.5 Flash",
-    notes: "External provider",
+    notes: "外部服务",
     vision: true,
   },
   {
     id: "meta-llama/llama-3.3-70b-instruct",
     label: "Llama 3.3 70B",
-    notes: "External provider",
+    notes: "外部服务",
     vision: false,
   },
 ];
@@ -79,7 +79,7 @@ const OLLAMA_SUGGESTED: ReadonlyArray<OllamaChoice> = [
   {
     id: "qwen3.8:27b",
     label: "Qwen 3.8 (27B)",
-    notes: "Round 01 local model; verify with ollama list",
+    notes: "请用 ollama list 核对",
     vision: false,
   },
 ];
@@ -87,12 +87,11 @@ const OLLAMA_SUGGESTED: ReadonlyArray<OllamaChoice> = [
 const CUSTOM_SENTINEL = "__custom__";
 
 const SLOT_HINT: Record<Slot, string> = {
-  ingest: "Turns source documents into validated wiki page changes.",
-  query: "Answers questions using retrieved wiki pages and citations.",
-  chat: "Multi-turn conversations. Default for new chats; per-chat override lives in the chat's frontmatter.",
-  lint: "Checks the wiki for semantic issues using the selected model.",
-  vision:
-    "Images and scanned PDFs require verified vision support. Round 01 validates text ingestion only.",
+  ingest: "将原始资料整理为 Wiki 页面，并校验变更格式。",
+  query: "检索 Wiki 页面，生成附带引用的回答。",
+  chat: "用于多轮对话，作为新建会话的默认模型。",
+  lint: "检查 Wiki 内容中的语义问题。",
+  vision: "图片与扫描版 PDF 需要支持图像输入的模型；当前仅验证了文本导入。",
 };
 
 // ─── State shape ───────────────────────────────────────────────────────────────
@@ -102,7 +101,7 @@ type Models = Record<Slot, SlotConfig>;
 
 // Shared <select> className to keep all dropdowns visually identical.
 const SELECT_CLS = cn(
-  "h-10 min-w-[16rem] rounded-md border border-input bg-background px-3 text-sm",
+  "h-10 min-w-0 max-w-full rounded-md border border-input bg-background px-3 text-sm",
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
 );
 
@@ -186,7 +185,7 @@ export function ModelsTab() {
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setOriginal(models);
-      setFlash("Saved. New operations use these models immediately.");
+      setFlash("已保存，之后的操作将使用这些模型。");
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -230,11 +229,10 @@ export function ModelsTab() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-medium">Model per operation</h2>
+        <h2 className="text-lg font-medium">Models · 按用途选择模型</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Select Ollama for local inference and use a model tag from <code>ollama list</code>. The
-          Round 01 text model is <code>qwen3.8:27b</code>. OpenRouter remains an optional provider
-          for existing configurations.
+          本地运行请选择 Ollama，并填写 <code>ollama list</code> 中的完整模型名称。 默认文本模型为{" "}
+          <code>qwen3.8:27b</code>，也可按需配置 OpenRouter。
         </p>
       </div>
 
@@ -246,12 +244,12 @@ export function ModelsTab() {
       {freeSlots.length > 0 ? (
         <div className="rounded-md border border-amber-500/40 bg-amber-500/[0.06] px-4 py-3 text-sm">
           <p className="font-medium text-amber-900 dark:text-amber-200">
-            Free models in use: {freeSlots.join(", ")}{" "}
-            {freeSlots.length === 1 ? "(1 slot)" : `(${freeSlots.length} slots)`}
+            正在使用免费模型： {freeSlots.join(", ")}{" "}
+            {freeSlots.length === 1 ? "（1 个用途）" : `（${freeSlots.length} 个用途）`}
           </p>
           <p className="mt-1 text-amber-900/80 dark:text-amber-200/80">
-            These operations use an external provider. Availability, rate limits, and data handling
-            depend on your provider settings. Select Ollama to run locally.
+            这些操作使用外部服务，可用性、频率限制与数据处理方式由服务商设置决定。选择 Ollama
+            可在本地运行。
           </p>
         </div>
       ) : null}
@@ -263,20 +261,19 @@ export function ModelsTab() {
       {ollamaSlots.length > 0 ? (
         <div className="rounded-md border border-amber-500/40 bg-amber-500/[0.06] px-4 py-3 text-sm">
           <p className="font-medium text-amber-900 dark:text-amber-200">
-            ⚙ Ollama selected for{" "}
-            {ollamaSlots.length === 1 ? "1 slot" : `${ollamaSlots.length} slots`}
+            已为以下用途选择 Ollama：{" "}
+            {ollamaSlots.length === 1 ? "1 项" : `${ollamaSlots.length} 项`}
             {ollamaSlots.length > 0 ? ` (${ollamaSlots.join(", ")})` : ""}
           </p>
           <p className="mt-1 text-amber-900/80 dark:text-amber-200/80">
-            Ollama runs locally on your machine — it must be installed and running before these
-            operations will work, otherwise they fail with a generic <em>Connection error</em>. See
-            the setup guide for local connection checks and the exact model tag to configure.
+            请确保应用所在服务器上的 Ollama
+            已启动，并且对应模型已经安装。遇到连接错误时，可按配置指南检查服务地址和模型名称。
           </p>
           <Link
             href="/local-models"
             className="mt-2 inline-block text-amber-900 underline underline-offset-2 hover:text-amber-700 dark:text-amber-200 dark:hover:text-amber-100"
           >
-            Open Ollama setup guide →
+            查看 Ollama 配置指南 →
           </Link>
         </div>
       ) : null}
@@ -286,7 +283,7 @@ export function ModelsTab() {
       ) : null}
 
       {!models ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <p className="text-sm text-muted-foreground">加载中…</p>
       ) : (
         <div className="space-y-5">
           {SLOTS.map((slot) => {
@@ -315,11 +312,11 @@ export function ModelsTab() {
                   {slot}
                 </label>
 
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <div className="flex flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-center">
                   {/* ── Provider picker ─────────────────────────────────── */}
                   <select
                     id={`p-${slot}`}
-                    aria-label={`${slot} provider`}
+                    aria-label={`${slot} 服务提供方`}
                     value={provider}
                     onChange={(e) => onProviderChange(slot, e.target.value as Provider)}
                     className={cn(SELECT_CLS, "min-w-[10rem]")}
@@ -336,7 +333,7 @@ export function ModelsTab() {
                     id={`m-${slot}`}
                     value={isCustom ? CUSTOM_SENTINEL : models[slot].model}
                     onChange={(e) => onModelSelectChange(slot, e.target.value)}
-                    className={cn(SELECT_CLS, "min-w-[16rem]")}
+                    className={cn(SELECT_CLS, "lg:max-w-[22rem]")}
                   >
                     {visibleOptions.map((o) => (
                       <option key={o.id} value={o.id}>
@@ -344,7 +341,7 @@ export function ModelsTab() {
                       </option>
                     ))}
                     <option value={CUSTOM_SENTINEL}>
-                      {isOllama ? "Custom (enter model name below)" : "Custom (enter slug below)"}
+                      {isOllama ? "自定义（在下方输入模型名称）" : "自定义（在下方输入模型 ID）"}
                     </option>
                   </select>
 
@@ -353,11 +350,11 @@ export function ModelsTab() {
                     <Input
                       value={models[slot].model}
                       onChange={(e) => updateSlot(slot, { model: e.target.value })}
-                      placeholder={isOllama ? "e.g. qwen3.8:27b" : "provider/model-id"}
+                      placeholder={isOllama ? "例如：qwen3.8:27b" : "provider/model-id"}
                       className="font-mono text-[13px] sm:flex-1"
                     />
                   ) : (
-                    <span className="font-mono text-xs text-muted-foreground">
+                    <span className="break-all font-mono text-xs text-muted-foreground">
                       {models[slot].model}
                     </span>
                   )}
@@ -366,9 +363,9 @@ export function ModelsTab() {
                 {/* Ollama hint */}
                 {isOllama && (
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Make sure{" "}
+                    保存前请确认{" "}
                     <code className="font-mono">ollama run {models[slot].model || "<model>"}</code>{" "}
-                    works locally before saving.
+                    可以在服务器上正常运行。
                   </p>
                 )}
 
@@ -379,7 +376,7 @@ export function ModelsTab() {
 
           <div className="flex items-center gap-3 pt-2">
             <Button onClick={onSave} disabled={!dirty || busy}>
-              {busy ? "Saving…" : dirty ? "Save models" : "Saved"}
+              {busy ? "保存中…" : dirty ? "保存模型设置" : "已保存"}
             </Button>
             {flash ? <span className="text-sm text-muted-foreground">{flash}</span> : null}
           </div>
@@ -387,11 +384,9 @@ export function ModelsTab() {
       )}
 
       <div className="rounded-md border border-border/70 bg-muted/30 p-3 text-xs text-muted-foreground">
-        <strong className="text-foreground">Model slugs go stale.</strong> Providers retire older
-        versions periodically. If an operation fails with{" "}
-        <code className="font-mono">model not available on OpenRouter</code>, switch the relevant
-        slot to a current model from the dropdown. For Ollama, run{" "}
-        <code className="font-mono">ollama list</code> to see locally installed models.
+        <strong className="text-foreground">模型名称需要与实际可用版本一致。</strong>
+        如果提示模型不可用，请更新对应用途的配置。Ollama 可用模型以
+        <code className="font-mono"> ollama list</code> 的输出为准。
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 # KnowWeave 项目架构
 
-最后核对：2026-10-17（Asia/Shanghai，含公开源码仓库分离核对）。当前实现范围：Round 01–03。
+最后核对：2026-11-12（Asia/Shanghai，补充 Remote SSH、Chat 动态入口、中英界面、Graph 双视图与 Lint 中文交互）。当前实现范围：Round 01–03。
 本文件是当前架构的统一入口；模块、调用链、接口、数据格式、检索/模型协议或部署入口变化时，随代码在同一次提交中更新核对日期。当前名称 **KnowWeave**；既有 `KNOWWAEVE_*` 环境变量和内部包名为兼容保留。
 
 ## 技术栈与入口
@@ -8,6 +8,7 @@
 - Node.js 22、pnpm 10.12.1、TypeScript、Next.js 14 App Router、React 18。
 - Markdown 保存原文、Wiki 页面、索引和日志；每个 Wiki 的 `.llm-wiki/meta.sqlite` 保存元数据、FTS5、向量、来源关系、用量和响应缓存。
 - `scripts/local.mjs` 启动应用，默认监听 `127.0.0.1:3000`，Wiki 和配置隔离到仓库 `.local/`；Ollama 默认 `127.0.0.1:11434`。通过 VS Code Remote SSH 或 SSH 端口转发访问，无新增登录或云服务。
+- [.vscode/settings.json](.vscode/settings.json) 配置 Remote SSH 按进程自动发现已监听的 `3000` / `3001`，分别标注默认知识库和演示知识库，并恢复转发；`3000` 新建自动转发时请求打开客户端浏览器，`3001` 静默转发，其他端口默认忽略。应用与模型继续在服务器运行。此工作区配置不负责启动服务器应用；本机端口冲突时以 Ports 面板实际地址为准，恢复已有转发不保证再次打开浏览器。
 - 项目诊断入口为 `pnpm run doctor`（`node scripts/local.mjs doctor`），核验 Ollama 服务与生成模型 tag；Nomic 状态由 Query 检索接口核验。`pnpm doctor` 是包管理器内置命令。
 - Python 标准库用于数据准备和真实 API 验收；TypeScript + tsx 用于调用同一检索核心的离线 benchmark，无新增常驻服务。
 
@@ -44,6 +45,24 @@ flowchart LR
 问答：`POST /api/query` → `queryWiki` → `retrievePages` → 从磁盘 `readPage` → `buildQueryPrompt` → Qwen → `QueryResponseSchema` → 校验引用属于实际供给正文。返回 `pagesUsed` 和 `retrieval`，后者含模式、排名、模型、参数、耗时以及 `suppliedPages` 的正文 SHA256/UTF8 字节数。排名本身不作为模型证据，真正供给的是当前页面正文。无命中直接返回低置信证据不足；低置信模型回答可无引用，其他回答必须有引用。引用存在性不证明科学结论正确。
 
 UI 的 `[[slug]]` 跳到 Wiki，再经 Sources 链接进入原文；读取 API 仍为 `/api/pages/[slug]` 与 `/api/sources/[id]`。Round 02–03 不改变 Ingest 与聊天的候选检索策略，它们继续使用 BM25；三模式明确用于独立 Query。
+
+聊天：`/chats` 布局显式使用 `force-dynamic`，访问时按当前 Wiki 的主题和 Chat 模型槽执行 `requireSetup("chat")`，避免把构建时的未配置跳转永久缓存。新建会话经 `POST /api/chats` 进入 `/chats/[id]`；发送经 `POST /api/chats/[id]/messages` → `sendChatMessage` → `chatComplete` → Ollama，保存会话 Markdown 与 SQLite 元数据。浏览器只调用本站 API，无需转发 Ollama 端口；当前回复完整生成后一次返回。
+
+## 网页语言与知识图谱
+
+- 界面采用英文栏目/技术术语（Sources、Wiki、Query、BM25 等）与中文操作说明；`html lang="zh-CN"`，帮助页、导入/问答/聊天、Wiki 和主要设置操作提供中文指引。用户资料与 Wiki 正文不因界面语言而翻译，不新增翻译服务。
+- `/graph` 继续由服务端 `openWikiContext` → `buildGraph` 读取现有页面与 `[[slug]]` 引用，返回原有 `GraphData {nodes, links}`；断链、自引用、重复同向边沿用 core 规则。有向关联表示页面引用，不代表语义相似度或模型推断关系。
+- [vault-graph.tsx](apps/web/src/components/graph/vault-graph.tsx) 管理 Map · 2D / Space · 3D、搜索、类型筛选、选择详情和邻接高亮；`?node=<slug>` 保留深链接。两种视图共享筛选与选择，视图偏好保存在浏览器 `knowweave.graph.mode`；首次默认 2D。浏览器存储不可用时仍可切换。
+- [graph-layout.ts](apps/web/src/components/graph/graph-layout.ts) 提供确定性二维布局与过滤，160 节点以内执行有界布局迭代，更多节点采用网格控制开销。Map 使用 SVG、可缩放平移、键盘选择和标签；[spatial-graph.tsx](apps/web/src/components/graph/spatial-graph.tsx) 仅在选择 Space 时动态加载现有 `react-force-graph-3d`，使用独立数据副本与固定空间坐标，避免默认力模拟把节点收成一团或修改共用图数据；镜头按节点边界与画布比例取景，标题投影到屏幕并避开重叠。
+- 画布与详情在窄屏上下排列；WebGL2 不可用时显示切换至 2D 的入口。图谱是浏览与跳转工具，不改变 Wiki、检索、模型或持久化接口，也不引入 GraphRAG 或新的运行依赖。
+
+### Lint 中文交互与报告
+
+`/lint` 继续使用 `POST /api/lint` → `lintWiki`：本地扫描页面引用，模型分析矛盾、缺口、过时表述与缺页，记录日志/用量；检查本身不改 Wiki 正文。语义检查最多取按 slug 排序的 60 页，每页正文最多 800 个按空白切分的词项，界面对部分覆盖给出提示，不宣称完整事实核查。
+
+[lint-presentation.ts](apps/web/src/app/lint/lint-presentation.ts) 只将已识别的本地断链/缺少引用报告映射成中文展示，未知内容保留原文。原始 `description` / `suggestedFix` 仍供现有修复目标解析使用；UI 的严重程度、问题类型、来源和模型评估均映射中文，历史 UTC 日志仅在显示时转换为北京时间。
+
+[Lint prompt](packages/core/src/prompts/lint.ts) 要求问题说明、建议与后续问题使用简体中文，保留 JSON 字段、枚举、准确 slug、页面标题和原文引用；缺页描述保留 `slug + 空格` 前缀。[修复 prompt](packages/core/src/lint-fixes.ts) 的 `changeSummary` 使用中文，`newContent` 保持原页面语言。修复按钮继续走既有 `/api/lint/fix` 并写入页面/历史；「重建页面目录」仅更新 `index.md`，不是向量索引刷新。接口结构、存储格式和修复审批行为未改变。
 
 ## 检索、模型与持久化协议
 
@@ -89,6 +108,10 @@ Round 02 历史检索结果与完整命令见 [Round 02 验收](docs/ROUND_02_AC
 
 | 日期（Asia/Shanghai） | 变更 |
 | --- | --- |
+| 2026-11-12 | Lint 提供中文交互与报告提示词；本地结果仅展示层映射，保留机器字段/修复目标与正文语言，历史时间显示为北京时间。 |
+| 2026-11-12 | 增加中英混合界面、Map/Space 双图谱视图、共享筛选与深链接；继续使用既有 GraphData、Wiki 引用和 3D 依赖，无后端协议变化。 |
+| 2026-11-12 | 修复 Chat 索引页生产构建缓存 setup 跳转的问题；Chat 布局按运行时 Wiki 配置动态渲染，聊天接口与模型协议不变。 |
+| 2026-11-12 | 增加 Remote SSH 工作区端口自动转发与浏览器打开配置；复用既有服务器应用，运行监听与模型协议不变。 |
 | 2026-10-17 | 分离私有开发仓库与全新公开源码快照；记录公开演示入口命名及仓库边界，运行架构未变。 |
 | 2026-10-17 | 公开前核对诊断入口为 `pnpm run doctor`；仅修正文档，运行架构与 Round 02 检索协议未变。 |
 | 2026-10-17 | Round 03 补齐来源独立文件、Ingest 写入保护与正文索引一致性、Retry 审批、索引反馈及双层演示入口。 |

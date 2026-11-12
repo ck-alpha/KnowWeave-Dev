@@ -64,7 +64,7 @@ function FirstRunWizard(props: Props) {
         });
         if (!res.ok) {
           const j = (await res.json().catch(() => ({}))) as { error?: string };
-          throw new Error(j.error ?? `topic save failed: HTTP ${res.status}`);
+          throw new Error(j.error ?? `主题保存失败（HTTP ${res.status}）`);
         }
       }
       if (props.needsKey && keyToSave.trim()) {
@@ -75,7 +75,7 @@ function FirstRunWizard(props: Props) {
         });
         if (!res.ok) {
           const j = (await res.json().catch(() => ({}))) as { error?: string };
-          throw new Error(j.error ?? `key save failed: HTTP ${res.status}`);
+          throw new Error(j.error ?? `密钥保存失败（HTTP ${res.status}）`);
         }
       }
       return true;
@@ -119,10 +119,10 @@ function FirstRunWizard(props: Props) {
       const json = (await res.json()) as { ok?: boolean; error?: string };
       if (json.ok) {
         setTestResult("ok");
-        setTestMessage("Key works — OpenRouter responded.");
+        setTestMessage("连接成功，OpenRouter 已响应。");
       } else {
         setTestResult("fail");
-        setTestMessage(json.error ?? "Test failed.");
+        setTestMessage(json.error ?? "连接测试失败。");
       }
     } catch (err) {
       setTestResult("fail");
@@ -154,7 +154,7 @@ function FirstRunWizard(props: Props) {
       {/* Stepper — visible only after the welcome screen to keep step 1
           uncluttered. Calm dots, no labels (would crowd the layout). */}
       {step !== "welcome" ? (
-        <ol className="mb-8 flex items-center justify-center gap-2" aria-label="Progress">
+        <ol className="mb-8 flex items-center justify-center gap-2" aria-label="设置进度">
           {STEP_ORDER.slice(1).map((s, i) => {
             const idx = i + 1;
             const active = currentIdx === idx;
@@ -243,16 +243,15 @@ function WelcomeStep({
       </p>
       <h1 className="mt-4 font-display text-display font-semibold tracking-tight">KnowWeave</h1>
       <p className="mx-auto mt-4 max-w-lg text-body font-serif text-muted-foreground">
-        A local-first knowledge workspace. Add documents, generate linked wiki pages with Ollama and
-        Qwen, and ask questions with sources you can inspect.
+        把零散资料变成彼此关联的知识。通过本地 Ollama 与 Qwen 整理
+        Wiki，再带着问题检索，并沿引用返回原文。
       </p>
       <p className="mx-auto mt-2 max-w-lg text-caption text-muted-foreground">
-        Your wiki lives in <code className="font-mono">{wikiPath}</code> as plain markdown files you
-        fully own.
+        资料以 Markdown 文件保存在本地：<code className="break-all font-mono">{wikiPath}</code>。
       </p>
       <div className="mt-8 flex items-center justify-center gap-4">
         <Button onClick={onNext} disabled={busy}>
-          Get started →
+          开始设置 →
         </Button>
       </div>
       <button
@@ -261,7 +260,7 @@ function WelcomeStep({
         disabled={busy}
         className="mt-4 text-caption text-muted-foreground hover:text-foreground"
       >
-        skip the tour
+        跳过引导
       </button>
     </div>
   );
@@ -287,11 +286,10 @@ function TopicStep({
     <div>
       <p className="text-caption uppercase tracking-wider text-muted-foreground">Step 1 of 3</p>
       <h2 className="mt-2 font-display text-h1 font-semibold tracking-tight">
-        What is this wiki about?
+        这个 Wiki 关注什么？
       </h2>
       <p className="mt-3 text-body font-serif text-muted-foreground">
-        One line describing the scope. The LLM reads it on every operation — ingest, query, lint —
-        so be specific rather than generic.
+        用一句话说明知识库的主题与范围。模型会在整理、问答和检查时参考它，描述越具体越有帮助。
       </p>
       <Input
         autoFocus
@@ -300,15 +298,15 @@ function TopicStep({
         onKeyDown={(e) => {
           if (e.key === "Enter" && ready) onNext();
         }}
-        placeholder='e.g. "Quantum computing research and the algorithms underlying it"'
+        placeholder="例如：量子计算研究及其核心算法"
         className="mt-5 text-base"
       />
       <p className="mt-2 text-caption text-muted-foreground">
-        You can change this later in Settings → General.
+        之后可以在 Settings → General 中修改。
       </p>
-      <div className="mt-8 flex items-center justify-between">
+      <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
         <Button variant="ghost" onClick={onBack} disabled={busy}>
-          ← Back
+          ← 上一步
         </Button>
         <div className="flex items-center gap-3">
           <button
@@ -317,10 +315,10 @@ function TopicStep({
             disabled={busy}
             className="text-caption text-muted-foreground hover:text-foreground"
           >
-            skip the tour
+            跳过引导
           </button>
           <Button onClick={onNext} disabled={!ready || busy}>
-            Next →
+            下一步 →
           </Button>
         </div>
       </div>
@@ -359,33 +357,29 @@ function KeyStep({
     return (
       <div>
         <p className="text-caption uppercase tracking-wider text-muted-foreground">Step 2 of 3</p>
-        <h2 className="mt-2 font-display text-h1 font-semibold tracking-tight">
-          Your model connection
-        </h2>
+        <h2 className="mt-2 font-display text-h1 font-semibold tracking-tight">Model connection</h2>
         <p className="mt-3 text-body font-serif text-muted-foreground">
-          KnowWeave defaults to local Ollama with <code>qwen3.8:27b</code>. Make sure Ollama is
-          running and the exact model tag appears in
-          <code> ollama list</code>. Local inference does not need an API key. Existing model
-          settings are preserved.
+          默认使用本地 Ollama 与 <code>qwen3.8:27b</code>。请确保 Ollama 已启动，且模型名称出现在{" "}
+          <code>ollama list</code> 中。本地运行无需 API key，已有模型配置会保留。
         </p>
         <p className="mt-3 text-ui text-muted-foreground">
-          Review{" "}
+          前往{" "}
           <Link href="/settings?tab=models" className="text-primary underline underline-offset-2">
             Settings → Models
           </Link>{" "}
-          or open the{" "}
+          查看配置，或阅读{" "}
           <Link href="/local-models" className="text-primary underline underline-offset-2">
-            local setup guide
+            本地配置指南
           </Link>
-          .
+          。
         </p>
         {error ? <p className="mt-4 text-sm text-destructive">{error}</p> : null}
-        <div className="mt-8 flex items-center justify-between">
+        <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
           <Button variant="ghost" onClick={onBack} disabled={busy}>
-            ← Back
+            ← 上一步
           </Button>
           <Button onClick={onNext} disabled={busy}>
-            {busy ? "Saving…" : "Next →"}
+            {busy ? "保存中…" : "下一步 →"}
           </Button>
         </div>
       </div>
@@ -398,8 +392,8 @@ function KeyStep({
       <p className="text-caption uppercase tracking-wider text-muted-foreground">Step 2 of 3</p>
       <h2 className="mt-2 font-display text-h1 font-semibold tracking-tight">OpenRouter API key</h2>
       <p className="mt-3 text-body font-serif text-muted-foreground">
-        An operation is configured for OpenRouter. To keep inference local, select Ollama in
-        Settings → Models. If you intend to use OpenRouter, enter its key from{" "}
+        当前有功能配置为使用 OpenRouter。如需本地运行，请在 Settings → Models 中选择
+        Ollama；如需继续使用 OpenRouter，请填写在以下地址获取的密钥：{" "}
         <a
           href="https://openrouter.ai/keys"
           target="_blank"
@@ -408,7 +402,7 @@ function KeyStep({
         >
           openrouter.ai/keys
         </a>
-        . A key is only required for operations using this external provider.
+        。仅使用此云端服务的功能需要密钥。
       </p>
       <div className="mt-5 flex flex-col gap-2 sm:flex-row">
         <Input
@@ -422,7 +416,7 @@ function KeyStep({
         />
         {/* Validate the newly entered key before storing it. */}
         <Button variant="outline" onClick={onTest} disabled={!apiKey.trim() || testing || busy}>
-          {testing ? "Testing…" : "Test"}
+          {testing ? "测试中…" : "测试连接"}
         </Button>
       </div>
       {testMessage ? (
@@ -436,8 +430,7 @@ function KeyStep({
         </p>
       ) : null}
       <p className="mt-2 text-caption text-muted-foreground">
-        Stored in your OS keychain when available, otherwise in your configured local configuration
-        directory (chmod 600). Never committed to git.
+        密钥优先保存到系统钥匙串；不可用时存入本地配置目录，仅当前用户可读写。
       </p>
 
       {error ? (
@@ -445,9 +438,9 @@ function KeyStep({
           {error}
         </p>
       ) : null}
-      <div className="mt-8 flex items-center justify-between">
+      <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
         <Button variant="ghost" onClick={onBack} disabled={busy}>
-          ← Back
+          ← 上一步
         </Button>
         <div className="flex items-center gap-3">
           <button
@@ -456,10 +449,10 @@ function KeyStep({
             disabled={busy}
             className="text-caption text-muted-foreground hover:text-foreground"
           >
-            skip the tour
+            跳过引导
           </button>
           <Button onClick={onNext} disabled={!ready || busy}>
-            {busy ? "Saving…" : "Next →"}
+            {busy ? "保存中…" : "下一步 →"}
           </Button>
         </div>
       </div>
@@ -481,52 +474,50 @@ function TourStep({
   return (
     <div>
       <p className="text-caption uppercase tracking-wider text-muted-foreground">Step 3 of 3</p>
-      <h2 className="mt-2 font-display text-h1 font-semibold tracking-tight">
-        Here's what you'll do
-      </h2>
+      <h2 className="mt-2 font-display text-h1 font-semibold tracking-tight">Your workflow</h2>
       <p className="mt-3 text-body font-serif text-muted-foreground">
-        Five surfaces, one workflow. Every operation works against the wiki folder you just set up.
+        先添加资料，再阅读整理好的知识，最后提问与核对来源。所有操作都围绕当前 Wiki 展开。
       </p>
 
       <ul className="mt-6 space-y-3">
         <TourRow
           numeral="①"
           title="Sources"
-          body="Paste an article, drop a PDF, or pull a URL. The agent reads it and writes pages."
+          body="粘贴文本、导入网址或文件，让模型提取要点并整理页面。"
         />
         <TourRow
           numeral="②"
           title="Wiki"
-          body="Browse the pages the LLM wrote, grouped by type. Full backlinks + source lineage on every page."
+          body="按类型浏览知识页面，沿反向链接延伸阅读，或回到原始资料核对。"
         />
         <TourRow
           numeral="③"
           title="Graph"
-          body="A 3D view of your knowledge as a network — nodes for pages, edges for cross-links. Watch it grow as you ingest more."
+          body="探索页面间的关联，搜索并选择节点，发现相邻知识与阅读路径。"
         />
         <TourRow
           numeral="④"
           title="Query / Chats"
-          body="Ask one-shot questions with citations, or hold multi-turn threads. Save good answers back into the wiki."
+          body="在 Query 中检索并查看引用，或在 Chats 中继续多轮讨论；有价值的回答可以保存到 Wiki。"
         />
         <TourRow
           numeral="⑤"
           title="Lint"
-          body="Periodic health check — contradictions, broken links, gaps — with one-click fixes."
+          body="检查矛盾、失效链接与知识缺口，查看问题后再选择修复。"
         />
       </ul>
 
       <p className="mt-6 text-caption text-muted-foreground">
-        Full how-to lives at{" "}
+        更多操作说明见{" "}
         <Link href="/help" className="text-primary underline underline-offset-2">
           /help
         </Link>{" "}
-        once you're in.
+        。
       </p>
 
-      <div className="mt-8 flex items-center justify-between">
+      <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
         <Button variant="ghost" onClick={onBack} disabled={busy}>
-          ← Back
+          ← 上一步
         </Button>
         <div className="flex items-center gap-3">
           <button
@@ -535,10 +526,10 @@ function TourStep({
             disabled={busy}
             className="text-caption text-muted-foreground hover:text-foreground"
           >
-            skip
+            跳过
           </button>
           <Button onClick={onFinish} disabled={busy}>
-            {busy ? "…" : "Take me to Sources →"}
+            {busy ? "…" : "添加第一份资料 →"}
           </Button>
         </div>
       </div>
@@ -594,10 +585,10 @@ function MinimalOnboarding({ needsTopic, needsKey, initialTopic, wikiPath }: Pro
       const json = (await res.json()) as { ok?: boolean; error?: string };
       if (json.ok) {
         setTestResult("ok");
-        setTestMessage("Key works — OpenRouter responded.");
+        setTestMessage("连接成功，OpenRouter 已响应。");
       } else {
         setTestResult("fail");
-        setTestMessage(json.error ?? "Test failed.");
+        setTestMessage(json.error ?? "连接测试失败。");
       }
     } catch (err) {
       setTestResult("fail");
@@ -619,7 +610,7 @@ function MinimalOnboarding({ needsTopic, needsKey, initialTopic, wikiPath }: Pro
         });
         if (!res.ok) {
           const j = (await res.json().catch(() => ({}))) as { error?: string };
-          throw new Error(j.error ?? `topic save failed: HTTP ${res.status}`);
+          throw new Error(j.error ?? `主题保存失败（HTTP ${res.status}）`);
         }
       }
       if (needsKey && key.trim()) {
@@ -630,7 +621,7 @@ function MinimalOnboarding({ needsTopic, needsKey, initialTopic, wikiPath }: Pro
         });
         if (!res.ok) {
           const j = (await res.json().catch(() => ({}))) as { error?: string };
-          throw new Error(j.error ?? `key save failed: HTTP ${res.status}`);
+          throw new Error(j.error ?? `密钥保存失败（HTTP ${res.status}）`);
         }
       }
       router.refresh();
@@ -645,16 +636,14 @@ function MinimalOnboarding({ needsTopic, needsKey, initialTopic, wikiPath }: Pro
     <div className="mx-auto w-full max-w-2xl px-6 pb-16 pt-16">
       <header className="mb-8">
         <p className="text-caption uppercase tracking-wider text-muted-foreground">Almost there</p>
-        <h1 className="mt-2 font-display text-display font-semibold">
-          Finish setting up this wiki.
-        </h1>
+        <h1 className="mt-2 font-display text-display font-semibold">完成 Wiki 设置</h1>
         <p className="mt-3 text-body text-muted-foreground">
           {needsTopic && needsKey
-            ? "Set a topic, then configure the selected model provider."
+            ? "请先填写知识库主题，再配置所选模型服务。"
             : needsTopic
-              ? "We just need a topic for this wiki."
-              : "A selected operation uses OpenRouter. Add its key or switch to local Ollama in Settings → Models."}{" "}
-          Wiki at <code className="font-mono text-[13px]">{wikiPath}</code>.
+              ? "为这个 Wiki 填写一个主题，即可开始使用。"
+              : "当前有功能使用 OpenRouter。请填写密钥，或在 Settings → Models 中切换到本地 Ollama。"}{" "}
+          Wiki 目录：<code className="break-all font-mono text-[13px]">{wikiPath}</code>。
         </p>
       </header>
 
@@ -662,15 +651,15 @@ function MinimalOnboarding({ needsTopic, needsKey, initialTopic, wikiPath }: Pro
         {needsTopic ? (
           <section>
             <h2 className="font-display text-h3 font-semibold">
-              {needsKey ? "1. " : ""}What is this wiki about?
+              {needsKey ? "1. " : ""}这个 Wiki 关注什么？
             </h2>
             <p className="mt-1 text-ui text-muted-foreground">
-              One line. The LLM reads it on every ingest and query, so the more specific the better.
+              用一句话说明主题。模型会在每次整理与问答时参考它，请尽量具体。
             </p>
             <Input
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
-              placeholder='e.g. "Quantum computing research"'
+              placeholder="例如：量子计算研究"
               className="mt-3"
               autoFocus
             />
@@ -683,7 +672,8 @@ function MinimalOnboarding({ needsTopic, needsKey, initialTopic, wikiPath }: Pro
               {needsTopic ? "2. " : ""}OpenRouter API key
             </h2>
             <p className="mt-1 text-ui text-muted-foreground">
-              For local inference, switch to Ollama in Settings → Models. Otherwise, use a key from{" "}
+              如需本地运行，请在 Settings → Models 中切换到 Ollama。使用 OpenRouter
+              则需在以下地址获取密钥：{" "}
               <a
                 href="https://openrouter.ai/keys"
                 target="_blank"
@@ -692,7 +682,7 @@ function MinimalOnboarding({ needsTopic, needsKey, initialTopic, wikiPath }: Pro
               >
                 openrouter.ai/keys
               </a>
-              . Stored in your OS keychain when available.
+              。系统支持时，密钥会保存在钥匙串中。
             </p>
             <div className="mt-3 flex flex-col gap-2 sm:flex-row">
               <Input
@@ -704,7 +694,7 @@ function MinimalOnboarding({ needsTopic, needsKey, initialTopic, wikiPath }: Pro
                 autoComplete="off"
               />
               <Button variant="outline" onClick={onTest} disabled={!key.trim() || testing}>
-                {testing ? "Testing…" : "Test"}
+                {testing ? "测试中…" : "测试连接"}
               </Button>
             </div>
             {testMessage ? (
@@ -728,7 +718,7 @@ function MinimalOnboarding({ needsTopic, needsKey, initialTopic, wikiPath }: Pro
 
         <div className="flex items-center justify-end border-t border-border pt-4">
           <Button onClick={onSave} disabled={!canSubmit}>
-            {busy ? "Saving…" : "Save and continue"}
+            {busy ? "保存中…" : "保存并继续"}
           </Button>
         </div>
       </div>

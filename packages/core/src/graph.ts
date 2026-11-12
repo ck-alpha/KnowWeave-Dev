@@ -1,6 +1,6 @@
-// Graph builder for the 3D vault view (/graph). Walks every page in the
+// Graph builder for both Map (2D) and Space (3D) views (/graph). Walks every page in the
 // wiki, extracts [[wikilinks]] via the existing parser in links.ts, and
-// returns a {nodes, links} structure ready for react-force-graph-3d.
+// returns a shared {nodes, links} structure; clients own layout and rendering.
 //
 // Design choices documented in docs/12-graph-view.md. Key ones here:
 // - We pull the slug list from SQLite (already FS-synced via syncWikiToDb)
@@ -23,11 +23,11 @@ export type GraphNode = {
   id: string;
   /** Human-readable title from frontmatter. */
   title: string;
-  /** Page type — drives node color in the 3D scene. */
+  /** Page type — drives node color in both graph views. */
   group: PageType;
   /** First ~280 chars of body with wikilinks flattened, for the side panel. */
   preview: string;
-  /** Total inbound + outbound link count. Drives node size in the 3D scene. */
+  /** Total inbound + outbound link count. Drives node size in both graph views. */
   degree: number;
   /** Frontmatter tags, surfaced as chips in the side panel. */
   tags: string[];

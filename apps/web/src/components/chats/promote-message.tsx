@@ -17,13 +17,15 @@ type Props = {
 };
 
 function defaultSlug(chatTitle: string): string {
-  return chatTitle
-    .toLowerCase()
-    .normalize("NFKD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 60) || "promoted-answer";
+  return (
+    chatTitle
+      .toLowerCase()
+      .normalize("NFKD")
+      .replace(/[̀-ͯ]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 60) || "promoted-answer"
+  );
 }
 
 export function PromoteMessageDialog({ message, chatTitle, onClose }: Props) {
@@ -69,23 +71,23 @@ export function PromoteMessageDialog({ message, chatTitle, onClose }: Props) {
       onClick={onClose}
     >
       <div
-        className="w-full max-w-xl rounded-lg border border-border bg-card p-6 text-card-foreground shadow-xl"
+        className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-lg border border-border bg-card p-6 text-card-foreground shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-lg font-medium">Save assistant message as a wiki page</h2>
+        <h2 className="text-lg font-medium">保存回答为 Wiki 页面</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          The page content starts as the assistant&apos;s reply. Tweak it before saving.
+          下方已填入模型回答。请检查内容，按需修改后保存。
         </p>
 
         {created ? (
           <div className="mt-6 rounded-md bg-emerald-500/10 px-4 py-3 text-sm">
-            Saved.{" "}
+            已保存。{" "}
             <Link href={`/wiki/${created}`} className="text-primary underline underline-offset-2">
-              Open page →
+              打开页面 →
             </Link>
             <div className="mt-2 text-right">
               <Button variant="outline" onClick={onClose}>
-                Close
+                关闭
               </Button>
             </div>
           </div>
@@ -94,17 +96,21 @@ export function PromoteMessageDialog({ message, chatTitle, onClose }: Props) {
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                  Slug
+                  Slug · 页面标识
                 </label>
                 <Input
                   value={slug}
                   onChange={(e) => setSlug(e.target.value)}
-                  placeholder="kebab-case"
+                  placeholder="例如：reading-notes"
+                  aria-describedby="page-slug-hint"
                 />
+                <p id="page-slug-hint" className="mt-1 text-xs text-muted-foreground">
+                  使用小写英文字母、数字和短横线，且不能与已有页面重复。
+                </p>
               </div>
               <div>
                 <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                  Type
+                  Type · 类型
                 </label>
                 <select
                   value={type}
@@ -121,13 +127,13 @@ export function PromoteMessageDialog({ message, chatTitle, onClose }: Props) {
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                Title
+                标题
               </label>
               <Input value={title} onChange={(e) => setTitle(e.target.value)} />
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                Content (markdown)
+                正文（Markdown）
               </label>
               <Textarea
                 value={content}
@@ -142,10 +148,10 @@ export function PromoteMessageDialog({ message, chatTitle, onClose }: Props) {
             ) : null}
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="ghost" onClick={onClose} disabled={saving}>
-                Cancel
+                取消
               </Button>
               <Button onClick={onSave} disabled={saving || !slug.trim() || !title.trim()}>
-                {saving ? "Saving…" : "Create page"}
+                {saving ? "保存中…" : "创建页面"}
               </Button>
             </div>
           </div>

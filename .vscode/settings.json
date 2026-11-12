@@ -1,0 +1,20 @@
+{
+  "remote.autoForwardPorts": true,
+  "remote.autoForwardPortsSource": "process",
+  "remote.restoreForwardedPorts": true,
+  "remote.portsAttributes": {
+    "3000": {
+      "label": "KnowWeave · 默认知识库",
+      "protocol": "http",
+      "onAutoForward": "openBrowser"
+    },
+    "3001": {
+      "label": "KnowWeave · 演示知识库",
+      "protocol": "http",
+      "onAutoForward": "silent"
+    }
+  },
+  "remote.otherPortsAttributes": {
+    "onAutoForward": "ignore"
+  }
+}

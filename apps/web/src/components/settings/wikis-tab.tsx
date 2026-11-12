@@ -26,34 +26,32 @@ const SCHEMA_TEMPLATES: ReadonlyArray<SchemaTemplateMeta> = [
   {
     id: "blank",
     label: "Blank",
-    description: "Default schema with generic style guidelines. Edit later in Settings → Schema.",
+    description: "通用整理规则，可在 Schema 中继续调整。",
   },
   {
     id: "research",
     label: "Research",
-    description:
-      "Academic / scholarly tone. Source-grounded claims, technical register, surfaces open questions.",
+    description: "采用学术表达，要求观点有来源依据，保留术语与开放问题。",
   },
   {
     id: "legal",
     label: "Legal",
-    description: "Precise quoting, distinguishes holdings from dicta, flags overruled precedents.",
+    description: "要求精确引用、区分判决依据与附带意见，并标注已被推翻的先例。",
   },
   {
     id: "clinical",
     label: "Clinical",
-    description: "Evidence-graded, flags superseded guidelines, preserves doses/units exactly.",
+    description: "要求标注证据等级与过时指南，准确保留剂量和单位。",
   },
   {
     id: "project",
     label: "Project",
-    description:
-      "Opinionated, decision-oriented, dates opinions, captures failure modes explicitly.",
+    description: "围绕项目决策组织知识，标记观点日期并记录失败情形。",
   },
   {
     id: "personal",
     label: "Personal KB",
-    description: "Friendly + exploratory. Open questions welcome, capture sources for re-finding.",
+    description: "采用轻松、探索式表达，保留疑问和来源，方便日后查找。",
   },
 ];
 
@@ -142,28 +140,28 @@ export function WikisTab() {
   }
 
   async function onSwitch(path: string) {
-    await doAction(`switch:${path}`, { type: "switch", path }, `Switched to ${path}`);
+    await doAction(`switch:${path}`, { type: "switch", path }, `已切换到 ${path}`);
   }
 
   async function onRemove(path: string, isActive: boolean) {
     const msg = isActive
-      ? `Remove this wiki from the picker AND switch back to the default? The folder + files stay on disk.`
-      : `Remove this wiki from the picker? The folder + files stay on disk.`;
+      ? `从列表中移除此 Wiki，并切回默认 Wiki？磁盘上的目录和文件会保留。`
+      : `从列表中移除此 Wiki？磁盘上的目录和文件会保留。`;
     if (!confirm(msg)) return;
-    await doAction(`remove:${path}`, { type: "remove", path }, "Removed from picker");
+    await doAction(`remove:${path}`, { type: "remove", path }, "已从列表中移除");
   }
 
   async function onCreate() {
     const topic = newTopic.trim();
     const path = newPath.trim() || suggestedPath(topic);
     if (!topic) {
-      setError("Topic is required.");
+      setError("请填写 Wiki 主题。");
       return;
     }
     const ok = await doAction(
       "create",
       { type: "create", path, topic, templateId: newTemplate },
-      `Created wiki at ${path}${newTemplate !== "blank" ? ` from "${newTemplate}" template` : ""}`,
+      `已在 ${path} 创建 Wiki${newTemplate !== "blank" ? `，使用 ${newTemplate} 模板` : ""}`,
     );
     if (ok) {
       setNewTopic("");
@@ -174,13 +172,13 @@ export function WikisTab() {
   }
 
   if (data === null && !error) {
-    return <p className="text-sm text-muted-foreground">Loading wikis…</p>;
+    return <p className="text-sm text-muted-foreground">正在加载 Wiki…</p>;
   }
 
   if (error && data === null) {
     return (
       <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-        Could not load wikis: {error}
+        Wiki 加载失败： {error}
       </p>
     );
   }
@@ -196,12 +194,7 @@ export function WikisTab() {
 
   async function onCleanMissing() {
     if (missing.length === 0) return;
-    if (
-      !confirm(
-        `Remove ${missing.length} missing folder${missing.length === 1 ? "" : "s"} from the picker? (These rows point to paths that no longer exist on disk.)`,
-      )
-    )
-      return;
+    if (!confirm(`从列表中清理 ${missing.length} 条失效记录？这些记录指向的目录已不存在。`)) return;
     setBusyAction("clean-missing");
     setError(null);
     setFlash(null);
@@ -219,7 +212,7 @@ export function WikisTab() {
           throw new Error(json.error ?? `HTTP ${res.status}`);
         }
       }
-      setFlash(`Cleaned up ${missing.length} missing entr${missing.length === 1 ? "y" : "ies"}.`);
+      setFlash(`已清理 ${missing.length} 条失效记录。`);
       await refresh();
       router.refresh();
     } catch (err) {
@@ -235,26 +228,25 @@ export function WikisTab() {
         <div>
           <h2 className="text-lg font-medium">Wikis</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            One wiki per topic. The active wiki is what the whole app reads from until you switch.
-            Switching is two clicks — no restart needed.
+            为不同主题分别建立 Wiki。应用中的资料、页面和会话都来自当前选中的知识库。
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           <a
             href="/dashboard"
             className="rounded-md border border-border bg-background px-3 py-1.5 text-xs hover:border-primary/40 hover:bg-accent"
-            title="Per-wiki page / source / chat counts + cumulative LLM spend across every wiki, sorted by recency."
+            title="查看各 Wiki 的页面、来源、会话数量与累计模型用量。"
           >
-            ↗ Health dashboard
+            ↗ 查看 Dashboard
           </a>
           {active?.exists ? (
             <a
               href="/api/wikis/export"
               download
               className="rounded-md border border-border bg-background px-3 py-1.5 text-xs hover:border-primary/40 hover:bg-accent"
-              title="Download a zip of the active wiki (markdown + raw sources + chats + schema + index + log). Skips .llm-wiki/ metadata."
+              title="导出当前 Wiki 的 Markdown、原始资料、会话、规则、索引和日志；不包含 .llm-wiki/ 元数据。"
             >
-              ↓ Export active wiki
+              ↓ 导出当前 Wiki
             </a>
           ) : null}
         </div>
@@ -262,8 +254,8 @@ export function WikisTab() {
 
       {data?.fixedPath ? (
         <p className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
-          This server is pinned to the active folder by its startup configuration. Restart without
-          the wiki path override to create or switch wikis.
+          服务器启动配置已固定当前 Wiki 目录。若要新建或切换 Wiki，需先取消启动时的 Wiki
+          路径覆盖配置，再重启服务。
         </p>
       ) : null}
 
@@ -279,9 +271,7 @@ export function WikisTab() {
       {missing.length > 0 ? (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm">
           <span className="text-amber-800 dark:text-amber-200">
-            {missing.length} entr{missing.length === 1 ? "y points" : "ies point"} to folder
-            {missing.length === 1 ? "" : "s"} that no longer exist on disk (likely leftover from
-            earlier sessions).
+            有 {missing.length} 条记录指向的目录已不存在，可以从列表中清理。
           </span>
           <Button
             size="sm"
@@ -289,7 +279,7 @@ export function WikisTab() {
             onClick={() => void onCleanMissing()}
             disabled={busyAction !== null}
           >
-            {busyAction === "clean-missing" ? "Cleaning…" : `Clean up ${missing.length} missing`}
+            {busyAction === "clean-missing" ? "清理中…" : `清理 ${missing.length} 条失效记录`}
           </Button>
         </div>
       ) : null}
@@ -328,20 +318,19 @@ export function WikisTab() {
       <div className="rounded-md border border-border/70 bg-muted/20 p-4">
         {!createOpen ? (
           <Button variant="outline" onClick={() => setCreateOpen(true)}>
-            + Create new wiki
+            + 新建 Wiki
           </Button>
         ) : (
           <div className="space-y-3">
             <div>
-              <p className="text-sm font-medium">Create a new wiki</p>
+              <p className="text-sm font-medium">新建 Wiki</p>
               <p className="mt-0.5 text-xs text-muted-foreground">
-                Pick a topic (the LLM reads it on every operation) and a folder path. The folder is
-                created if it doesn't exist.
+                填写主题和保存目录。模型会在每次操作时参考主题；目录不存在时会自动创建。
               </p>
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium" htmlFor="new-topic">
-                Topic
+                主题
               </label>
               <Input
                 id="new-topic"
@@ -350,13 +339,13 @@ export function WikisTab() {
                   setNewTopic(e.target.value);
                   if (!newPath) setNewPath(suggestedPath(e.target.value));
                 }}
-                placeholder="e.g. Machine learning research and key papers"
+                placeholder="例如：机器学习研究与核心论文"
                 autoFocus
               />
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium" htmlFor="new-path">
-                Folder path
+                保存目录
               </label>
               <Input
                 id="new-path"
@@ -366,12 +355,12 @@ export function WikisTab() {
                 className="font-mono text-[13px]"
               />
               <p className="mt-1 text-xs text-muted-foreground">
-                Tilde (<code className="font-mono">~</code>) gets expanded to your home directory.
+                <code className="font-mono">~</code> 表示服务器上当前运行用户的主目录。
               </p>
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium" htmlFor="new-template">
-                Schema template
+                Schema 模板
               </label>
               <select
                 id="new-template"
@@ -386,16 +375,16 @@ export function WikisTab() {
                 ))}
               </select>
               <p className="mt-1 text-xs text-muted-foreground">
-                {SCHEMA_TEMPLATES.find((t) => t.id === newTemplate)?.description} Pre-fills{" "}
-                <code className="font-mono">CLAUDE.md</code> — edit any time in Settings → Schema.
+                {SCHEMA_TEMPLATES.find((t) => t.id === newTemplate)?.description} 模板会填入{" "}
+                <code className="font-mono">CLAUDE.md</code>，之后可在 Schema 中编辑。
               </p>
             </div>
             <div className="flex gap-2">
               <Button onClick={onCreate} disabled={!newTopic.trim() || busyAction === "create"}>
-                {busyAction === "create" ? "Creating…" : "Create + switch"}
+                {busyAction === "create" ? "创建中…" : "创建并切换"}
               </Button>
               <Button variant="ghost" onClick={() => setCreateOpen(false)}>
-                Cancel
+                取消
               </Button>
             </div>
           </div>
@@ -403,8 +392,7 @@ export function WikisTab() {
       </div>
 
       <p className="text-xs text-muted-foreground">
-        After switching, every page in the app re-reads from the new wiki on its next request. Most
-        surfaces update in-place; if anything looks stale, refresh the browser.
+        切换后，各页面会重新读取新 Wiki 的内容。如仍显示旧内容，请刷新浏览器。
       </p>
     </div>
   );
@@ -439,16 +427,16 @@ function WikiRow({
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-2">
           <p className="truncate text-sm font-medium">
-            {topic ?? <span className="text-muted-foreground italic">no topic set</span>}
+            {topic ?? <span className="text-muted-foreground italic">尚未设置主题</span>}
           </p>
           {isActive ? (
             <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] uppercase tracking-wider text-primary">
-              active
+              当前
             </span>
           ) : null}
           {!exists ? (
             <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] uppercase tracking-wider text-amber-700 dark:text-amber-300">
-              folder missing
+              目录缺失
             </span>
           ) : null}
         </div>
@@ -462,7 +450,7 @@ function WikiRow({
             onClick={() => void onSwitch()}
             disabled={busyAction !== null}
           >
-            {switching ? "Switching…" : "Switch"}
+            {switching ? "切换中…" : "切换"}
           </Button>
         ) : null}
         <Button
@@ -471,7 +459,7 @@ function WikiRow({
           onClick={() => void onRemove()}
           disabled={busyAction !== null}
         >
-          {removing ? "Removing…" : "Remove"}
+          {removing ? "移除中…" : "从列表移除"}
         </Button>
       </div>
     </li>

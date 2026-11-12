@@ -178,14 +178,15 @@ You are given a page's current body, a description of the issue, and a proposed 
 Rules:
 - Output ONLY a JSON object matching the schema. No preamble, no markdown fences.
 - Preserve every [[wikilink]] in the page unless the fix explicitly removes one.
-- Preserve the page's voice and structure (headings, lists, paragraphs).
+- Preserve the page's original language, voice and structure (headings, lists, paragraphs). A Chinese issue description or fix instruction does not mean the page should be translated.
+- Write changeSummary in Simplified Chinese for the interface, retaining exact page titles, slugs, and quoted source text. Keep the JSON field names unchanged.
 - The fix is usually one or two sentences of change. Don't rewrite the whole page.
 - If the fix is impossible without losing important content, return the original content unchanged and explain in changeSummary.
 
 JSON_SHAPE:
 {
   "newContent": "Full page body, with the fix applied. Markdown only — no frontmatter.",
-  "changeSummary": "One sentence describing what changed."
+  "changeSummary": "用一句简体中文说明本次修改，或说明未能修改的原因。"
 }`;
 
 export async function applyLintSuggestedFix(

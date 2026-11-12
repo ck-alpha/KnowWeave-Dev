@@ -1,11 +1,6 @@
 import Link from "next/link";
 
-import {
-  listPageRows,
-  parseIndexEntries,
-  readIndex,
-  type PageRow,
-} from "@llm-wiki/core";
+import { listPageRows, parseIndexEntries, readIndex, type PageRow } from "@llm-wiki/core";
 
 import { PageContainer, PageHeader } from "@/components/page-shell";
 import { UndoDeleteBanner } from "@/components/wiki/undo-delete-banner";
@@ -42,23 +37,23 @@ const TYPE_HEADING: Record<TypeKey, string> = {
 };
 
 const TYPE_DESCRIPTION: Record<TypeKey, string> = {
-  overview: "High-level synthesis pages that tie the topic together.",
-  concept: "Ideas, techniques, frameworks, theorems.",
-  entity: "People, organizations, products, places.",
-  comparison: "Two or more things contrasted side-by-side.",
-  source: "Standalone source-summary pages.",
+  overview: "从全局理解主题，串联相关知识。",
+  concept: "整理核心概念、方法、框架与理论。",
+  entity: "了解相关人物、组织、产品与地点。",
+  comparison: "并列比较，梳理共同点与差异。",
+  source: "保留单篇来源的摘要与要点。",
 };
 
 function relativeDate(iso: string): string {
   const t = new Date(iso).getTime();
   if (Number.isNaN(t)) return iso;
   const days = Math.floor((Date.now() - t) / (1000 * 60 * 60 * 24));
-  if (days < 1) return "today";
-  if (days === 1) return "yesterday";
-  if (days < 7) return `${days}d ago`;
-  if (days < 30) return `${Math.floor(days / 7)}w ago`;
-  if (days < 365) return `${Math.floor(days / 30)}mo ago`;
-  return `${Math.floor(days / 365)}y ago`;
+  if (days < 1) return "今天";
+  if (days === 1) return "昨天";
+  if (days < 7) return `${days} 天前`;
+  if (days < 30) return `${Math.floor(days / 7)} 周前`;
+  if (days < 365) return `${Math.floor(days / 30)} 个月前`;
+  return `${Math.floor(days / 365)} 年前`;
 }
 
 // Defensive: strip any [[wikilink]] markup that snuck into a summary so the
@@ -73,11 +68,7 @@ function cleanSummary(s: string): string {
 
 type EnrichedPage = PageRow & { summary: string };
 
-export default async function WikiIndexPage({
-  searchParams,
-}: {
-  searchParams?: SearchParams;
-}) {
+export default async function WikiIndexPage({ searchParams }: { searchParams?: SearchParams }) {
   const ctx = await openWikiContext();
   let pageRows: PageRow[] = [];
   let summaries = new Map<string, string>();
@@ -86,9 +77,7 @@ export default async function WikiIndexPage({
     pageRows = listPageRows(ctx.db);
     const idx = await readIndex(ctx.wikiPath).catch(() => "");
     const parsed = parseIndexEntries(idx);
-    summaries = new Map(
-      Array.from(parsed.entries()).map(([slug, e]) => [slug, e.summary]),
-    );
+    summaries = new Map(Array.from(parsed.entries()).map(([slug, e]) => [slug, e.summary]));
   } finally {
     ctx.db.close();
   }
@@ -107,22 +96,16 @@ export default async function WikiIndexPage({
         <PageHeader
           eyebrow="Knowledge base"
           title="Wiki"
-          description="LLM-maintained pages, grouped by type. The agent builds and cross-links them from your sources."
+          description="从资料中整理而来的知识页面，按类型归类，并通过链接串起相关内容。"
         />
         <div className="rounded-lg border border-dashed border-border bg-card p-10 text-center">
-          <p className="font-display text-h3 font-semibold">
-            Your wiki is empty
-          </p>
+          <p className="font-display text-h3 font-semibold">从第一份资料开始</p>
           <p className="mx-auto mt-2 max-w-md text-ui text-muted-foreground">
-            Add a source on the{" "}
-            <Link
-              href="/sources"
-              className="text-primary underline underline-offset-2"
-            >
+            前往{" "}
+            <Link href="/sources" className="text-primary underline underline-offset-2">
               Sources
             </Link>{" "}
-            page (paste text, drop a PDF, or pull a URL) and the agent will compile it
-            into cross-linked pages here.
+            粘贴文本、导入网址或文件。模型会整理成 Wiki 页面，你可以继续阅读、编辑与追溯来源。
           </p>
         </div>
       </PageContainer>
@@ -164,12 +147,20 @@ export default async function WikiIndexPage({
         title="Wiki"
         description={summary}
         actions={
-          <Link
-            href="/query"
-            className="text-ui text-primary underline underline-offset-2 hover:text-primary/80"
-          >
-            Ask a question →
-          </Link>
+          <div className="flex flex-wrap items-center gap-4">
+            <Link
+              href="/graph"
+              className="text-ui text-muted-foreground underline underline-offset-2 hover:text-primary"
+            >
+              探索 Graph →
+            </Link>
+            <Link
+              href="/query"
+              className="text-ui text-primary underline underline-offset-2 hover:text-primary/80"
+            >
+              向知识库提问 →
+            </Link>
+          </div>
         }
       />
 
@@ -224,7 +215,7 @@ export default async function WikiIndexPage({
                       </p>
                     ) : (
                       <p className="mt-2 text-ui italic text-muted-foreground/60">
-                        No summary yet — open page to read.
+                        暂无摘要，打开页面阅读全文。
                       </p>
                     )}
                     {p.tags && p.tags.length > 0 ? (
@@ -248,8 +239,7 @@ export default async function WikiIndexPage({
       </div>
 
       <p className="mt-10 text-caption text-muted-foreground">
-        Wiki folder:{" "}
-        <code className="font-mono break-all text-foreground/70">{wikiPath}</code>
+        Wiki 目录： <code className="font-mono break-all text-foreground/70">{wikiPath}</code>
       </p>
     </PageContainer>
   );
@@ -264,14 +254,12 @@ function formatSummary(
   total: number,
   lastUpdate: string | undefined,
 ): string {
-  const parts: string[] = [`${total} page${total === 1 ? "" : "s"}`];
+  const parts: string[] = [`${total} 个页面`];
   for (const t of TYPE_ORDER) {
     const list = byType.get(t);
     if (!list || list.length === 0) continue;
-    parts.push(
-      `${list.length} ${TYPE_LABEL[t].toLowerCase()}${list.length === 1 ? "" : "s"}`,
-    );
+    parts.push(`${list.length} ${TYPE_LABEL[t].toLowerCase()}${list.length === 1 ? "" : "s"}`);
   }
-  if (lastUpdate) parts.push(`last update ${relativeDate(lastUpdate)}`);
+  if (lastUpdate) parts.push(`最近更新于${relativeDate(lastUpdate)}`);
   return parts.join(" · ");
 }

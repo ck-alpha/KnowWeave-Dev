@@ -74,7 +74,7 @@ export function GeneralTab() {
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setOriginal(topic);
-      setFlash("Saved.");
+      setFlash("已保存。");
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -87,52 +87,41 @@ export function GeneralTab() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-medium">Wiki topic</h2>
+        <h2 className="text-lg font-medium">Wiki topic · 知识库主题</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          A one-line description of <strong>this</strong> wiki&apos;s scope. The agent reads it on
-          every ingest and query, so be specific.
+          用一句话说明这个知识库的范围。模型整理资料和回答问题时都会参考它，建议写得具体一些。
         </p>
         <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
           <Input
             value={topic}
             onChange={(e) => setTopic(e.target.value)}
-            placeholder="e.g. Quantum computing research"
+            placeholder="例如：量子计算研究"
             className="sm:flex-1"
           />
           <Button onClick={onSave} disabled={!dirty || busy}>
-            {busy ? "Saving…" : "Save"}
+            {busy ? "保存中…" : "保存"}
           </Button>
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
-          Saved to <code>{wikiPath || "<wiki>"}/.llm-wiki/settings.json</code>
+          保存位置：
+          <code className="break-all">{wikiPath || "<wiki>"}/.llm-wiki/settings.json</code>
         </p>
 
         <div className="mt-4 rounded-md border border-border/70 bg-muted/30 p-3 text-xs text-muted-foreground">
           <p>
-            <strong className="text-foreground">One topic per wiki, by design.</strong> A wiki is
-            one folder; the topic above describes that folder&apos;s scope. To keep multiple topics
-            separate (e.g. Quantum Computing <em>and</em> Machine Learning), create a second wiki
-            folder and point the app at it:
-          </p>
-          <pre className="mt-2 overflow-x-auto rounded bg-background/70 p-2 font-mono text-[11px] text-foreground/80">
-            {`# stop the dev server, then:
-export LLM_WIKI_PATH=~/knowwaeve-machine-learning
-pnpm dev`}
-          </pre>
-          <p className="mt-2">
-            Each wiki is a self-contained corpus. Switching folders switches every page, chat,
-            source, and schema in one go.
+            <strong className="text-foreground">每个 Wiki 聚焦一个主题。</strong>
+            如需整理不同领域的资料，可在 Settings → Wikis 中创建独立知识库。
+            切换知识库时，页面、对话、来源和整理规则会一起切换。若启动配置固定了 Wiki 目录，请按
+            Wikis 页提示调整。
           </p>
         </div>
       </div>
 
       <div>
-        <h2 className="text-lg font-medium">Approval gate for ingest</h2>
+        <h2 className="text-lg font-medium">Ingest review · 导入审批</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          When on, every ingest shows you the LLM&apos;s proposed changes (new pages, page updates,
-          contradictions) before anything is written. You click Apply to commit. Useful when you
-          don&apos;t fully trust a cheap ingest model — or just want to see what the LLM thinks
-          before it edits your wiki.
+          开启后，先预览模型建议的新页面、更新和矛盾提示，再决定是否应用到
+          Wiki。原始资料仍会保存，便于之后重试。
         </p>
         <label className="mt-3 flex items-center gap-2">
           <input
@@ -143,9 +132,9 @@ pnpm dev`}
             className="h-4 w-4 rounded border-border"
           />
           <span className="text-sm">
-            Require approval before applying ingest changes
+            应用导入结果前需要我确认
             {approvalSaving ? (
-              <span className="ml-2 text-xs text-muted-foreground">saving…</span>
+              <span className="ml-2 text-xs text-muted-foreground">保存中…</span>
             ) : null}
           </span>
         </label>
@@ -154,7 +143,7 @@ pnpm dev`}
       <div>
         <h2 className="text-lg font-medium">Theme</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Applies immediately. Saved to <code>localStorage</code> so it persists across sessions.
+          选择后立即生效，下次打开仍使用这个偏好。
         </p>
         {/* Server can't read localStorage, so render a placeholder until the
             client mounts. Avoids a hydration-mismatch on the active button's
@@ -173,7 +162,7 @@ pnpm dev`}
                     : "text-muted-foreground hover:text-foreground")
                 }
               >
-                {t}
+                {{ light: "浅色", dark: "深色", auto: "跟随系统" }[t]}
               </button>
             ))}
           </div>

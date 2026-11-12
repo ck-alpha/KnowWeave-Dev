@@ -54,48 +54,42 @@ export function CostsTab() {
 
   if (error) {
     return (
-      <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-        {error}
-      </p>
+      <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>
     );
   }
-  if (!data) return <p className="text-sm text-muted-foreground">Loading…</p>;
+  if (!data) return <p className="text-sm text-muted-foreground">加载中…</p>;
 
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-lg font-medium">Cumulative usage</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Counts every LLM call this wiki has made. Stored in{" "}
-          <code className="rounded bg-muted px-1 py-0.5 text-xs">
-            .llm-wiki/meta.sqlite
-          </code>
-          ; deleting that file resets these numbers.
+          查看当前 Wiki 已记录的模型调用、Token 用量与费用。统计会随知识库保存在本地。
         </p>
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Metric label="Calls" value={data.totals.calls.toString()} />
-        <Metric label="Input tokens" value={fmtTokens(data.totals.input_tokens)} />
-        <Metric label="Output tokens" value={fmtTokens(data.totals.output_tokens)} />
-        <Metric label="Cost (recorded)" value={fmtCost(data.totals.cost_cents)} />
+        <Metric label="调用次数" value={data.totals.calls.toString()} />
+        <Metric label="输入 Token" value={fmtTokens(data.totals.input_tokens)} />
+        <Metric label="输出 Token" value={fmtTokens(data.totals.output_tokens)} />
+        <Metric label="已记录费用" value={fmtCost(data.totals.cost_cents)} />
       </div>
 
       {data.breakdown.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          No LLM calls recorded yet. Ingest a source or run a query to start tracking.
+          还没有模型调用记录。导入资料或完成一次问答后，这里会显示统计。
         </p>
       ) : (
-        <div className="overflow-hidden rounded-lg border border-border">
+        <div className="overflow-x-auto rounded-lg border border-border">
           <table className="w-full border-collapse text-sm">
             <thead className="bg-secondary/40 text-left text-xs uppercase tracking-wider text-muted-foreground">
               <tr>
-                <th className="px-3 py-2 font-medium">Model</th>
-                <th className="px-3 py-2 font-medium">Op</th>
-                <th className="px-3 py-2 text-right font-medium">Calls</th>
-                <th className="px-3 py-2 text-right font-medium">In</th>
-                <th className="px-3 py-2 text-right font-medium">Out</th>
-                <th className="px-3 py-2 text-right font-medium">Cost</th>
+                <th className="px-3 py-2 font-medium">模型</th>
+                <th className="px-3 py-2 font-medium">操作</th>
+                <th className="px-3 py-2 text-right font-medium">次数</th>
+                <th className="px-3 py-2 text-right font-medium">输入</th>
+                <th className="px-3 py-2 text-right font-medium">输出</th>
+                <th className="px-3 py-2 text-right font-medium">费用</th>
               </tr>
             </thead>
             <tbody>
@@ -121,8 +115,8 @@ export function CostsTab() {
       )}
 
       <p className="text-xs text-muted-foreground">
-        Costs are recorded only when the local pricing table knows the model. Unknown models
-        show <code>—</code> in the Cost column; token counts are always accurate.
+        费用根据本地价格表记录；没有价格记录或费用为零时显示 <code>—</code>。Token
+        用量按模型服务返回值统计。
       </p>
     </div>
   );

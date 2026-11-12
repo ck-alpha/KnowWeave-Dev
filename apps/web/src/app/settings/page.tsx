@@ -43,12 +43,12 @@ export default function SettingsPage() {
       <PageHeader
         eyebrow="Configuration"
         title="Settings"
-        description="Per-wiki preferences live in your wiki folder. Optional API keys use the OS keychain or your configured local configuration directory."
+        description="管理知识库、模型和阅读偏好。各 Wiki 的设置独立保存。"
       />
 
       <nav
         role="tablist"
-        className="mb-5 inline-flex rounded-md border border-border/70 bg-secondary/40 p-1 text-ui"
+        className="mb-5 flex flex-wrap gap-1 rounded-md border border-border/70 bg-secondary/40 p-1 text-ui"
       >
         {TAB_ORDER.map((t) => (
           <button

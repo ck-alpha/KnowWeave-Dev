@@ -13,24 +13,17 @@ type Props = {
 
 export function CostPreview({ text, model, contextOverhead, expectedOutputTokens }: Props) {
   if (!text.trim()) {
-    return (
-      <p className="text-xs text-muted-foreground">
-        Cost preview appears here as you type.
-      </p>
-    );
+    return <p className="text-xs text-muted-foreground">输入内容后，这里会显示用量估算。</p>;
   }
   const est = estimateCost(text, model, contextOverhead, expectedOutputTokens);
   return (
     <p className="text-xs text-muted-foreground">
-      Estimated:{" "}
-      <strong className="text-foreground">{formatCostCents(est.costCents)}</strong>{" "}
+      预计费用： <strong className="text-foreground">{formatCostCents(est.costCents)}</strong>{" "}
       <span className="tabular-nums">
-        ({formatTokens(est.inputTokens)} in / {formatTokens(est.outputTokens)} out)
+        ({formatTokens(est.inputTokens)} 输入 / {formatTokens(est.outputTokens)} 输出)
       </span>{" "}
       · <code>{est.model}</code>
-      {est.unknownPricing ? (
-        <span className="ml-1 italic">pricing unknown for this model</span>
-      ) : null}
+      {est.unknownPricing ? <span className="ml-1 italic">暂无此模型的价格信息</span> : null}
     </p>
   );
 }

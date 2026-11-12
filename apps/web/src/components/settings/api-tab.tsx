@@ -44,7 +44,7 @@ export function ApiTab() {
     setLoadError(null);
     try {
       const res = await fetch("/api/config", { cache: "no-store" });
-      if (!res.ok) throw new Error(`/api/config returned ${res.status}`);
+      if (!res.ok) throw new Error(`连接配置加载失败（HTTP ${res.status}）`);
       const json = (await res.json()) as ApiKeyStatus;
       setStatus(json);
     } catch (err) {
@@ -70,17 +70,17 @@ export function ApiTab() {
       setDraft("");
       setMode("view");
       setFlash(
-        `Saved to ${(json as ApiKeyStatus).source === "keychain" ? "OS keychain" : "config file"}.`,
+        `已保存到${(json as ApiKeyStatus).source === "keychain" ? "系统钥匙串" : "本地配置文件"}。`,
       );
     } catch (err) {
-      setFlash(`Could not save: ${(err as Error).message}`);
+      setFlash(`保存失败： ${(err as Error).message}`);
     } finally {
       setBusy(null);
     }
   }
 
   async function onDelete() {
-    if (!confirm("Remove the saved OpenRouter API key?")) return;
+    if (!confirm("移除已保存的 OpenRouter API key？")) return;
     setBusy("delete");
     setFlash(null);
     setTestResult(null);
@@ -90,9 +90,9 @@ export function ApiTab() {
       if (!res.ok) throw new Error("error" in json ? json.error : `HTTP ${res.status}`);
       setStatus(json as ApiKeyStatus);
       setMode("edit");
-      setFlash("API key removed.");
+      setFlash("API key 已移除。");
     } catch (err) {
-      setFlash(`Could not delete: ${(err as Error).message}`);
+      setFlash(`移除失败： ${(err as Error).message}`);
     } finally {
       setBusy(null);
     }
@@ -124,14 +124,12 @@ export function ApiTab() {
   return (
     <div className="space-y-5">
       <div>
-        <h2 className="text-lg font-medium">Optional OpenRouter API key</h2>
+        <h2 className="text-lg font-medium">OpenRouter API key</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Local Ollama operations do not need an API key. Configure this only if you choose
-          OpenRouter in Models.
+          可选配置。本地 Ollama 无需 API key；仅在 Models 中选择 OpenRouter 时需要填写。
         </p>
         <p className="mt-1 text-sm text-muted-foreground">
-          Stored in the OS keychain when available, otherwise in your configured local configuration
-          directory with 0600 permissions. Get a key at{" "}
+          密钥优先保存到系统钥匙串，不可用时存入仅当前用户可读写的本地配置文件。可在以下地址获取：{" "}
           <a
             className="underline underline-offset-2 hover:text-foreground"
             href="https://openrouter.ai/keys"
@@ -140,7 +138,7 @@ export function ApiTab() {
           >
             openrouter.ai/keys
           </a>
-          .
+          。
         </p>
       </div>
 
@@ -149,16 +147,16 @@ export function ApiTab() {
           {loadError}
         </p>
       ) : status === null ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <p className="text-sm text-muted-foreground">加载中…</p>
       ) : mode === "view" && status.configured ? (
         // ---- view mode: masked key, default actions ----------------------
         <div className="space-y-3">
           <div>
-            <label className="mb-1 block text-sm font-medium">Current key</label>
-            <div className="flex items-stretch gap-2">
+            <label className="mb-1 block text-sm font-medium">当前密钥</label>
+            <div className="flex flex-col items-stretch gap-2 sm:flex-row">
               <div
                 className="flex h-10 flex-1 select-none items-center rounded-md border border-input bg-muted/40 px-3 font-mono text-sm text-foreground/80"
-                aria-label="Saved API key (masked)"
+                aria-label="已保存的 API key（已遮盖）"
               >
                 {maskedKey(status.hint)}
               </div>
@@ -172,15 +170,15 @@ export function ApiTab() {
                   setTestResult(null);
                 }}
               >
-                Replace
+                更换
               </Button>
             </div>
-            <p className="mt-1.5 flex items-center gap-2 text-xs text-muted-foreground">
+            <p className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
               <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden />
-              Stored in {status.source === "keychain" ? "your OS keychain" : "config file"}
+              已存入{status.source === "keychain" ? "系统钥匙串" : "本地配置文件"}
               {status.hint ? (
                 <>
-                  , ending in <code>…{status.hint}</code>
+                  ，末尾为 <code>…{status.hint}</code>
                 </>
               ) : null}
             </p>
@@ -188,10 +186,10 @@ export function ApiTab() {
 
           <div className="flex flex-wrap gap-2">
             <Button type="button" variant="outline" onClick={onTest} disabled={busy !== null}>
-              {busy === "test" ? "Testing…" : "Test connection"}
+              {busy === "test" ? "测试中…" : "测试连接"}
             </Button>
             <Button type="button" variant="ghost" onClick={onDelete} disabled={busy !== null}>
-              {busy === "delete" ? "Removing…" : "Remove"}
+              {busy === "delete" ? "移除中…" : "移除"}
             </Button>
           </div>
         </div>
@@ -200,7 +198,7 @@ export function ApiTab() {
         <form onSubmit={onSave} className="space-y-3">
           <div>
             <label className="mb-1 block text-sm font-medium" htmlFor="api-key">
-              {status.configured ? "New key" : "Paste your key"}
+              {status.configured ? "新密钥" : "粘贴密钥"}
             </label>
             <Input
               id="api-key"
@@ -215,14 +213,13 @@ export function ApiTab() {
             />
             {!status.keychainAvailable ? (
               <p className="mt-1.5 text-xs text-muted-foreground">
-                Note: OS keychain isn&apos;t available on this system. The key will be saved to a
-                permissions-restricted file in your home directory.
+                当前系统无法使用钥匙串，密钥会保存到仅当前用户可读写的本地配置文件。
               </p>
             ) : null}
           </div>
           <div className="flex flex-wrap gap-2">
             <Button type="submit" disabled={!draft.trim() || busy !== null}>
-              {busy === "save" ? "Saving…" : "Save key"}
+              {busy === "save" ? "保存中…" : "保存密钥"}
             </Button>
             {status.configured ? (
               <Button
@@ -235,7 +232,7 @@ export function ApiTab() {
                 }}
                 disabled={busy !== null}
               >
-                Cancel
+                取消
               </Button>
             ) : null}
           </div>
@@ -255,16 +252,16 @@ export function ApiTab() {
         >
           {testResult.ok ? (
             <span>
-              Key works.
+              连接成功。
               {testResult.label ? (
                 <>
                   {" "}
-                  Account: <strong>{testResult.label}</strong>.
+                  账户：<strong>{testResult.label}</strong>。
                 </>
               ) : null}{" "}
               {testResult.limitUsd !== null
-                ? `Used $${testResult.usageUsd.toFixed(2)} of $${testResult.limitUsd.toFixed(2)}.`
-                : `Lifetime usage $${testResult.usageUsd.toFixed(2)}.`}
+                ? `已使用 $${testResult.usageUsd.toFixed(2)}，额度 $${testResult.limitUsd.toFixed(2)}。`
+                : `累计用量 $${testResult.usageUsd.toFixed(2)}。`}
             </span>
           ) : (
             <span>{testResult.message}</span>

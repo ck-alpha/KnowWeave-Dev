@@ -66,7 +66,7 @@ export function SourcesView() {
     if (!result || result.kind !== "preview") return;
     if (
       !confirm(
-        `Discard this proposal? The raw source moves to .llm-wiki/trash/raw/ and the pending row drops from the list. Recoverable for 30 days.`,
+        `放弃这份整理建议并移除来源？原始文件将移入回收站，30 天内可恢复。`,
       )
     )
       return;
@@ -166,16 +166,16 @@ export function SourcesView() {
   return (
     <PageContainer>
       <PageHeader
-        eyebrow="Add to wiki"
+        eyebrow="From sources to knowledge"
         title="Sources"
-        description="Import text or Markdown, compile Wiki pages, then trace every answer back to its original sources. For the local Qwen demo, convert PDFs and images to text first."
+        description="添加资料，让本地模型整理为 Wiki 页面。原文会保留，方便从回答追溯依据；使用本地 Qwen 时，请先将 PDF 或图片转为文本。"
       />
 
       <section className="mb-8 rounded-lg border border-border/70 bg-card p-5">
         <div className="mb-3 flex items-baseline justify-between">
-          <h2 className="font-display text-h3 font-semibold">Ingested sources</h2>
+          <h2 className="font-display text-h3 font-semibold">资料库</h2>
           <p className="text-caption text-muted-foreground">
-            Originals live in <code className="font-mono">raw/</code>
+            原文保存在 <code className="font-mono">raw/</code>
           </p>
         </div>
         <SourcesList
@@ -216,24 +216,23 @@ export function SourcesView() {
                 mode === m ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground",
               )}
             >
-              {m}
+              {{ paste: "粘贴文本", file: "上传文件", url: "网页 URL" }[m]}
             </button>
           ))}
         </div>
 
         <form onSubmit={onSubmit} className="mt-5 space-y-4">
           <p className="text-xs text-muted-foreground">
-            Each import creates a separate source. For a failed import, use Retry above to reuse
-            its original file. Related content can update existing Wiki pages; refresh the embedding index afterward.
+            每次导入都会保留一份独立原文。失败时点击上方「重试」，即可复用已保存的资料。整理完成后，前往 Query 刷新向量索引。
           </p>
           <div>
             <label className="mb-1 block text-sm font-medium" htmlFor="title">
-              Title (optional)
+              标题（选填）
             </label>
             <Input
               id="title"
               type="text"
-              placeholder="Defaults: first line for paste, page title for URL, filename for file"
+              placeholder="留空时，使用文本首行、网页标题或文件名"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               disabled={busy}
@@ -243,12 +242,12 @@ export function SourcesView() {
           {mode === "paste" ? (
             <div>
               <label className="mb-1 block text-sm font-medium" htmlFor="text">
-                Content
+                资料内容
               </label>
               <Textarea
                 id="text"
                 rows={14}
-                placeholder="Paste an article, paper, or notes here..."
+                placeholder="在这里粘贴文章、论文摘要或阅读笔记…"
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 disabled={busy}
@@ -271,15 +270,14 @@ export function SourcesView() {
                 disabled={busy}
               />
               <p className="mt-1 text-xs text-muted-foreground">
-                Fetches the page, runs Mozilla&apos;s Readability to strip nav/ads, then ingests
-                the cleaned article.
+                自动提取网页正文，过滤导航和广告后，再整理为知识页面。
               </p>
             </div>
           ) : null}
 
           {mode === "file" ? (
             <div>
-              <label className="mb-1 block text-sm font-medium">File</label>
+              <label className="mb-1 block text-sm font-medium">选择文件</label>
               <div
                 className={cn(
                   "flex flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed border-border bg-background px-6 py-10 text-center",
@@ -289,27 +287,27 @@ export function SourcesView() {
                 <p className="text-sm">
                   {file ? (
                     <>
-                      Selected: <strong>{file.name}</strong>{" "}
+                      已选择：<strong>{file.name}</strong>{" "}
                       <span className="text-muted-foreground">
                         ({Math.round(file.size / 1024)} KB)
                       </span>
                     </>
                   ) : (
                     <>
-                      Drag a file here, or{" "}
+                      将文件拖到这里，或{" "}
                       <button
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
                         className="text-primary underline underline-offset-2"
                       >
-                        choose one
+                        点击选择
                       </button>
-                      .
+                      。
                     </>
                   )}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Text: .md, .txt, .html. Office files are parsed locally. PDF/image support depends on the provider; convert to text for local Qwen.
+                  支持 .md、.txt、.html，Office 文件在本地解析。PDF / 图片需要模型支持；本地 Qwen 请先转为文本。
                 </p>
                 {file ? (
                   <button
@@ -320,7 +318,7 @@ export function SourcesView() {
                     }}
                     className="text-xs text-muted-foreground underline"
                   >
-                    Choose a different file
+                    重新选择文件
                   </button>
                 ) : null}
                 <input
@@ -341,12 +339,12 @@ export function SourcesView() {
 
           <div className="flex flex-wrap items-center gap-2">
             <Button type="submit" disabled={!canSubmit}>
-              {busy ? "Ingesting…" : "Ingest"}
+              {busy ? "正在阅读与整理…" : "导入并整理"}
             </Button>
             <p className="text-xs text-muted-foreground">
               {mode === "file" && file && /\.(pdf|png|jpg|jpeg|webp)$/i.test(file.name)
-                ? "Vision call — uses the model from Settings → Models → vision."
-                : "Uses the ingest model. Processing time depends on document length and local hardware."}
+                ? "此格式使用视觉模型，可在 Settings → Models → vision 中配置。"
+                : "由 Ingest 模型整理。所需时间取决于资料长度和本机性能，请稍候。"}
             </p>
           </div>
         </form>
@@ -365,26 +363,23 @@ export function SourcesView() {
             <div>
               {result.kind === "preview" ? (
                 <>
-                  <strong>Proposal ready for review.</strong> Approval gate is on
-                  (Settings → General). Nothing has been written to your wiki
-                  yet.
+                  <strong>整理建议已生成，等待确认。</strong>你已开启导入审批（Settings → General），确认后才会写入 Wiki。
                 </>
               ) : (
                 <>
-                  <strong>Ingested.</strong> {result.response.summary}
+                  <strong>整理完成。</strong> {result.response.summary}
                 </>
               )}
             </div>
             {result.kind === "preview" && result.response.summary ? (
               <div className="text-xs">
-                <strong>Summary:</strong> {result.response.summary}
+                <strong>内容摘要：</strong> {result.response.summary}
               </div>
             ) : null}
             <div className="text-xs text-muted-foreground">
-              Raw saved as <code>raw/{result.rawFilename}</code> via{" "}
-              <code>{result.model}</code>.
+              原文已保存至 <code>raw/{result.rawFilename}</code> · 模型 <code>{result.model}</code>。
               {result.kind === "preview"
-                ? " The raw file lives in your wiki folder regardless of whether you Apply or Discard the proposal below."
+                ? " 确认后保留原文，放弃后原文会移入回收站。"
                 : null}
             </div>
 
@@ -396,7 +391,7 @@ export function SourcesView() {
                   onClick={() => void onApplyPreview()}
                   disabled={applyBusy || discardBusy || sourceActionBusy}
                 >
-                  {applyBusy ? "Applying…" : "Apply changes"}
+                  {applyBusy ? "写入中…" : "确认并写入 Wiki"}
                 </Button>
                 <Button
                   size="sm"
@@ -404,10 +399,10 @@ export function SourcesView() {
                   onClick={() => void onDiscardPreview()}
                   disabled={applyBusy || discardBusy || sourceActionBusy}
                 >
-                  {discardBusy ? "Discarding…" : "Discard"}
+                  {discardBusy ? "正在放弃…" : "放弃建议"}
                 </Button>
                 <span className="text-[11px] text-amber-800/70 dark:text-amber-200/70">
-                  Apply runs the standard write — same as a non-approval ingest.
+                  确认后将创建或更新下方列出的页面。
                 </span>
               </div>
             ) : null}
@@ -415,7 +410,7 @@ export function SourcesView() {
             {result.response.newPages.length > 0 ? (
               <div>
                 <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  New pages
+                  新建页面
                 </h3>
                 <ul className="mt-1 space-y-0.5">
                   {result.response.newPages.map((p) => (
@@ -434,7 +429,7 @@ export function SourcesView() {
             {result.response.pageUpdates.length > 0 ? (
               <div>
                 <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Updated pages
+                  更新页面
                 </h3>
                 <ul className="mt-1 space-y-0.5">
                   {result.response.pageUpdates.map((p) => (
@@ -452,7 +447,7 @@ export function SourcesView() {
             {result.response.contradictions.length > 0 ? (
               <div>
                 <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Contradictions flagged
+                  需要核对的矛盾
                 </h3>
                 <ul className="mt-1 space-y-0.5">
                   {result.response.contradictions.map((c, i) => (
@@ -469,8 +464,7 @@ export function SourcesView() {
       </section>
 
       <p className="mt-6 text-caption text-muted-foreground">
-        Open <Link href="/wiki" className="underline underline-offset-2">Wiki</Link> to browse
-        the pages produced from your sources.
+        整理完成后，前往 <Link href="/wiki" className="underline underline-offset-2">Wiki</Link> 阅读页面，或在 <Link href="/graph" className="underline underline-offset-2">Graph</Link> 探索它们之间的联系。
       </p>
     </PageContainer>
   );
@@ -490,26 +484,25 @@ function IngestErrorBanner({ message }: { message: string }) {
     <div className="mt-6 rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
       <p className="font-medium">
         {isSchemaError
-          ? "The LLM returned malformed data."
-          : "Ingest failed."}
+          ? "模型返回的数据格式不完整，暂时无法写入 Wiki。"
+          : "资料整理失败。"}
       </p>
       {isSchemaError ? (
         <p className="mt-1 text-destructive/85">
-          Use <strong>Retry</strong> in the source list above to reuse the saved original.
-          If the model keeps returning invalid JSON, check the ingest model in{" "}
+          在上方资料列表点击<strong>重试</strong>，即可复用已保存的原文。
+          如果问题持续，请在{" "}
           <a
             href="/settings"
             className="underline underline-offset-2 hover:text-destructive/70"
           >
             Settings → Models → ingest
           </a>{" "}
-          (try <code className="font-mono text-xs">anthropic/claude-sonnet-4.6</code> or{" "}
-          <code className="font-mono text-xs">openai/gpt-4o</code>).
+          检查模型配置，并确认本地模型服务正在运行。
         </p>
       ) : null}
       <details className="mt-2">
         <summary className="cursor-pointer text-xs text-destructive/70 hover:text-destructive">
-          Show technical detail
+          查看错误详情
         </summary>
         <pre className="mt-2 overflow-x-auto rounded bg-background/50 p-2 font-mono text-[11px] text-destructive/80">
           {message}

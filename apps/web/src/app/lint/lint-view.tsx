@@ -6,15 +6,10 @@ import { useCallback, useEffect, useState } from "react";
 import { PageContainer, PageHeader } from "@/components/page-shell";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { beijingLogStamp, presentLocalIssue, relativeFromLogStamp } from "./lint-presentation";
 
 type Severity = "high" | "medium" | "low";
-type IssueType =
-  | "contradiction"
-  | "orphan"
-  | "missing-page"
-  | "broken-link"
-  | "gap"
-  | "stale";
+type IssueType = "contradiction" | "orphan" | "missing-page" | "broken-link" | "gap" | "stale";
 
 type LintIssue = {
   severity: Severity;
@@ -69,29 +64,30 @@ const TYPE_ORDER: IssueType[] = [
   "orphan",
 ];
 
+const HEALTH_LABELS: Record<LintResult["overallHealth"], string> = {
+  excellent: "状态优秀",
+  good: "状态良好",
+  fair: "需要完善",
+  "needs-work": "需要处理",
+};
+const SEVERITY_LABELS: Record<Severity, string> = {
+  high: "高优先级",
+  medium: "中优先级",
+  low: "低优先级",
+};
+const TYPE_LABELS: Record<IssueType, string> = {
+  contradiction: "内容矛盾",
+  "broken-link": "失效链接",
+  "missing-page": "缺少页面",
+  gap: "知识缺口",
+  stale: "可能过时",
+  orphan: "缺少引用",
+};
+
 function brokenLinkSlug(description: string): string | null {
   // Local broken-link descriptions are formatted "<title> links to [[<slug>]], which doesn't exist".
   const m = description.match(/\[\[([a-z0-9-]+)\]\]/);
   return m?.[1] ?? null;
-}
-
-// "2026-05-24 02:30" → "2h ago" / "yesterday" / "May 22". UTC-ish from the
-// log stamp; close enough for human glance, not for billing.
-function relativeFromLogStamp(stamp: string): string {
-  // The stamp is "YYYY-MM-DD HH:MM" (no zone). Treat as UTC so we match what
-  // appendLog wrote.
-  const iso = stamp.replace(" ", "T") + ":00Z";
-  const t = new Date(iso).getTime();
-  if (Number.isNaN(t)) return stamp;
-  const diffMin = Math.floor((Date.now() - t) / 60_000);
-  if (diffMin < 1) return "just now";
-  if (diffMin < 60) return `${diffMin}m ago`;
-  const hours = Math.floor(diffMin / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days === 1) return "yesterday";
-  if (days < 7) return `${days}d ago`;
-  return stamp.slice(0, 10);
 }
 
 function missingPageSlug(description: string): string | null {
@@ -149,7 +145,7 @@ export function LintView() {
   const [bulkFlash, setBulkFlash] = useState<string | null>(null);
 
   // Lint history — loaded on mount + re-fetched after every successful run
-  // so the "Recent runs" panel reflects the just-appended log entry.
+  // so the "最近检查" panel reflects the just-appended log entry.
   const [history, setHistory] = useState<LintHistoryEntry[] | null>(null);
 
   const refreshHistory = useCallback(async () => {
@@ -180,7 +176,7 @@ export function LintView() {
       });
       const json = (await res.json()) as LintSuccess | LintFailure;
       if (!res.ok || !("ok" in json) || json.ok !== true) {
-        const msg = "error" in json ? json.error : `HTTP ${res.status}`;
+        const msg = "error" in json ? json.error : `请求失败（HTTP ${res.status}）`;
         throw new Error(msg);
       }
       setResult(json.result);
@@ -220,7 +216,7 @@ export function LintView() {
         body: JSON.stringify({ type: "remove-broken-link", pageSlug, brokenSlug }),
       });
       const json = (await res.json()) as { error?: string };
-      if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
+      if (!res.ok) throw new Error(json.error ?? `请求失败（HTTP ${res.status}）`);
       markFixed(key, "removed");
     } catch (err) {
       setError((err as Error).message);
@@ -242,7 +238,7 @@ export function LintView() {
         kind?: "stub-created" | "index-rebuilt";
         error?: string;
       };
-      if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
+      if (!res.ok) throw new Error(json.error ?? `请求失败（HTTP ${res.status}）`);
       markFixed(key, json.kind === "index-rebuilt" ? "index-rebuilt" : "stub-created");
     } catch (err) {
       setError((err as Error).message);
@@ -274,7 +270,7 @@ export function LintView() {
         changeSummary?: string;
         error?: string;
       };
-      if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
+      if (!res.ok) throw new Error(json.error ?? `请求失败（HTTP ${res.status}）`);
       // Stash the targeted slug + summary so the per-issue flash can show
       // which page actually got edited and what the LLM said it changed.
       markFixed(key, json.kind === "fix-noop" ? "fix-noop" : "fix-applied", {
@@ -304,11 +300,11 @@ export function LintView() {
         totalPages?: number;
         error?: string;
       };
-      if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
+      if (!res.ok) throw new Error(json.error ?? `请求失败（HTTP ${res.status}）`);
       const addedN = json.added?.length ?? 0;
       const removedN = json.removed?.length ?? 0;
       setBulkFlash(
-        `Index rebuilt — ${json.totalPages ?? 0} pages indexed, ${addedN} added, ${removedN} orphan ${removedN === 1 ? "entry" : "entries"} removed.`,
+        `页面目录已重建：共 ${json.totalPages ?? 0} 页，补入 ${addedN} 项，移除 ${removedN} 项失效记录。`,
       );
     } catch (err) {
       setError((err as Error).message);
@@ -321,7 +317,7 @@ export function LintView() {
     if (items.length === 0) return;
     if (
       !confirm(
-        `Remove ${items.length} broken link${items.length === 1 ? "" : "s"} across the wiki? This rewrites the affected pages. (Originals are backed up to .llm-wiki/page-history/.)`,
+        `确定移除这 ${items.length} 条失效链接？这会修改相关页面，保留链接的普通文字；修改前的正文会保存到页面历史。`,
       )
     )
       return;
@@ -339,13 +335,13 @@ export function LintView() {
         failed?: Array<{ pageSlug: string; brokenSlug: string; error: string }>;
         error?: string;
       };
-      if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
+      if (!res.ok) throw new Error(json.error ?? `请求失败（HTTP ${res.status}）`);
       const fixedN = json.fixed?.length ?? 0;
       const failedN = json.failed?.length ?? 0;
       setBulkFlash(
         failedN === 0
-          ? `Removed ${fixedN} broken link${fixedN === 1 ? "" : "s"}.`
-          : `Removed ${fixedN}; ${failedN} failed (likely already gone).`,
+          ? `已移除 ${fixedN} 条失效链接。`
+          : `已移除 ${fixedN} 条，另有 ${failedN} 条未能处理，请重新检查。`,
       );
       // Mark each fix as done locally so the per-issue buttons collapse.
       if (json.fixed && result) {
@@ -392,55 +388,68 @@ export function LintView() {
     <PageContainer>
       <PageHeader
         eyebrow="Wiki health check"
-        title="Lint"
-        description="A fast local scan for broken links and orphans, plus an LLM pass for contradictions, gaps, stale claims, and missing pages."
+        title="Lint · 知识体检"
+        description="检查失效链接与缺少引用的页面，再由模型分析内容矛盾、知识缺口和可能过时的表述。"
         actions={
-          <>
+          <div className="flex min-w-0 max-w-full flex-col items-start gap-2 sm:items-end">
             <Button onClick={runLint} disabled={busy}>
-              {busy ? "Linting…" : result ? "Re-run lint" : "Run lint"}
+              {busy ? "正在检查…" : result ? "重新检查" : "开始检查"}
             </Button>
             {model ? (
-              <span className="text-caption text-muted-foreground">via {model}</span>
+              <span className="max-w-full break-all text-caption text-muted-foreground">
+                检查模型：{model}
+              </span>
             ) : null}
-          </>
+          </div>
         }
       />
 
+      <div className="rounded-lg border border-border/70 bg-card px-4 py-3 text-ui leading-relaxed text-muted-foreground">
+        <p>
+          <strong className="text-foreground">先检查，再决定是否修复。</strong>{" "}
+          检查只生成报告并记录日志，不会自动修改页面正文；点击修复或创建按钮后，才会写入页面。
+        </p>
+        <p className="mt-1">
+          模型提出的矛盾、缺口和过时提示需要结合原文核对，适合在批量导入或编辑后使用。
+        </p>
+      </div>
+
       {error ? (
-        <div className="mt-6 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          {error}
+        <div
+          role="alert"
+          className="mt-6 break-words rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive"
+        >
+          操作未完成：{error}
         </div>
       ) : null}
 
-      {/* Always-visible "Recent runs" panel — pulled from log.md so the
+      {/* Always-visible "最近检查" panel — pulled from log.md so the
           trend is readable before re-running. Loads on mount, refreshes
           after every successful lint. */}
       {history !== null ? (
         <section className="mt-6 rounded-md border border-border/70 bg-card p-4">
           <h3 className="mb-2 text-caption font-semibold uppercase tracking-wider text-muted-foreground">
-            Recent runs
+            最近检查 <span className="ml-2 font-normal normal-case tracking-normal">北京时间</span>
           </h3>
           {history.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              No lint runs yet. Click <strong>Run lint</strong> to record the first one — the
-              count + health rating gets appended to <code className="font-mono">log.md</code>{" "}
-              so you can track wiki health over time.
+              还没有检查记录。点击 <strong>开始检查</strong>，查看问题与修复建议。
+              每次检查都会保存问题数量和整体评估，方便之后比较。
             </p>
           ) : (
             <ul className="space-y-1.5 text-sm">
               {history.map((h, i) => {
                 const prevCount = history[i + 1]?.totalIssues;
-                const delta =
-                  prevCount === undefined ? null : h.totalIssues - prevCount;
+                const delta = prevCount === undefined ? null : h.totalIssues - prevCount;
                 return (
                   <li
                     key={`${h.stamp}-${i}`}
                     className="flex flex-wrap items-baseline gap-2 text-muted-foreground"
                   >
-                    <span className="font-mono text-[11px]">{h.stamp}</span>
-                    <span className="text-foreground">
-                      {h.totalIssues} issue{h.totalIssues === 1 ? "" : "s"}
+                    <span className="font-mono text-[11px]" title="北京时间">
+                      {beijingLogStamp(h.stamp)}
                     </span>
+                    <span className="text-foreground">{h.totalIssues} 个问题</span>
                     {h.health ? (
                       <span
                         className={cn(
@@ -448,7 +457,7 @@ export function LintView() {
                           HEALTH_STYLES[h.health],
                         )}
                       >
-                        {h.health}
+                        {HEALTH_LABELS[h.health]}
                       </span>
                     ) : null}
                     {delta !== null && delta !== 0 ? (
@@ -461,7 +470,7 @@ export function LintView() {
                         }
                       >
                         {delta < 0 ? "−" : "+"}
-                        {Math.abs(delta)} vs previous
+                        {Math.abs(delta)}（较上次）
                       </span>
                     ) : null}
                     <span className="text-[11px] text-muted-foreground/70">
@@ -475,13 +484,11 @@ export function LintView() {
           <div className="mt-3 border-t border-border/60 pt-2 text-[11px] text-muted-foreground">
             <Link
               href="/log"
-              className="text-primary underline underline-offset-2 hover:text-primary/80"
+              className="break-words text-primary underline underline-offset-2 hover:text-primary/80"
             >
-              View full timeline →
+              查看全部记录 →
             </Link>
-            <span className="ml-2">
-              (ingests, edits, lint, schema saves — everything that touched the wiki)
-            </span>
+            <span className="ml-2">包含导入、编辑、知识体检和规则变更</span>
           </div>
         </section>
       ) : null}
@@ -495,16 +502,16 @@ export function LintView() {
                 HEALTH_STYLES[result.overallHealth],
               )}
             >
-              {result.overallHealth}
+              {result.totalPages > 0 ? "模型评估：" : "整体评估："}
+              {HEALTH_LABELS[result.overallHealth]}
             </span>
             <span className="text-sm text-muted-foreground">
-              {result.issues.length} issue{result.issues.length === 1 ? "" : "s"} across{" "}
-              {result.totalPages} page{result.totalPages === 1 ? "" : "s"} ·{" "}
-              {counts.high} high · {counts.medium} medium · {counts.low} low
+              共检查 {result.totalPages} 页，发现 {result.issues.length} 个问题 · 高优先级{" "}
+              {counts.high} · 中优先级 {counts.medium} · 低优先级 {counts.low}
             </span>
             {result.truncated ? (
               <span className="rounded bg-amber-500/10 px-2 py-0.5 text-xs text-amber-700 dark:text-amber-300">
-                Truncated to most-relevant pages for the LLM
+                模型仅检查了部分页面，本地链接检查覆盖全部页面
               </span>
             ) : null}
           </div>
@@ -514,15 +521,12 @@ export function LintView() {
           {result.previousRun ? (
             <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
               <span>
-                Previous run {relativeFromLogStamp(result.previousRun.stamp)}:{" "}
-                <span className="text-foreground">
-                  {result.previousRun.totalIssues} issue
-                  {result.previousRun.totalIssues === 1 ? "" : "s"}
-                </span>
+                上次检查（{relativeFromLogStamp(result.previousRun.stamp)}）：{" "}
+                <span className="text-foreground">{result.previousRun.totalIssues} 个问题</span>
               </span>
               {(() => {
                 const delta = result.issues.length - result.previousRun.totalIssues;
-                if (delta === 0) return <span>· no change</span>;
+                if (delta === 0) return <span>· 数量未变</span>;
                 const better = delta < 0;
                 return (
                   <span
@@ -532,15 +536,14 @@ export function LintView() {
                         : "text-amber-700 dark:text-amber-300"
                     }
                   >
-                    · {better ? "−" : "+"}
-                    {Math.abs(delta)} {better ? "fewer" : "more"} now
+                    · 本次{better ? "减少" : "增加"} {Math.abs(delta)} 个
                   </span>
                 );
               })()}
             </div>
           ) : (
             <p className="text-xs text-muted-foreground">
-              First lint run on this wiki. Future runs will compare against this baseline.
+              这是此 Wiki 的首次检查，后续检查将与本次结果比较。
             </p>
           )}
 
@@ -560,16 +563,16 @@ export function LintView() {
             return (
               <div className="flex flex-wrap items-center gap-2 rounded-md border border-border/70 bg-muted/30 p-3">
                 <span className="text-caption font-semibold uppercase tracking-wider text-muted-foreground">
-                  Bulk fixes
+                  维护操作
                 </span>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={bulkRebuildIndex}
                   disabled={bulkBusy !== null}
-                  title="Rewrites index.md from the page files on disk. Free, no LLM call."
+                  title="根据现有页面重建 index.md 目录，不调用模型，也不会刷新 Query 的向量索引。"
                 >
-                  {bulkBusy === "rebuild-index" ? "Rebuilding…" : "Rebuild index"}
+                  {bulkBusy === "rebuild-index" ? "重建中…" : "重建页面目录"}
                 </Button>
                 {showBulk ? (
                   <Button
@@ -577,13 +580,17 @@ export function LintView() {
                     size="sm"
                     onClick={() => bulkFixAllBrokenLinks(localBrokenItems)}
                     disabled={bulkBusy !== null}
-                    title="Removes every [[broken-slug]] reference from its host page."
+                    title="移除报告中的失效链接，保留链接文字，并保存修改前的页面历史。"
                   >
                     {bulkBusy === "fix-all-broken"
-                      ? "Fixing…"
-                      : `Remove all broken links (${localBrokenItems.length})`}
+                      ? "处理中…"
+                      : `移除全部失效链接（${localBrokenItems.length}）`}
                   </Button>
                 ) : null}
+                <p className="w-full text-xs leading-relaxed text-muted-foreground">
+                  页面目录用于列出 Wiki 内容；需要刷新 Embedding / Hybrid 的向量索引时，请前往
+                  Query。
+                </p>
                 {bulkFlash ? (
                   <span className="text-xs text-emerald-700 dark:text-emerald-300">
                     {bulkFlash}
@@ -598,12 +605,13 @@ export function LintView() {
               {grouped.map(({ type, items }) => (
                 <div key={type}>
                   <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    {type} ({items.length})
+                    {TYPE_LABELS[type]}（{items.length}）
                   </h3>
                   <ul className="space-y-2">
                     {items.map((issue, i) => {
                       const key = `${type}-${i}-${issue.affectedPages.join(",")}`;
                       const fixedState = fixedKeys.get(key);
+                      const displayIssue = presentLocalIssue(issue);
                       const isBrokenLink = issue.type === "broken-link";
                       const brokenSlug = isBrokenLink ? brokenLinkSlug(issue.description) : null;
                       const hasRemoveTarget = isBrokenLink && brokenSlug && issue.affectedPages[0];
@@ -621,7 +629,7 @@ export function LintView() {
                       return (
                         <li
                           key={key}
-                          className="rounded-md border border-border bg-background p-3 text-sm"
+                          className="min-w-0 break-words rounded-md border border-border bg-background p-3 text-sm"
                         >
                           <div className="flex flex-wrap items-baseline gap-2">
                             <span
@@ -630,19 +638,19 @@ export function LintView() {
                                 SEVERITY_STYLES[issue.severity],
                               )}
                             >
-                              {issue.severity}
+                              {SEVERITY_LABELS[issue.severity]}
                             </span>
                             <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                              {issue.source}
+                              {issue.source === "local" ? "规则检查" : "模型建议"}
                             </span>
                             {issue.affectedPages.length > 0 ? (
                               <span className="text-xs text-muted-foreground">
-                                on{" "}
+                                相关页面：{" "}
                                 {issue.affectedPages.map((p, idx) => (
                                   <span key={p}>
                                     <Link
                                       href={`/wiki/${p}`}
-                                      className="underline underline-offset-2"
+                                      className="break-all underline underline-offset-2"
                                     >
                                       {p}
                                     </Link>
@@ -652,53 +660,54 @@ export function LintView() {
                               </span>
                             ) : null}
                           </div>
-                          <p className="mt-2">{issue.description}</p>
+                          <p className="mt-2 break-words">{displayIssue.description}</p>
                           {issue.suggestedFix ? (
                             <p className="mt-1 text-xs text-muted-foreground">
-                              Suggested fix: {issue.suggestedFix}
+                              建议处理：{displayIssue.suggestedFix}
                             </p>
                           ) : null}
 
                           {fixedState ? (
                             <p
                               className={cn(
-                                "mt-2 text-xs",
+                                "mt-2 break-words text-xs",
                                 fixedState.kind === "fix-noop"
                                   ? "text-amber-700 dark:text-amber-300"
                                   : "text-emerald-700 dark:text-emerald-300",
                               )}
                             >
-                              {fixedState.kind === "removed" ? "Removed from page." : null}
+                              {fixedState.kind === "removed"
+                                ? "已移除失效链接，页面中的普通文字已保留。"
+                                : null}
                               {fixedState.kind === "stub-created"
-                                ? `Stub page created at /wiki/${targetSlug}.`
+                                ? `已创建起始页面：/wiki/${targetSlug}，可继续补充内容。`
                                 : null}
                               {fixedState.kind === "index-rebuilt"
-                                ? "Page already existed — index rebuilt to include it."
+                                ? "页面已存在，已重建目录并补入该页面。"
                                 : null}
                               {fixedState.kind === "fix-applied" ? (
                                 <>
-                                  Applied to{" "}
+                                  已更新页面：{" "}
                                   <Link
                                     href={`/wiki/${fixedState.slug ?? issue.affectedPages[0]}`}
-                                    className="underline underline-offset-2"
+                                    className="break-all underline underline-offset-2"
                                   >
                                     {fixedState.slug ?? issue.affectedPages[0]}
                                   </Link>
-                                  {fixedState.summary ? ` — ${fixedState.summary}` : "."}
+                                  {fixedState.summary ? ` — ${fixedState.summary}` : "。"}
                                 </>
                               ) : null}
                               {fixedState.kind === "fix-noop" ? (
                                 <>
-                                  LLM made no change to{" "}
+                                  模型未修改页面：{" "}
                                   <Link
                                     href={`/wiki/${fixedState.slug ?? issue.affectedPages[0]}`}
-                                    className="underline underline-offset-2"
+                                    className="break-all underline underline-offset-2"
                                   >
                                     {fixedState.slug ?? issue.affectedPages[0]}
                                   </Link>
-                                  {fixedState.summary ? ` — ${fixedState.summary}` : "."} Try
-                                  editing the page manually, or re-run lint after fixing other
-                                  issues first.
+                                  {fixedState.summary ? ` — ${fixedState.summary}` : "。"}
+                                  可手动编辑该页面，或处理其他问题后重新检查。
                                 </>
                               ) : null}
                             </p>
@@ -711,7 +720,7 @@ export function LintView() {
                                   onClick={() => applyRemoveBrokenLink(issue, key)}
                                   disabled={fixingKey !== null || bulkBusy !== null}
                                 >
-                                  {fixingKey === key ? "Removing…" : "Remove broken link"}
+                                  {fixingKey === key ? "移除中…" : "移除失效链接"}
                                 </Button>
                               ) : null}
                               {canCreateStub && targetSlug ? (
@@ -720,13 +729,13 @@ export function LintView() {
                                   size="sm"
                                   onClick={() => applyCreateStub(targetSlug, key)}
                                   disabled={fixingKey !== null || bulkBusy !== null}
-                                  title="Drafts a small starter page using the ingest model and context from referencing pages."
+                                  title="调用资料整理模型，根据引用它的页面生成并保存一份起始内容。"
                                 >
                                   {fixingKey === key
-                                    ? "Drafting…"
+                                    ? "生成中…"
                                     : isBrokenLink
-                                      ? "Create page"
-                                      : "Create stub"}
+                                      ? "创建缺失页面"
+                                      : "创建起始页面"}
                                 </Button>
                               ) : null}
                               {canApplySuggested ? (
@@ -735,9 +744,9 @@ export function LintView() {
                                   size="sm"
                                   onClick={() => applySuggestedFix(issue, key)}
                                   disabled={fixingKey !== null || bulkBusy !== null}
-                                  title="Sends the page + the fix instruction to the lint model and writes the result back."
+                                  title="将页面与修复建议交给检查模型，生成后直接写入页面，并保存修改前的历史。"
                                 >
-                                  {fixingKey === key ? "Applying…" : "Apply suggested fix"}
+                                  {fixingKey === key ? "应用中…" : "应用修复建议"}
                                 </Button>
                               ) : null}
                             </div>
@@ -751,21 +760,21 @@ export function LintView() {
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">
-              No issues found. Nice.
+              本次未发现问题。之后新增或修改资料时，可以再检查一次。
             </p>
           )}
 
           {result.suggestedQuestions.length > 0 ? (
             <div>
               <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Suggested follow-up questions
+                值得继续探索的问题
               </h3>
               <ul className="space-y-1.5 text-sm">
                 {result.suggestedQuestions.map((q, i) => (
                   <li key={i}>
                     <Link
                       href={`/query?q=${encodeURIComponent(q)}`}
-                      className="text-primary underline underline-offset-2 hover:text-primary/80"
+                      className="break-words text-primary underline underline-offset-2 hover:text-primary/80"
                     >
                       {q}
                     </Link>

@@ -48,10 +48,9 @@ export function PageView(props: Props) {
     setDeleting(true);
     setDeleteError(null);
     try {
-      const res = await fetch(
-        `/api/pages/${encodeURIComponent(props.slug)}/delete`,
-        { method: "POST" },
-      );
+      const res = await fetch(`/api/pages/${encodeURIComponent(props.slug)}/delete`, {
+        method: "POST",
+      });
       const json = (await res.json()) as {
         ok?: boolean;
         trashFilename?: string;
@@ -80,45 +79,47 @@ export function PageView(props: Props) {
   return (
     // Reading view stays narrow (prose-friendly). Editing view expands to
     // give the split-pane markdown/preview room to breathe.
-    <article
-      className={cn(
-        "mx-auto px-6 py-10",
-        editing ? "max-w-[1400px]" : "max-w-3xl",
-      )}
-    >
+    <article className={cn("mx-auto px-6 py-10", editing ? "max-w-[1400px]" : "max-w-3xl")}>
       {!editing ? (
         <header className="mb-6 flex flex-wrap items-baseline justify-between gap-3 border-b border-border pb-4">
           <div>
             <h1 className="text-3xl font-semibold tracking-tight">{props.title}</h1>
             <p className="mt-1 text-xs uppercase tracking-wider text-muted-foreground">
-              {props.type} · created {props.created} · updated {props.updated}
+              {props.type} · 创建于 {props.created} · 更新于 {props.updated}
               {props.tags.length > 0 ? ` · ${props.tags.join(", ")}` : null}
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button variant="outline" onClick={() => setEditing(true)}>
-              Edit
+              编辑
             </Button>
             <Link
               href={`/wiki/${props.slug}/history`}
               className="inline-flex items-center rounded-md border border-input bg-background px-3 py-1 text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
-              title="See backups + diff against the current page"
+              title="查看备份与当前正文的差异"
             >
-              History
+              历史版本
+            </Link>
+            <Link
+              href={`/graph?node=${encodeURIComponent(props.slug)}`}
+              className="inline-flex items-center rounded-md border border-input bg-background px-3 py-1 text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
+              title="在知识图谱中查看此页面的关联"
+            >
+              Graph ↗
             </Link>
             <Button
               variant="ghost"
               onClick={openDeleteDialog}
               className="text-muted-foreground hover:text-destructive"
             >
-              Delete
+              删除
             </Button>
           </div>
         </header>
       ) : (
         <header className="mb-6 border-b border-border pb-4">
           <p className="text-xs uppercase tracking-wider text-muted-foreground">
-            Editing {props.slug}
+            正在编辑 {props.slug}
           </p>
         </header>
       )}
@@ -143,8 +144,7 @@ export function PageView(props: Props) {
                 Sources ({props.sources.length})
               </h2>
               <p className="mt-1 text-xs text-muted-foreground/80">
-                Original input(s) this page was compiled from. The raw bytes are
-                preserved untouched on disk.
+                此页面依据以下资料整理。点击来源，可返回原始资料核对依据。
               </p>
               <ul className="mt-2 flex flex-wrap gap-1.5">
                 {props.sources.map((s) => (
@@ -165,9 +165,12 @@ export function PageView(props: Props) {
           ) : null}
 
           {props.missingSourceCount ? (
-            <p role="status" className="mt-6 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-sm">
-              {props.missingSourceCount} original source{props.missingSourceCount === 1 ? " is" : "s are"} no longer available.
-              This Wiki page remains readable, but those claims cannot be traced to the removed originals.
+            <p
+              role="status"
+              className="mt-6 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-sm"
+            >
+              有 {props.missingSourceCount} 份原始来源已不可用。Wiki
+              页面仍可阅读，但相关内容无法再追溯到这些原文。
             </p>
           ) : null}
 
@@ -176,9 +179,7 @@ export function PageView(props: Props) {
               Backlinks ({props.backlinks.length})
             </h2>
             {props.backlinks.length === 0 ? (
-              <p className="mt-2 text-sm text-muted-foreground">
-                Nothing else in the wiki links here yet.
-              </p>
+              <p className="mt-2 text-sm text-muted-foreground">目前还没有其他页面链接到这里。</p>
             ) : (
               <ul className="mt-2 space-y-2 text-sm">
                 {props.backlinks.map((b) => (
@@ -209,29 +210,20 @@ export function PageView(props: Props) {
             className="w-full max-w-md rounded-lg border border-border bg-card p-5 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="font-display text-h3 font-semibold">
-              Move this page to trash?
-            </h2>
+            <h2 className="font-display text-h3 font-semibold">将此页面移到回收站？</h2>
             <p className="mt-1 text-ui text-muted-foreground">
               <strong className="text-foreground">{props.title}</strong>
             </p>
 
             <div className="mt-4 space-y-2 text-ui">
               <p>
-                The page file will move to{" "}
-                <code className="font-mono text-[12px]">
-                  .llm-wiki/trash/wiki/
-                </code>
-                . Recoverable for 30 days, plus a one-click <strong>Undo</strong>{" "}
-                option will appear on the next screen.
+                页面会移到回收站并保留 30 天。删除后也可以点击 <strong>撤销</strong> 立即恢复。
               </p>
               {backlinkCount !== null && backlinkCount > 0 ? (
                 <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-[13px] text-amber-800 dark:text-amber-200">
                   <p>
-                    <strong>{backlinkCount} other page{backlinkCount === 1 ? "" : "s"}</strong>{" "}
-                    link{backlinkCount === 1 ? "s" : ""} to this one — those
-                    references become broken links. Lint will flag them so you
-                    can clean up.
+                    还有 <strong>{backlinkCount} 个页面</strong>{" "}
+                    链接到这里。删除后这些链接会失效，你可以在 Lint 中检查并修复。
                   </p>
                   {props.backlinks.length > 0 ? (
                     <ul className="mt-2 list-disc pl-5 text-[12px]">
@@ -240,7 +232,7 @@ export function PageView(props: Props) {
                       ))}
                       {props.backlinks.length > 3 ? (
                         <li className="text-muted-foreground">
-                          + {props.backlinks.length - 3} more
+                          另有 {props.backlinks.length - 3} 个页面
                         </li>
                       ) : null}
                     </ul>
@@ -256,12 +248,8 @@ export function PageView(props: Props) {
             ) : null}
 
             <div className="mt-5 flex items-center justify-end gap-2">
-              <Button
-                variant="ghost"
-                onClick={() => setDeleteOpen(false)}
-                disabled={deleting}
-              >
-                Cancel
+              <Button variant="ghost" onClick={() => setDeleteOpen(false)} disabled={deleting}>
+                取消
               </Button>
               <Button
                 variant="outline"
@@ -269,7 +257,7 @@ export function PageView(props: Props) {
                 disabled={deleting}
                 className="border-destructive/40 text-destructive hover:bg-destructive/10"
               >
-                {deleting ? "Moving to trash…" : "Move to trash"}
+                {deleting ? "正在移除…" : "移到回收站"}
               </Button>
             </div>
           </div>

@@ -38,7 +38,7 @@ export function QueryView() {
   const [result, setResult] = useState<QuerySuccess | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<RetrievalMode>("bm25");
-  const [indexStatus, setIndexStatus] = useState<string>("Checking embedding index…");
+  const [indexStatus, setIndexStatus] = useState<string>("正在检查向量索引…");
   const [indexError, setIndexError] = useState<string | null>(null);
   const [indexBusy, setIndexBusy] = useState(false);
   const [indexBuildMessage, setIndexBuildMessage] = useState<string | null>(null);
@@ -52,15 +52,22 @@ export function QueryView() {
       const res = await fetch("/api/retrieval", { cache: "no-store" });
       const data = (await res.json()) as {
         ok?: boolean;
-        summary?: string;
+        status?: { total: number; indexed: number; pending: number; ready: boolean };
         error?: string;
         modelError?: string;
       };
       if (!res.ok || !data.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
-      setIndexStatus(data.summary ?? "Embedding index status unavailable.");
+      const status = data.status;
+      setIndexStatus(
+        !status
+          ? "暂时无法获取向量索引状态。"
+          : status.total === 0
+            ? "还没有 Wiki 页面。请先导入资料，再构建向量索引。"
+            : `向量索引：${status.indexed} / ${status.total} 个页面已就绪，${status.pending} 个待更新。${data.modelError ? " 当前显示缓存状态，向量模型暂不可用；仍可使用 BM25。" : status.ready ? " 可以开始检索。" : " 请构建或刷新索引后使用 Embedding / Hybrid。"}`,
+      );
       setIndexError(data.modelError ?? null);
     } catch (err) {
-      setIndexStatus("Embedding index status unavailable.");
+      setIndexStatus("暂时无法获取向量索引状态。");
       setIndexError((err as Error).message);
     }
   }, []);
@@ -91,7 +98,7 @@ export function QueryView() {
     setIndexBusy(true);
     setIndexError(null);
     setIndexBuildMessage(null);
-    setIndexStatus("Building embedding index… Current pages will be checked before use.");
+    setIndexStatus("正在构建向量索引…完成后会检查页面是否仍为最新版本。");
     try {
       const res = await fetch("/api/retrieval", {
         method: "POST",
@@ -104,13 +111,13 @@ export function QueryView() {
       if (!res.ok || !data.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
       await refreshIndexStatus();
       setIndexBuildMessage(
-        `Refresh finished: ${data.embedded ?? 0} vectors built, ${data.skipped ?? 0} reused.${data.ready ? "" : " Pages changed during the build; refresh again before semantic / hybrid search."}`,
+        `索引刷新完成：新建 ${data.embedded ?? 0} 个向量，复用 ${data.skipped ?? 0} 个。${data.ready ? "" : " 构建期间页面发生了变化，请再次刷新后使用 Embedding / Hybrid。"}`,
       );
     } catch (err) {
       // A failed full rebuild may already have cleared old vectors. Always
       // reread counts instead of leaving a stale “Ready” message on screen.
       await refreshIndexStatus();
-      setIndexError(`Index refresh failed: ${(err as Error).message}`);
+      setIndexError(`索引刷新失败： ${(err as Error).message}`);
     } finally {
       setIndexBusy(false);
     }
@@ -176,16 +183,16 @@ export function QueryView() {
   return (
     <PageContainer>
       <PageHeader
-        eyebrow="One-off question"
+        eyebrow="Ask your knowledge"
         title="Query"
-        description="Ask the wiki and get a cited answer. Useful for one-shot lookups; for ongoing back-and-forth use Chats."
+        description="选择检索方式，围绕 Wiki 提问。点击回答中的引用核对依据；需要连续追问时，可使用 Chats。"
       />
 
       <form onSubmit={onAsk} className="space-y-3">
         <div className="rounded-lg border border-border p-3 text-sm">
           <div className="flex flex-wrap items-center gap-3">
             <label htmlFor="retrieval-mode" className="font-medium">
-              Retrieval
+              检索方式
             </label>
             <select
               id="retrieval-mode"
@@ -197,9 +204,9 @@ export function QueryView() {
               disabled={busy || indexBusy}
               className="rounded-md border border-input bg-background px-2 py-1"
             >
-              <option value="bm25">BM25 · keywords</option>
-              <option value="embedding">Embedding · semantic</option>
-              <option value="hybrid">Hybrid · BM25 + semantic (RRF)</option>
+              <option value="bm25">BM25 · 关键词</option>
+              <option value="embedding">Embedding · 语义</option>
+              <option value="hybrid">Hybrid · 混合检索（RRF）</option>
             </select>
             <Button
               type="button"
@@ -207,7 +214,7 @@ export function QueryView() {
               disabled={busy || indexBusy}
               onClick={() => onBuildIndex()}
             >
-              {indexBusy ? "Building…" : "Build / refresh embedding index"}
+              {indexBusy ? "构建中…" : "构建 / 刷新向量索引"}
             </Button>
             <Button
               type="button"
@@ -215,22 +222,21 @@ export function QueryView() {
               disabled={busy || indexBusy}
               onClick={() => onBuildIndex(true)}
             >
-              Rebuild all vectors
+              全量重建
             </Button>
           </div>
           <p className="mt-2 text-xs text-muted-foreground" role="status">
             {indexStatus}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            Build once before semantic or hybrid search; refresh after page changes. BM25 works
-            without an embedding model.
+            首次使用 Embedding / Hybrid 前，请先构建索引；页面新增或修改后再刷新。BM25 无需向量模型。
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
             {mode === "bm25"
-              ? "BM25 matches words in your Wiki. All answer modes still use the configured Qwen model."
+              ? "BM25 按关键词匹配 Wiki 页面，适合明确的术语或名称。三种检索方式都由已配置的 Qwen 模型生成回答。"
               : mode === "embedding"
-                ? "Embedding finds semantically similar pages using the current vector index. Similarity alone does not prove a claim."
-                : "Hybrid combines keyword and semantic rankings with RRF. Both indexes must be current; errors are shown without changing modes."}
+                ? "Embedding 根据语义寻找相关页面，适合换一种说法提问。语义相近不代表资料支持某个结论，请核对引用。"
+                : "Hybrid 通过 RRF 融合关键词与语义排名。请保持索引最新；如果检索失败，可根据提示处理或手动切换到 BM25。"}
           </p>
           {indexBuildMessage ? <p role="status" className="mt-2 text-xs">{indexBuildMessage}</p> : null}
           {indexError ? (
@@ -240,12 +246,12 @@ export function QueryView() {
           ) : null}
         </div>
         <label className="block text-ui font-medium" htmlFor="question">
-          Your question
+          你的问题
         </label>
         <Textarea
           id="question"
           rows={3}
-          placeholder="e.g. Does ALDH1 predict favorable breast cancer outcomes?"
+          placeholder="输入你想从资料中了解的问题，例如：这些研究对 ALDH1 的预后价值有什么结论？"
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
           disabled={busy}
@@ -259,10 +265,10 @@ export function QueryView() {
         />
         <div className="flex items-center gap-2">
           <Button type="submit" disabled={!question.trim() || busy || indexBusy}>
-            {busy ? "Asking…" : "Ask"}
+            {busy ? "正在检索与回答…" : "提问"}
           </Button>
           <p className="text-xs text-muted-foreground">
-            Cmd/Ctrl + Enter to submit · uses settings → models → query
+            Cmd / Ctrl + Enter 提交 · 回答模型可在 Settings → Models 中调整
           </p>
         </div>
         {settings?.settings.showCostEstimates && question.trim() ? (
@@ -293,10 +299,10 @@ export function QueryView() {
                 CONFIDENCE_STYLES[result.response.confidence],
               )}
             >
-              {result.response.confidence} confidence
+              置信度：{{ high: "高", medium: "中", low: "低" }[result.response.confidence]}
             </span>
             <span className="text-muted-foreground">via {result.model}</span>
-            <span className="text-muted-foreground">· {result.mode.toUpperCase()} retrieval</span>
+            <span className="text-muted-foreground">· {result.mode.toUpperCase()} 检索</span>
           </div>
 
           <article className="rounded-lg border border-border bg-card p-6 text-card-foreground">
@@ -305,12 +311,11 @@ export function QueryView() {
 
           <details className="rounded-lg border border-border p-3 text-sm">
             <summary className="cursor-pointer font-medium">
-              Evidence supplied to the answer · {result.response.retrieval.suppliedPages.length}{" "}
-              pages
+              回答参考的正文 · {result.response.retrieval.suppliedPages.length} 个页面
             </summary>
             <p className="mt-2 text-xs text-muted-foreground">
               {result.response.retrieval.mode.toUpperCase()} ·{" "}
-              {result.response.retrieval.elapsedMs.toFixed(0)} ms retrieval
+              检索耗时 {result.response.retrieval.elapsedMs.toFixed(0)} ms
             </p>
             <ol className="mt-2 list-decimal space-y-1 pl-5">
               {result.response.retrieval.suppliedPages.map((page) => {
@@ -334,7 +339,7 @@ export function QueryView() {
           {result.response.caveats.length > 0 ? (
             <div>
               <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Caveats
+                阅读提示
               </h3>
               <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
                 {result.response.caveats.map((c, i) => (
@@ -347,7 +352,7 @@ export function QueryView() {
           {result.response.pagesUsed.length > 0 ? (
             <div>
               <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Pages used
+                引用页面
               </h3>
               <ul className="mt-2 flex flex-wrap gap-2">
                 {result.response.pagesUsed.map((slug) => (
@@ -367,7 +372,7 @@ export function QueryView() {
           {result.response.suggestedNewPage ? (
             <div className="rounded-lg border border-dashed border-border bg-secondary/30 p-4">
               <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Suggested new page
+                建议保存为新页面
               </h3>
               <p className="mt-2">
                 <strong>{result.response.suggestedNewPage.title}</strong>{" "}
@@ -381,15 +386,15 @@ export function QueryView() {
 
               {promoteResult ? (
                 <p className="mt-3 text-sm text-emerald-700 dark:text-emerald-300">
-                  Saved.{" "}
+                  已保存。{" "}
                   <Link href={`/wiki/${promoteResult.slug}`} className="underline">
-                    Open page →
+                    查看页面 →
                   </Link>
                 </p>
               ) : (
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <Button onClick={onPromote} disabled={promoting} variant="outline">
-                    {promoting ? "Saving…" : "Save as wiki page"}
+                    {promoting ? "保存中…" : "保存为 Wiki 页面"}
                   </Button>
                   {promoteError ? (
                     <span className="text-sm text-destructive">{promoteError}</span>

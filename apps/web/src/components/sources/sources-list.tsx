@@ -37,12 +37,12 @@ function relativeDate(iso: string): string {
   const d = new Date(iso);
   const diffMs = Date.now() - d.getTime();
   const mins = Math.floor(diffMs / 60_000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
+  if (mins < 1) return "刚刚";
+  if (mins < 60) return `${mins} 分钟前`;
   const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) return `${hours} 小时前`;
   const days = Math.floor(hours / 24);
-  if (days < 30) return `${days}d ago`;
+  if (days < 30) return `${days} 天前`;
   return d.toISOString().slice(0, 10);
 }
 
@@ -119,7 +119,7 @@ export function SourcesList({ refreshNonce, onPreview, onBusyChange, disabled }:
       if (!res.ok || !json.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
       if (json.kind === "preview") {
         onPreview(json);
-        setActionFlash("Proposal ready. Review and Apply or Discard it below.");
+        setActionFlash("整理建议已生成，请在下方查看并确认，或放弃这份建议。");
         await fetchSources();
         return;
       }
@@ -134,7 +134,7 @@ export function SourcesList({ refreshNonce, onPreview, onBusyChange, disabled }:
       const newN = json.response?.newPages.length ?? 0;
       const updN = json.response?.pageUpdates.length ?? 0;
       setActionFlash(
-        `Ingested. ${newN} new page${newN === 1 ? "" : "s"}, ${updN} updated.`,
+        `整理完成：新建 ${newN} 个页面，更新 ${updN} 个页面。`,
       );
       await fetchSources();
     } catch (err) {
@@ -154,11 +154,11 @@ export function SourcesList({ refreshNonce, onPreview, onBusyChange, disabled }:
       s.title?.trim() || s.originalName?.trim() || s.url?.trim() || s.filename;
     const isPending = s.ingestedAt === null;
     const cascadeNote = s.pageCount > 0
-      ? ` It contributed to ${s.pageCount} wiki page${s.pageCount === 1 ? "" : "s"} — those pages stay (with a dangling source reference that lint can clean up).`
+      ? `该来源关联了 ${s.pageCount} 个 Wiki 页面，页面会保留；失效的来源引用可通过 Lint 检查。`
       : "";
     const msg = isPending
-      ? `Remove "${label}" (pending ingest)?\n\nThe raw file moves to .llm-wiki/trash/raw/ (recoverable for 30 days).`
-      : `Remove "${label}"?${cascadeNote}\n\nThe raw file moves to .llm-wiki/trash/raw/ (recoverable for 30 days).`;
+      ? `移除待整理的来源「${label}」？\n\n原始文件将移入回收站，30 天内可恢复。`
+      : `移除来源「${label}」？${cascadeNote}\n\n原始文件将移入回收站，30 天内可恢复。`;
     if (!confirm(msg)) return;
 
     setBusyId(s.id);
@@ -169,7 +169,7 @@ export function SourcesList({ refreshNonce, onPreview, onBusyChange, disabled }:
       const res = await fetch(`/api/sources/${s.id}/delete`, { method: "POST" });
       const json = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
-      setActionFlash(`Removed.`);
+      setActionFlash("来源已移除。");
       await fetchSources();
     } catch (err) {
       setError((err as Error).message);
@@ -182,19 +182,19 @@ export function SourcesList({ refreshNonce, onPreview, onBusyChange, disabled }:
   if (error && sources === null) {
     return (
       <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-        Could not load sources: {error}
+        无法加载资料： {error}
       </p>
     );
   }
 
   if (sources === null) {
-    return <p className="text-sm text-muted-foreground">Loading sources…</p>;
+    return <p className="text-sm text-muted-foreground">正在加载资料…</p>;
   }
 
   if (sources.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">
-        Nothing ingested yet. Use the form below to add your first source.
+        还没有资料。从下方粘贴一段文本，开始建立你的知识库。
       </p>
     );
   }
@@ -210,9 +210,7 @@ export function SourcesList({ refreshNonce, onPreview, onBusyChange, disabled }:
     <div className="space-y-3">
       {pendingCount > 0 ? (
         <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-200">
-          {pendingCount} source{pendingCount === 1 ? "" : "s"} pending — ingestion failed or is awaiting approval.
-          Review any proposal below, or use <strong>Retry</strong> to generate a new one.
-          <strong> Delete</strong> removes the source.
+          {pendingCount} 份资料待处理：整理失败或正在等待确认。请查看下方建议，或点击<strong>重试</strong>重新整理；点击<strong>删除</strong>可移除来源。
         </p>
       ) : null}
 
@@ -256,7 +254,7 @@ export function SourcesList({ refreshNonce, onPreview, onBusyChange, disabled }:
                   <span className="font-mono">{formatBadge}</span>
                   {" · "}
                   {formatSize(s.sizeBytes)}
-                  {" · added "}
+                  {" · "}
                   {relativeDate(s.addedAt)}
                 </p>
               </div>
@@ -264,7 +262,7 @@ export function SourcesList({ refreshNonce, onPreview, onBusyChange, disabled }:
                 {isPending ? (
                   <>
                     <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-amber-700 dark:text-amber-300">
-                      pending
+                      待处理
                     </span>
                     <Button
                       size="sm"
@@ -272,12 +270,12 @@ export function SourcesList({ refreshNonce, onPreview, onBusyChange, disabled }:
                       onClick={() => void onRetry(s)}
                       disabled={disabled || busyId !== null}
                     >
-                      {isBusy ? "Retrying…" : "Retry"}
+                      {isBusy ? "重试中…" : "重试"}
                     </Button>
                   </>
                 ) : (
                   <span className="text-muted-foreground">
-                    {s.pageCount} page{s.pageCount === 1 ? "" : "s"}
+                    {s.pageCount} 个页面
                   </span>
                 )}
                 <Button
@@ -285,9 +283,9 @@ export function SourcesList({ refreshNonce, onPreview, onBusyChange, disabled }:
                   variant="ghost"
                   onClick={() => void onDelete(s)}
                   disabled={disabled || busyId !== null}
-                  title="Remove from the list. Raw file goes to .llm-wiki/trash/raw/."
+                  title="移除来源，并将原始文件移入回收站"
                 >
-                  {isBusy && !isPending ? "Removing…" : "Delete"}
+                  {isBusy && !isPending ? "移除中…" : "删除"}
                 </Button>
               </div>
             </li>

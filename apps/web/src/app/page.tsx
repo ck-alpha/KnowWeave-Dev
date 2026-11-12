@@ -75,8 +75,8 @@ export default async function HomePage({ searchParams }: { searchParams: { needs
         </h1>
         <p className="mt-3 max-w-2xl text-body text-muted-foreground">
           {isFresh
-            ? "Add articles, papers, notes, or URLs. A local model turns them into linked Markdown pages with traceable sources."
-            : "Local-first knowledge base maintained by an LLM agent."}
+            ? "从一篇文章、一份论文或一段笔记开始。让本地模型整理知识，再沿着引用回到原文。"
+            : "让零散资料彼此连接，让每一次提问都有据可循。"}
         </p>
         <p className="mt-2 font-mono text-caption text-muted-foreground">{wikiPath}</p>
       </header>
@@ -95,45 +95,41 @@ export default async function HomePage({ searchParams }: { searchParams: { needs
         <Link
           href="/dashboard"
           className="hover:text-foreground"
-          title="Stats across every wiki you've opened"
+          title="查看所有知识库的统计信息"
         >
-          ↗ See all wikis
+          ↗ 查看所有知识库
         </Link>
       </p>
 
       <section className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <ActionCard
           tone="primary"
-          title={isFresh ? "Add your first source" : "Ingest a source"}
-          body="Paste an article, drop a PDF, or pull a URL. The agent reads it, writes pages, and cross-links."
-          cta="Open Sources →"
+          title="01 / Sources"
+          body="添加文章、论文或笔记。本地模型提炼内容，创建或更新相互关联的 Wiki 页面。"
+          cta={isFresh ? "添加第一份资料 →" : "导入资料 →"}
           href="/sources"
         />
         <ActionCard
-          title="Query the wiki"
-          body="One-off Q&A with citations. Promote good answers into permanent pages."
-          cta="Open Query →"
-          href="/query"
-        />
-        <ActionCard
-          title="Browse the wiki"
+          title="02 / Wiki"
           body={
             pageCount === 0
-              ? "Empty for now. Add a source to start filling it in."
-              : `${pageCount} page${pageCount === 1 ? "" : "s"} across concepts, entities, and overviews.`
+              ? "导入后，整理好的概念、实体与综述会出现在这里。"
+              : `已有 ${pageCount} 个知识页面。阅读、编辑，并随时核对原始来源。`
           }
-          cta={pageCount === 0 ? "Add a source first →" : "Open Wiki →"}
+          cta={pageCount === 0 ? "先添加资料 →" : "浏览知识库 →"}
           href={pageCount === 0 ? "/sources" : "/wiki"}
         />
         <ActionCard
-          title="Lint the wiki"
-          body={
-            pageCount === 0
-              ? "Nothing to check yet. Ingest sources first."
-              : "Scan for contradictions, broken links, orphans, and gaps. Quick-fixes inline."
-          }
-          cta={pageCount === 0 ? "Add a source first →" : "Open Lint →"}
-          href={pageCount === 0 ? "/sources" : "/lint"}
+          title="03 / Query"
+          body="围绕知识库提问，获得带引用的回答。点击引用查看依据，重要内容可保存为页面。"
+          cta="开始提问 →"
+          href="/query"
+        />
+        <ActionCard
+          title="Explore / Graph"
+          body="从一个概念出发，探索页面之间的连接，发现值得继续阅读的知识线索。"
+          cta="探索知识图谱 →"
+          href="/graph"
         />
       </section>
 
@@ -141,18 +137,18 @@ export default async function HomePage({ searchParams }: { searchParams: { needs
         <MetaCard
           title="How it works"
           items={[
-            "Three layers on disk: raw sources, LLM-maintained wiki, your CLAUDE.md schema.",
-            "Three operations: ingest, query, lint. All run against your folder.",
-            "Wiki pages are Markdown files you can inspect, edit, and back up locally.",
+            "01 · 添加资料：在 Sources 粘贴文本或上传文档，点击「导入并整理」。",
+            "02 · 阅读与连接：在 Wiki 查看整理后的页面，在 Graph 探索知识之间的关系。",
+            "03 · 提问与核对：在 Query 提问，点击回答中的引用，再从 Wiki 返回原始资料。",
           ]}
         />
         <MetaCard
           title="Keyboard"
           items={[
-            { kbd: "⌘K", text: "Command palette — jump anywhere" },
-            { kbd: "⌘,", text: "Settings" },
-            { kbd: "⌘↵", text: "Submit (in form / chat composer)" },
-            { kbd: "esc", text: "Close dialog" },
+            { kbd: "⌘K", text: "打开命令面板，快速跳转" },
+            { kbd: "⌘,", text: "打开设置" },
+            { kbd: "⌘↵", text: "提交问题或发送消息" },
+            { kbd: "esc", text: "关闭弹窗" },
           ]}
         />
       </section>

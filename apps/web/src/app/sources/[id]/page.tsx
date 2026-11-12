@@ -17,15 +17,15 @@ const MAX_RAW_BYTES = 1_000_000; // 1 MB
 const FORMAT_LABEL: Record<string, string> = {
   markdown: "Markdown",
   md: "Markdown",
-  text: "Plain text",
-  txt: "Plain text",
+  text: "纯文本",
+  txt: "纯文本",
   html: "HTML",
-  url: "URL extract",
+  url: "网页正文",
   pdf: "PDF",
   docx: "DOCX",
   pptx: "PPTX",
   xlsx: "XLSX",
-  image: "Image",
+  image: "图片",
 };
 
 function formatSize(n: number): string {
@@ -35,7 +35,15 @@ function formatSize(n: number): string {
 }
 
 function formatDate(iso: string): string {
-  return new Date(iso).toISOString().slice(0, 16).replace("T", " ");
+  return new Intl.DateTimeFormat("zh-CN", {
+    timeZone: "Asia/Shanghai",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(new Date(iso));
 }
 
 // Pages that list this source in their page_sources rows. Cheap query —
@@ -86,12 +94,12 @@ export default async function SourceDetailPage({
       // hits non-text bytes.
       if (rawText.includes("�")) {
         rawText = null;
-        rawError = "Binary file — open in an editor that handles this format.";
+        rawError = "此格式无法直接预览，请使用支持该格式的应用打开原文件。";
       }
     } catch (err) {
       rawError = (err as NodeJS.ErrnoException).code === "ENOENT"
-        ? "The original file is missing. Restore it from a backup to verify this source."
-        : "Could not read the original file. Check its permissions in the Wiki folder.";
+        ? "找不到原始文件。请从备份恢复后，再核对这份来源。"
+        : "无法读取原始文件，请检查 Wiki 目录中的文件权限。";
     }
 
     const title =
@@ -111,7 +119,7 @@ export default async function SourceDetailPage({
               href="/sources"
               className="text-ui text-primary underline underline-offset-2 hover:text-primary/80"
             >
-              ← All sources
+              ← 返回 Sources
             </Link>
           }
         />
@@ -121,13 +129,13 @@ export default async function SourceDetailPage({
         <dl className="mb-6 grid grid-cols-2 gap-x-6 gap-y-2 rounded-md border border-border/70 bg-card p-4 text-sm sm:grid-cols-4">
           <div>
             <dt className="text-[10px] uppercase tracking-wider text-muted-foreground">
-              Format
+              格式
             </dt>
             <dd className="mt-0.5 font-medium">{formatLabel}</dd>
           </div>
           <div>
             <dt className="text-[10px] uppercase tracking-wider text-muted-foreground">
-              Size
+              大小
             </dt>
             <dd className="mt-0.5 font-medium tabular-nums">
               {formatSize(source.size_bytes)}
@@ -135,22 +143,22 @@ export default async function SourceDetailPage({
           </div>
           <div>
             <dt className="text-[10px] uppercase tracking-wider text-muted-foreground">
-              Added
+              添加时间（北京时间）
             </dt>
             <dd className="mt-0.5 font-mono text-[12px]">{formatDate(source.added_at)}</dd>
           </div>
           <div>
             <dt className="text-[10px] uppercase tracking-wider text-muted-foreground">
-              Ingested
+              整理时间（北京时间）
             </dt>
             <dd className="mt-0.5 font-mono text-[12px]">
-              {source.ingested_at ? formatDate(source.ingested_at) : "pending"}
+              {source.ingested_at ? formatDate(source.ingested_at) : "待处理"}
             </dd>
           </div>
           {source.original_name ? (
             <div className="col-span-2">
               <dt className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                Original filename
+                原始文件名
               </dt>
               <dd className="mt-0.5 font-mono text-[12px]">{source.original_name}</dd>
             </div>
@@ -158,7 +166,7 @@ export default async function SourceDetailPage({
           {source.url ? (
             <div className="col-span-2">
               <dt className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                Source URL
+                来源 URL
               </dt>
               <dd className="mt-0.5">
                 <a
@@ -180,7 +188,7 @@ export default async function SourceDetailPage({
         {pages.length > 0 ? (
           <section className="mb-6 rounded-md border border-border/70 bg-card p-4">
             <h2 className="mb-2 text-caption font-semibold uppercase tracking-wider text-muted-foreground">
-              Contributed to {pages.length} wiki page{pages.length === 1 ? "" : "s"}
+              关联的 Wiki 页面 · {pages.length}
             </h2>
             <ul className="flex flex-wrap gap-1.5">
               {pages.map((p) => (
@@ -201,14 +209,14 @@ export default async function SourceDetailPage({
             renders nicely; plain text falls through the same renderer. */}
         <section>
           <h2 className="mb-3 text-caption font-semibold uppercase tracking-wider text-muted-foreground">
-            Raw content
+            原始内容
           </h2>
           {rawError ? (
             <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-800 dark:text-amber-200">
               <p>{rawError}</p>
               <p className="mt-2 text-xs">
-                Open the file at{" "}
-                <code className="font-mono break-all">raw/{source.filename}</code> in your Wiki folder.
+                在 Wiki 文件夹中打开{" "}
+                <code className="font-mono break-all">raw/{source.filename}</code>。
               </p>
             </div>
           ) : rawText ? (
@@ -218,13 +226,13 @@ export default async function SourceDetailPage({
               </article>
               {truncated ? (
                 <p className="mt-2 text-caption text-muted-foreground">
-                  Truncated at 1 MB. Full content is on disk at{" "}
-                  <code className="font-mono break-all">raw/{source.filename}</code> in your Wiki folder.
+                  当前仅预览前 1 MB；完整内容保存在 Wiki 文件夹的{" "}
+                  <code className="font-mono break-all">raw/{source.filename}</code>。
                 </p>
               ) : null}
             </>
           ) : (
-            <p className="text-sm text-muted-foreground">No content available.</p>
+            <p className="text-sm text-muted-foreground">暂无可预览内容。</p>
           )}
         </section>
       </PageContainer>

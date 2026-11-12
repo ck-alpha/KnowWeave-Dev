@@ -66,7 +66,7 @@ export function PageEditor({
         <Input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="Title"
+          placeholder="页面标题"
           className="flex-1"
         />
         <select
@@ -114,10 +114,10 @@ export function PageEditor({
 
       <div className="flex gap-2">
         <Button onClick={onSave} disabled={saving}>
-          {saving ? "Saving…" : "Save"}
+          {saving ? "保存中…" : "保存"}
         </Button>
         <Button variant="outline" onClick={onCancel} disabled={saving}>
-          Cancel
+          取消
         </Button>
       </div>
     </div>

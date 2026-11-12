@@ -108,3 +108,70 @@ Round 03 实现与首版验收提交 `171f4ccc49a7b4cad8afd46b6d7e978b6007e47e` 
 依本次要求，原私有仓库已改名为 [ck-alpha/KnowWeave-Dev](https://github.com/ck-alpha/KnowWeave-Dev)，仓库 ID `1423077083`、private 可见性、`main` 分支与原有提交历史保留；本地 `origin` 更新为 `https://github.com/ck-alpha/KnowWeave-Dev.git`。改名前后本地与远端基线均为 `29a34ff6bc76a68ba727f628727d5493d7102bfe`。
 
 当前 README 与已跟踪文档中的私有仓库地址同步为新地址，包括历史提交链接和结构化证据中的地址；历史提交 SHA、实测指标和验收结论不变。产品展示名继续为 KnowWeave。独立公开快照位于相邻 `KnowWeave-Public` 工作区，已发布为非 Fork 的 Public KnowWeave，初始提交 `0db60428e3a65eab79c222fb46e5c68f690202da`，共 226 文件且只有一个无父提交。此次私有工作区仅维护文档，运行架构与源码不变；公开副本只整理展示文案、演示命名和非功能元数据。公开副本实际重跑安装、299 项 JS/TS、47 项 Python、typecheck/lint/build；匿名独立克隆也完成安装/生产构建，公开 HTTP 200、私有匿名 HTTP 404，原 10 个私有历史提交对象均不在公开克隆；完整范围、隐私/历史隔离与匿名复现见 [发布记录](PUBLIC_RELEASE.md)。
+
+## 2026-11-12（Asia/Shanghai）— Remote SSH 自动转发
+
+用户选择继续在服务器运行产品和模型，要求每次打开远程项目即可从本机浏览器访问。增加 [.vscode/settings.json](../.vscode/settings.json)，启用进程检测与转发恢复，明确配置已有服务 `3000` 为 `openBrowser`、`3001` 为 `silent`，其他端口默认忽略。已按当前 VS Code 1.113.0 对应源码核对：显式端口动作允许发现打开工作区前就已监听的端口。本机端口冲突时允许 VS Code 分配可用端口；以 Ports 面板实际地址为准。恢复已有转发不保证再次弹出浏览器。
+
+该配置复用服务器现有应用进程，依赖 Remote SSH 连接和应用处于运行状态；应用启动仍由 `scripts/local.mjs` 负责。同步 README、架构核对日期与进度，并更正进度首页遗漏的公开发布状态。未修改业务代码、模型、数据和服务器监听地址。
+
+实际验证：工作区 JSON 与两端口配置校验通过，修改文档的本地链接目标存在，`git diff --check` 通过；`3000` / `3001` 的 Query 页面均 HTTP 200，索引分别为 3/3、4/4 且 ready，既有服务 PID 保持不变。执行 `code --openExternal http://127.0.0.1:3000` 返回 0，已通过当前 Remote SSH 客户端发出浏览器打开请求；无法在服务器端确认用户 Windows 浏览器画面或关闭/重开项目后的行为。本次为工作区配置与文档变更，未重复执行应用测试或构建。
+
+## 2026-11-12（Asia/Shanghai）— Chat 生产入口静态跳转修复
+
+用户反馈本机浏览器 Chat 找不到输入框或新建入口无反应。排查时两个实例的 Chat 配置均为 Ollama `qwen3.8:27b`，真实 API 新建、中文发送、读取均成功，模型在约 8.3 秒回复。进一步用 Chromium 发现 `/chats` 虽然 HTTP 200，却通过 HTML meta refresh 与 `NEXT_REDIRECT;replace;/;307;` 回到首页；仅检查状态码不能验证页面可用。
+
+根因为 Chat 索引页未声明动态渲染：生产构建清单将 `/chats` 标为 `initialRevalidateSeconds:false`，并在 `chats.html` / `chats.rsc` 中保存了构建时的未配置跳转。运行时 Wiki 已配置，仍持续返回旧跳转。`/chats/[id]` 和 API 原本为动态路由，因此模型调用本身不受影响。
+
+最小修复在 `apps/web/src/app/chats/layout.tsx` 声明 `force-dynamic`，让整段 Chat 页面按请求读取当前 Wiki 设置。没有放宽 setup 条件，也没有修改检索、模型或会话协议。README 补充新建会话与窄屏侧栏入口，架构同步调用链和渲染约定。
+
+隔离副本生产构建成功（含类型检查与 lint，仍有两条既有 Hooks 警告及 Browserslist 数据提示），确认 `/chats` 不再出现在预渲染清单或生成静态 HTML。临时 3002 服务首次手动启动遗漏 pnpm 的模块搜索路径，返回 `Cannot find module 'better-sqlite3'`；复用既有服务环境后通过。此失败发生在隔离验证实例，未替换在线构建。随后保存旧 `.next`，替换新构建并按原有 Wiki/config 环境重启 3000/3001；首页、Chat、Query、Wiki 均 HTTP 200 且无 `NEXT_REDIRECT`，两库索引仍为 3/3、4/4 ready，临时 3002 已停止。
+
+修复后真实 Chromium 验证：3000 桌面 1440 宽进入 `/chats` 不再跳转，点击 `+ New chat` 后底部输入框可见且可编辑；14:20:38–39（Asia/Shanghai）发送中文测试问题，约 1.0 秒显示 Qwen 回复“聊天服务正常”，API 读取确认两条消息持久化。390 窄屏打开 `chats list` 后同样能新建并看到可用输入框。两个测试会话均通过 DELETE 移入回收站，未操作既有会话；3001 桌面/窄屏入口亦通过，无异常跳转。浏览器检查没有 HTTP 4xx/5xx、Runtime 异常或 console error。结果为 `browser-exercise.json`、`browser-demo.json`，截图为 `chats-1440.png`、`chats-390.png`；用户 Windows 浏览器的最终显示仍需用户刷新确认。
+
+本次运行证据和旧构建留在忽略目录 `.local/evidence/chat-diagnostic/`。本次未运行全量单元测试、检索 benchmark 或导入 Demo；针对渲染配置使用真实生产构建和浏览器路径验证。先前 Remote SSH 配置和文档修改保持在工作区，本次未提交或推送。
+
+## 2026-11-12（Asia/Shanghai）— 中英混合界面与 Graph 双视图
+
+用户希望保留部分英文营造简洁的学术感，同时用中文解释操作；随后明确要求网页长期保留 2D / 3D，让用户自行选择。沿用暖纸色、深红强调色和现有字体体系，英文保留在品牌、栏目、短标题与检索术语，中文用于步骤、按钮、表单、状态、错误后备提示和帮助。覆盖首页、Sources、Query、Wiki、Chats、首次引导、帮助与主要设置；资料正文与模型生成内容不翻译。README 和真实浏览器演示脚本同步操作名称，脚本保留旧英文兼容。
+
+Graph 继续使用服务端 `buildGraph` 的原有页面/引用数据，客户端拆出确定性布局和 3D 呈现组件。Map 使用 SVG，Space 按需载入已有 3D 库；共用标题/标签搜索、类型筛选、选择与详情，有向连线、邻接高亮、Wiki 跳转和 `?node=` 深链接。浏览器保存视图偏好，禁用存储不影响切换；WebGL2 不可用时可返回 Map。未增加依赖、API、模型调用或数据库字段。
+
+截图复核发现首版 3D 默认力模拟把节点聚成小团、2D 缩放使文字过小，已改为固定空间坐标与按节点边界/相机视角计算取景；2D 使用固定屏幕字号与标签避让。窄屏压缩标题和统计、类型条横向滚动，详情放到图下方。另修复 Settings 长本地路径造成的窄屏溢出。文案复核顺带纠正 Chat「整理到 Wiki」在审批预览时仍宣称已写入的旧问题：按现有 `kind` 区分待确认/已应用，待确认时提示到 Sources 重试并确认，隐藏尚未写入的页面链接；API 与审批协议不变。
+
+实际验证：
+
+- 最终 `pnpm typecheck` 通过；针对当前源码执行 graph core 7 项与新增布局/筛选 4 项，共 11 项通过（使用 `--exclude '**/.local/**'` 排除历史隔离副本）。此前未排除时命中了历史副本，32 项结果不作为本次测试计数。
+- 隔离目录生产构建通过，包含类型与 Next lint 检查；保留 command-palette 的 1 条既有 Hooks 依赖警告和 Browserslist 数据提示。逐文件核对构建副本与当前 apps/packages 源码一致。`node --check scripts/demo-browser.mjs`、文档本地链接和 `git diff --check` 通过。
+- 真实 Chromium 使用隔离的 18 页中英文 UI 样例，25 项操作/布局检查通过：双视图、选择/深链接、偏好重载、搜索/类型筛选、无结果/清除、重置、390 窄屏与主要路由无横向溢出；采集 1440 桌面深浅色、390 窄屏截图。浏览器 Runtime/console error 与 HTTP 错误均为 0。WebGL 禁用时切回 2D 单独通过，空 Wiki 返回中文空状态与 Sources 入口；另外 4 项真实键盘、拖动画布、滚轮缩放及重置检查通过（比较操作前后的实际变换，并核对拖动不清除选择）。这里的样例用于界面检查，不计作模型生成或检索评测。
+- 保留旧 `.next` 后更新本地 3000 / 3001；两实例首页、Graph、Chats、Query、Sources、Wiki 共 12 个 HTTP 入口均为 200 且无 setup 重定向。原索引分别保持 3/3、4/4 ready。两实例真实 Chromium 各 6 项检查通过，包含实际 Wiki 的 2D/3D、选择保留、窄屏宽度和图谱跳转到正文，无浏览器错误。
+- Chat 的 preview/applied 显示分支以模拟响应检查通过，没有为此次文案工作重新调用模型；全量测试、导入 Demo、SciFact benchmark、真实手机触控、大规模 WebGL 性能和用户 Windows 浏览器画面未重新验证。
+
+首次 UI QA 如实发现窄屏路径溢出并修复；后续鼠标检查曾点到 SVG 节点包围盒的空白处、页面跳转检查早于正文完成渲染，调整为实际圆点点击并等待正文后通过。一次 Python loopback 请求受代理影响返回 502，禁用该请求的代理后空图检查成功。完整 QA 主进程曾在输出成功报告后的清理阶段收到 SIGTERM，25 项 JSON 结果完整保留；后续独立交互与两在线实例的短流程均正常退出。没有将这些脚本/环境情况计作产品通过或失败的业务结论。
+
+截图、JSON、日志、隔离样例及旧构建保存在忽略目录 `.local/evidence/ui-refinement/`，未添加到产品数据或 Git。保留任务开始前的 Remote SSH 与 Chat 修复改动，本次未提交或推送。
+
+## 2026-11-12（Asia/Shanghai）— Lint 中文交互
+
+用户在了解 Lint 的用途后要求采用中文交互。本次保留英文栏目与 `Wiki health check` 短标题，主标题改为「Lint · 知识体检」，中文覆盖开始/重新检查、分类、优先级、来源、历史、批量确认、修复状态及后续问题说明。明确检查不会自动改正文，点击修复才写页；「重建页面目录」明确维护 `index.md`，向量索引仍由 Query 刷新。模型给出的整体状态标注为「模型评估」，避免与确定性问题数量混淆。
+
+新增 `lint-presentation.ts`，仅对已知本地断链/缺少引用的英文模板做中文展示映射，未知模板原样保留；原始问题仍用于 slug 提取与修复请求，机器字段和枚举不翻译。历史日志存储格式不变，严格解析 UTC stamp 后在 UI 显示北京时间和中文相对时间。原有「最相关页面」提示改为实际的部分页面覆盖说明，不修改 core 按 slug 取前 60 页的逻辑。
+
+Lint 模型提示词要求 `description`、`suggestedFix`、`suggestedQuestions` 使用简体中文，保留准确 slug、标题、原文引用与 JSON 协议；缺页描述以 `slug + 空格` 开头，兼容现有目标提取。修复摘要 `changeSummary` 使用中文，修复后的正文明确保留原页面语言。没有增加翻译服务、接口字段、数据库字段或额外确认流程。
+
+验证结果：
+
+- 现有 Lint 15 项与 Editor 19 项共 34 项测试通过，排除 `.local` 历史副本；展示 helper 的纯函数断言通过，覆盖原对象不变、未知/模型结果原样、北京时间与无效 stamp。全工作区 `pnpm typecheck` 通过。
+- 隔离生产构建通过，保留 command-palette 的 1 条既有 Hooks 依赖警告和 Browserslist 数据提示；构建副本逐文件核对与当前 apps/packages 源码相同。文档相对链接与 `git diff --check` 通过。
+- 独立 4 页英文 Wiki 在真实 Chromium 点击「开始检查」，实际调用本地 `qwen3.8:27b`：返回 2 项本地问题、2 项模型问题和 3 个中文后续问题。模型说明/建议为中文，缺页描述准确保留 `backup-guide ` 前缀；本地 API 文案保持旧协议，页面展示为中文。扫描前后 4 个 Wiki Markdown 文件内容逐一相同。
+- 浏览器 11 项检查通过，包括中文说明/来源/优先级/时间、修复按钮可用、390 窄屏宽度、实际移除 `workspace-guide` 中的失效链接（保留普通文字）、实际重建页面目录及中文反馈；Runtime/console error 与 HTTP 错误均为 0。截图核对 1440 桌面与 390 窄屏。
+- 另在同一隔离 Wiki 调用真实修复 API，将测试句中的 `30 days` 改为 `7 days`，返回 `fix-applied` 与中文摘要；正文仍为英文，原 `[[cache-policy]]` 链接保留。这是界面/语言验证样例，不是实际知识事实或模型质量评测。
+- 保留旧构建后更新本地 3000 / 3001。两实例 Lint 桌面/窄屏各 4 项浏览器检查通过，无浏览器错误；Lint、Graph、Query、Chats 共 8 个入口 HTTP 200 且无重定向，既有索引仍为 3/3、4/4 ready。没有在用户实际 Wiki 上运行 Lint 或点击修复。
+
+临时验证服务已停止，证据与旧构建保存在忽略目录 `.local/evidence/lint-chinese/`。未重跑完整测试、导入 Demo、检索 benchmark、大 Wiki 语义覆盖或不同模型的中文遵循度；单次真实输出不代表所有模型都严格遵循语言要求。保留前轮工作区改动，本次未提交或推送。
+
+## 2026-11-12（Asia/Shanghai）— 变更整理与 Git 交付
+
+按用户要求，将上述 Remote SSH 配置、Chat 生产入口修复、中英界面、Graph 2D/3D 和 Lint 中文交互整理为一次代码与文档同步提交，交付目标为私有仓库 `ck-alpha/KnowWeave-Dev` 的 `main`。前面各节的「未提交或推送」描述实现当时的状态；独立公开源码仓库仍保留原发布快照。
+
+提交前已 fetch 并确认本地基线与 `origin/main` 一致；逐文件比较当前 198 个应用/包源码和构建配置，与本轮 Lint 验证成功的隔离构建输入完全一致，沿用上文已记录的类型、构建、相关回归和真实浏览器验证结果，没有把历史全量测试计作本次重跑。交付共 56 个文件，包含 README、架构、开发日志和进度；Wiki 数据、模型、数据库、截图、运行日志、隔离样例与旧构建继续留在忽略目录。

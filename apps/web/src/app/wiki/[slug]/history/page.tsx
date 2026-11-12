@@ -26,10 +26,7 @@ type Backup = {
   sizeBytes: number;
 };
 
-async function listBackupsForSlug(
-  wikiPath: string,
-  slug: string,
-): Promise<Backup[]> {
+async function listBackupsForSlug(wikiPath: string, slug: string): Promise<Backup[]> {
   const dir = join(wikiPath, WIKI_PATHS.tooling, PAGE_HISTORY_DIR);
   let entries: string[];
   try {
@@ -45,10 +42,7 @@ async function listBackupsForSlug(
   for (const name of entries) {
     if (!name.startsWith(prefix) || !name.endsWith(".md")) continue;
     const middle = name.slice(prefix.length, -3);
-    const isoLike = middle.replace(
-      /^(\d{4}-\d{2}-\d{2}T\d{2})-(\d{2})-(\d{2})-/,
-      "$1:$2:$3.",
-    );
+    const isoLike = middle.replace(/^(\d{4}-\d{2}-\d{2}T\d{2})-(\d{2})-(\d{2})-/, "$1:$2:$3.");
     const filePath = join(dir, name);
     let sizeBytes = 0;
     try {
@@ -109,9 +103,7 @@ export default async function PageHistoryPage({
           title={currentPage.frontmatter.title}
           description={
             <>
-              Every page edit (manual or LLM-driven) backs up the prior version
-              to <code className="font-mono text-[12px]">.llm-wiki/page-history/</code>.
-              This view lets you compare the current page to any prior backup.
+              每次手动编辑或模型更新前，都会备份原有版本。选择一份备份，即可查看它与当前正文的差异。
             </>
           }
           actions={
@@ -119,17 +111,16 @@ export default async function PageHistoryPage({
               href={`/wiki/${params.slug}`}
               className="text-ui text-primary underline underline-offset-2 hover:text-primary/80"
             >
-              ← Back to page
+              ← 返回页面
             </Link>
           }
         />
 
         {backups.length === 0 ? (
           <div className="rounded-md border border-dashed border-border bg-card p-8 text-center">
-            <p className="font-display text-h3 font-semibold">No backups yet</p>
+            <p className="font-display text-h3 font-semibold">还没有历史备份</p>
             <p className="mx-auto mt-2 max-w-md text-ui text-muted-foreground">
-              The first edit to this page (via the in-app editor, a lint quick-fix,
-              or a re-ingest) will create a backup here.
+              首次编辑、使用 Lint 修复或重新导入更新此页面后，这里会出现备份。
             </p>
           </div>
         ) : (

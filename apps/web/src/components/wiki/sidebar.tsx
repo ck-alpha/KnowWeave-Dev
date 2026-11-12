@@ -35,7 +35,7 @@ export function WikiSidebar() {
       setError(null);
       try {
         const res = await fetch("/api/pages", { cache: "no-store" });
-        if (!res.ok) throw new Error(`/api/pages returned ${res.status}`);
+        if (!res.ok) throw new Error(`页面列表加载失败（HTTP ${res.status}）`);
         const data = (await res.json()) as { pages: PageSummary[] };
         if (!cancelled) setPages(data.pages);
       } catch (err) {
@@ -51,9 +51,7 @@ export function WikiSidebar() {
     if (!pages) return null;
     const needle = filter.trim().toLowerCase();
     const filtered = needle
-      ? pages.filter(
-          (p) => p.slug.includes(needle) || p.title.toLowerCase().includes(needle),
-        )
+      ? pages.filter((p) => p.slug.includes(needle) || p.title.toLowerCase().includes(needle))
       : pages;
     const byType = new Map<string, PageSummary[]>();
     for (const p of filtered) {
@@ -73,7 +71,7 @@ export function WikiSidebar() {
       <div className="px-4 pb-2 pt-4">
         <Input
           type="search"
-          placeholder="Filter pages…"
+          placeholder="搜索页面…"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           className="h-8 border-border/70 bg-background/60 text-ui"
@@ -92,19 +90,17 @@ export function WikiSidebar() {
           Wiki index
         </Link>
 
-        {error ? (
-          <p className="px-3 text-caption text-destructive">{error}</p>
-        ) : null}
+        {error ? <p className="px-3 text-caption text-destructive">{error}</p> : null}
         {!pages && !error ? (
-          <p className="px-3 text-caption text-muted-foreground">Loading…</p>
+          <p className="px-3 text-caption text-muted-foreground">加载中…</p>
         ) : null}
         {pages && pages.length === 0 ? (
           <div className="mx-2 mt-2 rounded-md border border-dashed border-border/70 bg-background/40 px-3 py-3 text-caption text-muted-foreground">
-            No pages yet. Head to{" "}
+            还没有页面。前往{" "}
             <Link href="/sources" className="text-foreground underline underline-offset-2">
               Sources
             </Link>{" "}
-            to add one.
+            添加资料，生成你的第一篇 Wiki。
           </div>
         ) : null}
 

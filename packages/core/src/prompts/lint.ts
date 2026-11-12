@@ -13,6 +13,11 @@ Look for:
 For each issue, suggest a fix when possible (a one-line description of what to change).
 Also suggest follow-up questions the user could investigate to fill gaps.
 
+The interface language is Simplified Chinese. Write descriptions, suggested fixes,
+and follow-up questions in Simplified Chinese, even when the wiki pages are in another language.
+Preserve page titles, quoted source text, technical identifiers, and slugs exactly as supplied.
+This is a report about the pages; do not translate or rewrite the wiki content.
+
 The user has already run a deterministic local scan; treat the "deterministic findings" below
 as ground truth and focus your output on semantic issues the local scan can't see
 (contradictions, stale claims, missing-page suggestions, gaps).`;
@@ -24,12 +29,12 @@ const JSON_SHAPE = `Output ONLY a valid JSON object matching this exact shape. N
     {
       "severity": "high",
       "type": "contradiction",
-      "description": "What disagrees, and where.",
+      "description": "说明哪些页面的内容存在矛盾，以及具体分歧。",
       "affectedPages": ["slug-a", "slug-b"],
-      "suggestedFix": "One-line action the user could take, or null."
+      "suggestedFix": "核对原始来源后，修正 slug-b 中与证据不一致的表述。"
     }
   ],
-  "suggestedQuestions": ["Up to 5 follow-up questions the user could investigate."],
+  "suggestedQuestions": ["哪些原始资料可以帮助核对这一分歧？"],
   "overallHealth": "good"
 }
 
@@ -40,6 +45,10 @@ Strict field rules:
 - "affectedPages" MUST be an array of kebab-case slugs (use [] if none). Every slug must exist in the index above.
 - "suggestedFix" MUST be a string or null.
 - "issues" and "suggestedQuestions" MUST be arrays. Use [] when empty.
+- Write "description", non-null "suggestedFix", and "suggestedQuestions" in Simplified Chinese. Return up to 5 follow-up questions.
+- Keep all JSON field names and enum values in the exact English form shown above. Never translate slugs or page titles.
+- For "missing-page", start "description" with the missing page's kebab-case slug followed by one ASCII space, then the Chinese explanation (for example: "no-cloning-theorem 被现有页面提及，但还没有独立页面。"). Do not wrap this leading slug in quotes, backticks, or brackets.
+- When a suggested fix edits a page, name that target page's exact slug in "suggestedFix" so the action can target it correctly.
 
 Severity guidance:
 - "high" for contradictions and broken cross-references.

@@ -7,81 +7,77 @@ export default function HelpPage() {
     <PageContainer width="lg">
       <PageHeader
         eyebrow="KnowWeave"
-        title="Using your local knowledge workspace"
-        description="Create a wiki, add evidence, ask questions, and check the sources."
+        title="Quick start"
+        description="从一份资料开始，整理知识、提出问题，再沿引用核对原文。"
       />
       <div className="space-y-6 text-body leading-relaxed">
         <Card>
-          <h2 className="font-display text-h2 font-semibold">Set up the wiki</h2>
+          <h2 className="font-display text-h2 font-semibold">01 · 设置知识库</h2>
           <p className="mt-3 text-muted-foreground">
-            Give the wiki a focused topic. In Settings → Models, select Ollama and a model tag
-            installed on your machine. Local model calls do not require an OpenRouter key. See the{" "}
+            为 Wiki 设置一个明确的主题。在 Settings → Models 中选择
+            Ollama，并填写本机已安装的模型名称。 使用本地模型无需 OpenRouter 密钥。你可以查看{" "}
             <Link href="/local-models" className="text-primary underline underline-offset-2">
-              local setup guide
+              本地模型配置指南
             </Link>{" "}
-            for connection checks. Settings → Wikis creates or switches between separate wiki
-            folders.
+            检查连接；在 Settings → Wikis 中创建或切换独立知识库。若启动配置固定了 Wiki 目录，请按
+            Wikis 页提示调整。
           </p>
         </Card>
         <Card>
-          <h2 className="font-display text-h2 font-semibold">Add a document and run Ingest</h2>
+          <h2 className="font-display text-h2 font-semibold">02 · 添加资料，整理为 Wiki</h2>
           <p className="mt-3 text-muted-foreground">
-            Open{" "}
+            打开{" "}
             <Link href="/sources" className="text-primary underline underline-offset-2">
               Sources
             </Link>{" "}
-            and paste text, upload a supported file, or enter a URL. The app keeps the source and
-            asks the model to create or update linked Wiki pages. When ingest approval is enabled in
-            Settings → General, review and apply the proposal before expecting pages to appear.
+            ，粘贴文本、上传支持的文件或输入网址，再点击「导入并整理」。原始资料会保留，模型会据此创建或更新关联的
+            Wiki 页面。 如果在 Settings → General 中开启了导入审批，请先检查提案，再点击「确认并写入
+            Wiki」。
           </p>
           <p className="mt-3 text-muted-foreground">
-            Begin with a short text document. The SciFact sample procedure lives in the repository
-            README; it is a small workflow demonstration, not a full dataset evaluation.
+            建议先用一篇简短文本体验完整流程。仓库 README 提供了可复现的 SciFact 小样本演示步骤。
           </p>
         </Card>
         <Card>
-          <h2 className="font-display text-h2 font-semibold">Ask and verify</h2>
+          <h2 className="font-display text-h2 font-semibold">03 · 提问，并核对依据</h2>
           <p className="mt-3 text-muted-foreground">
             <Link href="/query" className="text-primary underline underline-offset-2">
               Query
             </Link>{" "}
-            answers a single question from your wiki. Chats keeps a conversation. Open cited pages,
-            inspect their sources, and compare the answer with the original text. A citation is a
-            navigation aid; verify that its content actually supports the claim. You can save useful
-            answers as wiki pages.
+            用于单次问答，Chats 用于多轮对话。Query 默认使用 BM25；首次使用 Embedding 或 Hybrid 前，
+            先点击「构建 / 刷新向量索引」。收到回答后，点击 Wiki 引用，再沿 Sources
+            返回原文，检查证据是否支持结论。 有价值的回答也可以保存为 Wiki 页面。
           </p>
         </Card>
         <Card>
-          <h2 className="font-display text-h2 font-semibold">Maintain the knowledge</h2>
+          <h2 className="font-display text-h2 font-semibold">04 · 浏览关系，持续维护</h2>
           <p className="mt-3 text-muted-foreground">
-            Wiki supports browsing, editing, history, and linked pages. Graph displays existing wiki
-            links. Lint checks local link/index issues and can request semantic checks from the
-            configured model. Schema edits the wiki&apos;s
-            <code> CLAUDE.md</code> guidance. Log records changes.
+            在 Wiki 中浏览、编辑页面或查看历史；Graph 将页面之间已有的链接呈现为知识图谱，支持切换
+            2D 与 3D。 Lint 检查链接、索引和语义问题；Schema 用于调整知识库的整理规则；Log
+            记录变更。
           </p>
         </Card>
         <Card>
-          <h2 className="font-display text-h2 font-semibold">Your files</h2>
+          <h2 className="font-display text-h2 font-semibold">Local files</h2>
           <pre className="mt-3 overflow-x-auto text-caption">{`<wiki folder>/
-├── CLAUDE.md       Wiki schema and model guidance
-├── index.md        Wiki page catalog
-├── log.md          Change log
-├── raw/            Imported sources
-├── wiki/           Markdown pages
-├── chats/          Conversations
-└── .llm-wiki/      SQLite metadata, settings, and history`}</pre>
+├── CLAUDE.md       知识库结构与模型指引
+├── index.md        页面目录
+├── log.md          变更记录
+├── raw/            原始资料
+├── wiki/           知识页面
+├── chats/          对话记录
+└── .llm-wiki/      元数据、设置与历史`}</pre>
           <p className="mt-3 text-muted-foreground">
-            The internal metadata name is retained for compatibility. Back up your wiki folder
-            before upgrading. For source updates, dependency setup, and tested commands, use this
-            project&apos;s README and current development records.
+            知识库保存在本地文件夹中。升级前请备份整个 Wiki 文件夹；安装、更新及启动命令见仓库
+            README。
           </p>
         </Card>
         <div className="flex gap-6 text-ui">
           <Link href="/about" className="text-primary underline underline-offset-2">
-            About KnowWeave
+            关于 KnowWeave
           </Link>
           <Link href="/developers" className="text-primary underline underline-offset-2">
-            Developer overview
+            开发者说明
           </Link>
         </div>
       </div>

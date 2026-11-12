@@ -41,7 +41,7 @@ export async function Footer({ className = "" }: { className?: string }) {
             <Link
               href="/settings?tab=wikis"
               className="max-w-[16rem] truncate hover:text-foreground"
-              title={`Active wiki — click to switch (${activeTopic})`}
+              title={`当前 Wiki，点击切换 (${activeTopic})`}
             >
               <span aria-hidden className="text-muted-foreground/70">
                 ⌂
@@ -54,7 +54,7 @@ export async function Footer({ className = "" }: { className?: string }) {
         <Link
           href="/dashboard"
           className="hover:text-foreground"
-          title="Per-wiki page / source / chat counts + cumulative LLM spend across every wiki"
+          title="查看各 Wiki 的页面、来源、会话数量与模型累计用量"
         >
           Dashboard
         </Link>

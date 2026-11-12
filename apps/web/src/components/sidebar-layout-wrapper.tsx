@@ -46,7 +46,7 @@ export function SidebarLayoutWrapper({ sidebar, children, triggerLabel }: Props)
         <button
           type="button"
           onClick={() => setOpen(false)}
-          aria-label="Close sidebar"
+          aria-label="关闭侧栏"
           className="absolute inset-0 z-30 bg-black/40 sm:hidden"
         />
       ) : null}
@@ -85,8 +85,10 @@ export function SidebarLayoutWrapper({ sidebar, children, triggerLabel }: Props)
             aria-label={triggerLabel}
             className="inline-flex h-7 items-center gap-1.5 rounded-md border border-border bg-card px-2 text-[12px] hover:bg-accent"
           >
-            <span aria-hidden className="font-mono leading-none">≡</span>
-            <span>{triggerLabel.replace(/^Open /, "")}</span>
+            <span aria-hidden className="font-mono leading-none">
+              ≡
+            </span>
+            <span>{triggerLabel.replace(/^(Open |打开)/, "")}</span>
           </button>
         </div>
         {children}

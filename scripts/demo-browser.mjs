@@ -118,7 +118,9 @@ async function uiChain() {
     for (const type of ['mousePressed', 'mouseReleased'])
       await cdp.send('Input.dispatchMouseEvent', { type, ...point, button: 'left', clickCount: 1 }, sessionId);
   };
-  const button = text => `[...document.querySelectorAll('button')].find(e=>e.innerText.trim()===${JSON.stringify(text)})`;
+  // Accept current Chinese actions and the original English UI when replaying
+  // the same demo against an older build. Model output remains untouched.
+  const button = (...labels) => `[...document.querySelectorAll('button')].find(e=>${JSON.stringify(labels)}.includes(e.innerText.trim()))`;
   const fill = async (selector, value) => {
     await click(`document.querySelector(${JSON.stringify(selector)})`);
     await evaluate(`document.querySelector(${JSON.stringify(selector)}).select()`);
@@ -157,9 +159,9 @@ async function uiChain() {
     await wait("document.querySelector('#text') && document.querySelector('#title')", 'paste form');
     await fill('#title', thirdTitle);
     await fill('#text', input);
-    await click(button('Ingest'));
+    await click(button('导入并整理', 'Ingest'));
     console.log('Browser submitted third SciFact source; waiting for Qwen…');
-    await wait("[...document.querySelectorAll('strong')].some(e=>e.innerText==='Ingested.')", 'real ingest', 600000);
+    await wait("[...document.querySelectorAll('strong')].some(e=>['整理完成。','Ingested.'].includes(e.innerText.trim()))", 'real ingest', 600000);
     report.ingest = await responseFor('/api/ingest');
     if (!report.ingest.ok || report.ingest.kind !== 'applied') throw new Error('Browser ingest was not applied');
     report.import_action = 'new third source via browser';
@@ -181,10 +183,10 @@ async function uiChain() {
   else await click(`document.querySelector('a[href="/wiki/${linked[0]}"]')`);
   await wait(`location.pathname==='/wiki/${linked[0]}' && document.querySelector('article')`, 'browse ingested page');
   await navigate('/query');
-  await wait("document.querySelector('#retrieval-mode') && !document.querySelector('[role=status]').innerText.includes('Checking')", 'retrieval status');
+  await wait("document.querySelector('#retrieval-mode') && document.querySelector('[role=status]') && !/Checking|正在检查/.test(document.querySelector('[role=status]').innerText)", 'retrieval status');
   report.before_refresh = await api('/api/retrieval');
-  await click(button('Build / refresh embedding index'));
-  await wait("document.body.innerText.includes('Refresh finished:')", 'index refresh', 180000);
+  await click(button('构建 / 刷新向量索引', 'Build / refresh embedding index'));
+  await wait("[...document.querySelectorAll('[role=status]')].some(e=>/索引刷新完成：|Refresh finished:/.test(e.innerText))", 'index refresh', 180000);
   report.build = await responseFor('/api/retrieval');
   if (!report.build.ok || !report.build.ready) throw new Error('Index is not ready');
   const question = 'Does elevated aldehyde dehydrogenase in breast tumours predict a favorable patient outcome?';
@@ -192,7 +194,7 @@ async function uiChain() {
     await evaluate(`(() => {const e=document.querySelector('#retrieval-mode');e.value=${JSON.stringify(mode)};e.dispatchEvent(new Event('change',{bubbles:true}));})()`);
     await fill('#question', question);
     const previousRequests = requests.filter(r => r.path === '/api/query').length;
-    await click(button('Ask'));
+    await click(button('提问', 'Ask'));
     const sentDeadline = Date.now() + 10000;
     while (requests.filter(r => r.path === '/api/query').length === previousRequests) {
       if (Date.now() > sentDeadline) throw new Error('Browser did not submit the new question');
@@ -220,7 +222,7 @@ async function uiChain() {
   const sourceHref = await evaluate("document.querySelector('section a[href^=\"/sources/\"]:not([target])').getAttribute('href')");
   const source = await api(sourceHref.replace('/sources/', '/api/sources/'));
   await click(`document.querySelector('section a[href=${JSON.stringify(sourceHref)}]:not([target])')`);
-  await wait(`location.pathname===${JSON.stringify(sourceHref)} && document.querySelector('article') && [...document.querySelectorAll('h2')].some(e=>e.innerText.trim().toLowerCase()==='raw content')`, 'original source');
+  await wait(`location.pathname===${JSON.stringify(sourceHref)} && document.querySelector('article') && [...document.querySelectorAll('h2')].some(e=>['原始内容','raw content'].includes(e.innerText.trim().toLowerCase()))`, 'original source');
   const raw = await evaluate("document.querySelector('article').innerText");
   const normalize = s => s.replace(/\s+/g, ' ').trim();
   const corpusId = source.rawText?.match(/corpus_id=(\d+)/)?.[1];

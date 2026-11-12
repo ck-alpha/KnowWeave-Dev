@@ -8,76 +8,60 @@ export default function LocalModelsPage() {
       <PageHeader
         eyebrow="KnowWeave setup"
         title="Ollama and local Qwen"
-        description="Use your existing local model for document ingestion, questions, chat, and wiki checks."
+        description="连接本地 Ollama，让 Qwen 完成资料整理、问答、对话和知识库检查。"
       />
       <div className="space-y-6 text-body leading-relaxed">
         <Card>
-          <h2 className="font-display text-h2 font-semibold">1. Check the local runtime</h2>
+          <h2 className="font-display text-h2 font-semibold">01 · 检查 Ollama 服务</h2>
           <p className="mt-3 text-muted-foreground">
-            Start Ollama if it is not already running, then list installed models. Use the exact tag
-            reported by your installation. This project&apos;s Round 01 environment uses{" "}
-            <code>qwen3.8:27b</code>; another machine must have the selected model installed before
-            inference can work.
+            确认 Ollama 已启动，再查看已安装模型。本项目默认使用 <code>qwen3.8:27b</code>；
+            填写模型名称时，请与 <code>ollama list</code> 中的完整 tag 保持一致。
           </p>
           <pre className="mt-3 overflow-x-auto text-caption">{`ollama --version
 ollama list
 curl http://127.0.0.1:11434/api/tags
-# Only if the Ollama service is not already running:
+# 仅在 Ollama 尚未运行时执行：
 ollama serve`}</pre>
         </Card>
         <Card>
-          <h2 className="font-display text-h2 font-semibold">2. Select the provider and model</h2>
+          <h2 className="font-display text-h2 font-semibold">02 · 选择模型并保存</h2>
           <p className="mt-3 text-muted-foreground">
-            In{" "}
+            进入{" "}
             <Link href="/settings?tab=models" className="text-primary underline underline-offset-2">
               Settings → Models
             </Link>
-            , choose Ollama (Local) for each operation and enter the installed model tag. The
-            default text model is <code>qwen3.8:27b</code>. Save the settings. Local Ollama
-            operations do not need an API key.
+            ，为所需操作选择 Ollama，并填写已安装的模型 tag，然后保存。本地 Ollama 无需 API key。
           </p>
           <p className="mt-3 text-muted-foreground">
-            Round 01 uses text documents. Image and scanned PDF ingestion additionally require a
-            model whose image input capabilities have been verified; a text workflow passing does
-            not establish vision support.
+            建议从文本资料开始。图片和扫描版 PDF
+            需要支持图像输入的模型，当前项目尚未专项验证这类导入。
           </p>
         </Card>
         <Card>
-          <h2 className="font-display text-h2 font-semibold">3. Try a small source</h2>
+          <h2 className="font-display text-h2 font-semibold">03 · 用一份短资料试一试</h2>
           <p className="mt-3 text-muted-foreground">
-            Add a short document in Sources, run Ingest, inspect the generated Wiki pages, then ask
-            a question in Query. Follow the answer&apos;s page citations and the page&apos;s source
-            links to verify the evidence. The repository README describes the repeatable SciFact
-            sample workflow.
+            在 Sources 中添加一份短文档并点击「导入并整理」，查看生成的 Wiki 页面，再到 Query 提问。
+            点击回答中的页面引用，然后打开原始来源，核对模型的依据。仓库 README
+            提供了可复现的小样本流程。
           </p>
         </Card>
         <Card>
-          <h2 className="font-display text-h2 font-semibold">Connection and output checks</h2>
+          <h2 className="font-display text-h2 font-semibold">Troubleshooting</h2>
           <ul className="mt-3 list-disc space-y-2 pl-5 text-muted-foreground">
+            <li>连接被拒绝：确认运行本应用的服务器能够访问 Ollama。</li>
             <li>
-              Connection refused: confirm Ollama is reachable from the machine running the Next.js
-              server.
+              找不到模型：对照 <code>ollama list</code>，检查 Settings 中的名称及完整 tag。
             </li>
             <li>
-              Model not found: compare Settings with <code>ollama list</code>, including the
-              complete tag.
+              自定义地址：启动前设置 <code>OLLAMA_BASE_URL</code> 并重启应用，默认地址为{" "}
+              <code>http://127.0.0.1:11434</code>。
             </li>
-            <li>
-              Custom address: set <code>OLLAMA_BASE_URL</code> before starting the app, then restart
-              it. The default is <code>http://127.0.0.1:11434</code>.
-            </li>
-            <li>
-              Slow responses: allow for model loading and hardware limits; begin with a short text
-              source.
-            </li>
-            <li>
-              Invalid model output: inspect the error and retry with a smaller source. Ingest and
-              Query require schema-valid JSON.
-            </li>
+            <li>响应较慢：首次调用需要加载模型，耗时也受硬件影响；可以先使用较短文本。</li>
+            <li>模型输出格式有误：查看错误详情，尝试缩短资料后重试。</li>
           </ul>
         </Card>
         <Link href="/help" className="inline-block text-primary underline underline-offset-2">
-          Using the wiki →
+          返回使用指南 →
         </Link>
       </div>
     </PageContainer>
