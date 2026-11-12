@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 
 import { cn } from "@/lib/utils";
+import styles from "./sidebar-layout-wrapper.module.css";
 
 type Props = {
   sidebar: React.ReactNode;
@@ -30,16 +31,70 @@ type Props = {
 export function SidebarLayoutWrapper({ sidebar, children, triggerLabel }: Props) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [mobile, setMobile] = useState(false);
+  const [motion, setMotion] = useState("instant");
   const sidebarId = useId();
   const sidebarRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
   // Auto-close on route change so picking a page/chat from the drawer
   // immediately reveals it on mobile (the user expects the drawer to
   // get out of the way).
   useEffect(() => {
+    setMotion("instant");
     setOpen(false);
   }, [pathname]);
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 639px)");
+    let lastFocused = document.activeElement;
+    let focusFrame: number | undefined;
+    const rememberFocus = (event: FocusEvent) => {
+      if (event.target instanceof HTMLElement && event.target !== document.body) {
+        lastFocused = event.target;
+      }
+    };
+    const sync = () => {
+      // A breakpoint can hide the focused control before this callback runs.
+      const active =
+        document.activeElement === document.body ? lastFocused : document.activeElement;
+      const focusTrigger = media.matches && sidebarRef.current?.contains(active);
+      const focusSidebar = !media.matches && active === triggerRef.current;
+      if (focusFrame !== undefined) window.cancelAnimationFrame(focusFrame);
+      setMobile(media.matches);
+      setMotion("instant");
+      setOpen(false);
+      if (focusTrigger || focusSidebar) {
+        focusFrame = window.requestAnimationFrame(() => {
+          if (focusTrigger) {
+            triggerRef.current?.focus({ preventScroll: true });
+          } else {
+            const first = Array.from(
+              sidebarRef.current?.querySelectorAll<HTMLElement>(
+                'input:not(:disabled), button:not(:disabled), a[href], select:not(:disabled), textarea:not(:disabled), [tabindex="0"]',
+              ) ?? [],
+            ).find((element) => element.tabIndex >= 0 && element.getClientRects().length > 0);
+            (first ?? sidebarRef.current)?.focus({ preventScroll: true });
+          }
+        });
+      }
+    };
+    window.addEventListener("focusin", rememberFocus);
+    sync();
+    media.addEventListener("change", sync);
+    return () => {
+      media.removeEventListener("change", sync);
+      window.removeEventListener("focusin", rememberFocus);
+      if (focusFrame !== undefined) window.cancelAnimationFrame(focusFrame);
+    };
+  }, []);
+
+  // React 18 does not serialize the native boolean inert attribute reliably.
+  useEffect(() => {
+    if (sidebarRef.current) sidebarRef.current.inert = mobile && !open;
+    if (contentRef.current) contentRef.current.inert = mobile && open;
+  }, [mobile, open]);
 
   useEffect(() => {
     const desktop = window.matchMedia("(min-width: 640px)");
@@ -55,25 +110,62 @@ export function SidebarLayoutWrapper({ sidebar, children, triggerLabel }: Props)
         ?.focus({ preventScroll: true });
     });
     function onKey(event: KeyboardEvent) {
-      if (event.key !== "Escape" || event.defaultPrevented) return;
-      event.preventDefault();
-      setOpen(false);
-      triggerElement?.focus({ preventScroll: true });
+      if (event.defaultPrevented) return;
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setMotion("instant");
+        setOpen(false);
+        requestAnimationFrame(() => triggerElement?.focus({ preventScroll: true }));
+      } else if (event.key === "Tab") {
+        const controls = Array.from(
+          sidebarElement?.querySelectorAll<HTMLElement>(
+            'input:not(:disabled), button:not(:disabled), a[href], select:not(:disabled), textarea:not(:disabled), [tabindex="0"]',
+          ) ?? [],
+        ).filter((element) => element.tabIndex >= 0 && element.getClientRects().length > 0);
+        const first = controls[0];
+        const last = controls[controls.length - 1];
+        if (!first) {
+          event.preventDefault();
+          sidebarElement?.focus();
+        } else if (
+          event.shiftKey &&
+          (document.activeElement === first || !sidebarElement?.contains(document.activeElement))
+        ) {
+          event.preventDefault();
+          last?.focus();
+        } else if (
+          !event.shiftKey &&
+          (document.activeElement === last || !sidebarElement?.contains(document.activeElement))
+        ) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
     }
-    function onBreakpointChange(event: MediaQueryListEvent) {
-      if (event.matches) setOpen(false);
+    function onOutsideFocus(event: FocusEvent) {
+      if (event.target instanceof Node && !sidebarElement?.contains(event.target)) {
+        setMotion("instant");
+        setOpen(false);
+      }
     }
 
     window.addEventListener("keydown", onKey);
-    desktop.addEventListener("change", onBreakpointChange);
+    window.addEventListener("focusin", onOutsideFocus);
     return () => {
       window.cancelAnimationFrame(frame);
       window.removeEventListener("keydown", onKey);
-      desktop.removeEventListener("change", onBreakpointChange);
+      window.removeEventListener("focusin", onOutsideFocus);
       // A route change may close the drawer while its selected link has focus.
       // Do not move focus to a hidden mobile trigger after a desktop resize.
       if (!desktop.matches && sidebarElement?.contains(document.activeElement)) {
-        triggerElement?.focus({ preventScroll: true });
+        requestAnimationFrame(() => {
+          if (
+            document.activeElement === document.body ||
+            sidebarElement?.contains(document.activeElement)
+          ) {
+            triggerElement?.focus({ preventScroll: true });
+          }
+        });
       }
     };
   }, [open]);
@@ -82,17 +174,20 @@ export function SidebarLayoutWrapper({ sidebar, children, triggerLabel }: Props)
     <div className="relative flex flex-1 overflow-hidden">
       {/* Mobile backdrop. Captures taps to dismiss the drawer. Desktop
           ignores this entirely since the drawer doesn't overlay there. */}
-      {open ? (
-        <button
-          type="button"
-          onClick={() => {
-            setOpen(false);
-            triggerRef.current?.focus({ preventScroll: true });
-          }}
-          aria-label="关闭侧栏"
-          className="absolute inset-0 z-30 bg-black/40 sm:hidden"
-        />
-      ) : null}
+      <button
+        type="button"
+        tabIndex={-1}
+        aria-hidden={!open}
+        data-open={open}
+        data-motion={motion}
+        onClick={(event) => {
+          setMotion(event.detail ? "pointer" : "instant");
+          setOpen(false);
+          requestAnimationFrame(() => triggerRef.current?.focus({ preventScroll: true }));
+        }}
+        aria-label="关闭侧栏"
+        className={styles.backdrop}
+      />
 
       {/* Sidebar. On desktop: normal flex item, the inner sidebar's
           fixed width takes over. On mobile: absolute positioning,
@@ -104,18 +199,13 @@ export function SidebarLayoutWrapper({ sidebar, children, triggerLabel }: Props)
       <div
         id={sidebarId}
         ref={sidebarRef}
-        className={cn(
-          "z-40 flex transition-transform duration-200 ease-out",
-          // Desktop: in-flow, no transform applied.
-          "sm:relative sm:translate-x-0",
-          // Mobile: anchored to the wrapper's left edge, full height.
-          "absolute inset-y-0 left-0",
-          // Visibility also removes a closed drawer from keyboard navigation
-          // and the accessibility tree; a transform alone leaves it focusable.
-          open
-            ? "visible translate-x-0"
-            : "invisible -translate-x-full sm:visible sm:translate-x-0",
-        )}
+        role={mobile && open ? "dialog" : undefined}
+        aria-modal={mobile && open ? true : undefined}
+        aria-label={triggerLabel}
+        tabIndex={-1}
+        data-open={open}
+        data-motion={motion}
+        className={styles.drawer}
       >
         {sidebar}
       </div>
@@ -126,16 +216,21 @@ export function SidebarLayoutWrapper({ sidebar, children, triggerLabel }: Props)
           so position: sticky pins it to the top of the visible area
           — gives mobile users a constant trigger affordance without
           fighting whatever page header is below it. */}
-      <div className="min-w-0 flex-1 overflow-y-auto">
+      <div ref={contentRef} className="min-w-0 flex-1 overflow-y-auto">
         <div className="sticky top-0 z-20 flex items-center gap-2 border-b border-border bg-background/95 px-3 py-1.5 backdrop-blur sm:hidden">
           <button
             ref={triggerRef}
             type="button"
-            onClick={() => setOpen(true)}
+            onClick={(event) => {
+              setMotion(event.detail ? "pointer" : "instant");
+              setOpen(true);
+            }}
             aria-label={triggerLabel}
             aria-expanded={open}
             aria-controls={sidebarId}
-            className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1 text-sm hover:bg-accent"
+            className={cn(
+              "ui-pressable ui-button-outline inline-flex min-h-11 items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1 text-sm",
+            )}
           >
             <span aria-hidden className="font-mono leading-none">
               ≡

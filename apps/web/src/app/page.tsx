@@ -102,10 +102,9 @@ export default async function HomePage({ searchParams }: { searchParams: { needs
             <span className={styles.topicDot} aria-hidden />
             <span>{topic}</span>
           </Link>
-          <h1 id="desk-title">
-            让知识，
-            <br />
-            在此交织。
+          <h1 id="desk-title" lang="en">
+            Where knowledge <br />
+            weaves together.
           </h1>
           <p className={styles.introCopy}>
             把读过的资料，变成自己的理解。
@@ -113,11 +112,11 @@ export default async function HomePage({ searchParams }: { searchParams: { needs
             从一段阅读出发，循着线索，接着思考。
           </p>
           <div className={styles.actions}>
-            <Link href="/sources" className={styles.primaryAction}>
+            <Link href="/sources" className={`ui-pressable ${styles.primaryAction}`}>
               <Plus size={16} aria-hidden />
               {isFresh ? "添加第一份资料" : "添加资料"}
             </Link>
-            <Link href="/workspace" className={styles.secondaryAction}>
+            <Link href="/workspace" className={`ui-pressable ${styles.secondaryAction}`}>
               <FolderOpen size={16} aria-hidden />
               打开专题工作台
             </Link>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowUpRight, Bookmark, BookOpen, Check, FolderOpen, Plus, Search } from "lucide-react";
@@ -49,10 +49,23 @@ export function WorkspaceView({
   const [starred, setStarred] = useState(initialStarred ?? false);
   const [query, setQuery] = useState("");
   const [draft, setDraft] = useState<CollectionDraft | null>(null);
+  const [draftMotion, setDraftMotion] = useState("instant");
+  const draftTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const titleRef = useRef<HTMLInputElement>(null);
   const [addSlug, setAddSlug] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  function openDraft(event: MouseEvent<HTMLButtonElement>, next: CollectionDraft) {
+    draftTriggerRef.current = event.currentTarget;
+    setDraftMotion(event.detail ? "pointer" : "instant");
+    setDraft(next);
+    requestAnimationFrame(() => titleRef.current?.focus());
+  }
+  function closeDraft() {
+    setDraft(null);
+    requestAnimationFrame(() => draftTriggerRef.current?.focus({ preventScroll: true }));
+  }
   useEffect(() => {
     setData(initial);
   }, [initial]);
@@ -119,7 +132,7 @@ export function WorkspaceView({
         { title: draft.title, description: draft.description },
       )
     )
-      setDraft(null);
+      closeDraft();
   }
 
   async function removeCollection(item: WorkspaceCollection) {
@@ -143,7 +156,11 @@ export function WorkspaceView({
         title="把知识用在正在做的事上"
         description="围绕一个课题、一份报告或一个项目组织页面，记下判断，持续推进阅读。"
         actions={
-          <Button size="sm" onClick={() => setDraft({ title: "", description: "" })}>
+          <Button
+            size="sm"
+            disabled={busy}
+            onClick={(event) => openDraft(event, { title: "", description: "" })}
+          >
             <Plus aria-hidden="true" className="mr-1.5 h-4 w-4" />
             新建专题
           </Button>
@@ -220,7 +237,16 @@ export function WorkspaceView({
       {draft && (
         <form
           onSubmit={saveCollection}
-          className="mb-6 rounded-xl border border-primary/25 bg-card p-5"
+          aria-label={draft.id ? "编辑专题" : "新建专题"}
+          aria-busy={busy}
+          data-motion={draftMotion}
+          onKeyDown={(event) => {
+            if (event.key === "Escape" && !event.nativeEvent.isComposing && !busy) {
+              event.preventDefault();
+              closeDraft();
+            }
+          }}
+          className="ui-disclosure mb-6 rounded-xl border border-primary/25 bg-card p-5"
         >
           <h2 className="font-display text-h3 font-semibold">
             {draft.id ? "编辑专题" : "为下一项工作留出空间"}
@@ -232,6 +258,7 @@ export function WorkspaceView({
               </label>
               <Input
                 id="collection-title"
+                ref={titleRef}
                 autoFocus
                 required
                 maxLength={120}
@@ -262,13 +289,7 @@ export function WorkspaceView({
             <Button size="sm" disabled={busy || !draft.title.trim()}>
               {busy ? "保存中…" : "保存专题"}
             </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              disabled={busy}
-              onClick={() => setDraft(null)}
-            >
+            <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={closeDraft}>
               取消
             </Button>
           </div>
@@ -281,8 +302,9 @@ export function WorkspaceView({
             <h2 className="font-display text-lg font-semibold">我的专题</h2>
             <button
               aria-label="新建专题"
-              className="rounded p-1 hover:bg-accent"
-              onClick={() => setDraft({ title: "", description: "" })}
+              disabled={busy}
+              className="ui-pressable ui-button-ghost flex h-11 w-11 items-center justify-center rounded disabled:opacity-50"
+              onClick={(event) => openDraft(event, { title: "", description: "" })}
             >
               <Plus className="h-4 w-4" />
             </button>
@@ -352,8 +374,8 @@ export function WorkspaceView({
                   variant="ghost"
                   size="sm"
                   disabled={busy}
-                  onClick={() =>
-                    setDraft({
+                  onClick={(event) =>
+                    openDraft(event, {
                       id: collection.id,
                       title: collection.title,
                       description: collection.description,
@@ -396,7 +418,7 @@ export function WorkspaceView({
                 value={addSlug}
                 disabled={busy}
                 onChange={(event) => setAddSlug(event.target.value)}
-                className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-2 text-sm"
+                className="h-11 min-w-0 flex-1 rounded-md border border-input bg-background px-2 text-sm"
               >
                 <option value="">选择现有 Wiki 页面…</option>
                 {availablePages.map((page) => (
@@ -459,7 +481,7 @@ export function WorkspaceView({
                       aria-label={page.starred ? `取消收藏 ${page.title}` : `收藏 ${page.title}`}
                       aria-pressed={page.starred}
                       onClick={() => pagePatch(page, { starred: !page.starred })}
-                      className={styles.bookmark}
+                      className={`ui-pressable ${styles.bookmark}`}
                     >
                       <Bookmark
                         aria-hidden="true"
@@ -504,7 +526,7 @@ export function WorkspaceView({
                         disabled={busy}
                         value={page.readingStatus}
                         onChange={(event) => pagePatch(page, { readingStatus: event.target.value })}
-                        className="h-10 rounded-md border border-input bg-background px-3 text-caption text-foreground"
+                        className="h-11 rounded-md border border-input bg-background px-3 text-caption text-foreground"
                       >
                         {Object.entries(STATUS_LABEL).map(([value, label]) => (
                           <option key={value} value={value}>

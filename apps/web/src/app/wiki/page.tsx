@@ -109,7 +109,7 @@ export default async function WikiIndexPage({
             <select
               name="type"
               defaultValue={searchParams.type ?? ""}
-              className="mt-1 block h-10 w-full min-w-0 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+              className="mt-1 block h-11 w-full min-w-0 rounded-md border border-input bg-background px-3 text-sm text-foreground"
             >
               <option value="">全部类型</option>
               {types.map((type) => (
@@ -124,7 +124,7 @@ export default async function WikiIndexPage({
             <select
               name="tag"
               defaultValue={searchParams.tag ?? ""}
-              className="mt-1 block h-10 w-full min-w-0 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+              className="mt-1 block h-11 w-full min-w-0 rounded-md border border-input bg-background px-3 text-sm text-foreground"
             >
               <option value="">全部标签</option>
               {tags.map((tag) => (
@@ -139,7 +139,7 @@ export default async function WikiIndexPage({
             <select
               name="sort"
               defaultValue={searchParams.sort ?? "updated"}
-              className="mt-1 block h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+              className="mt-1 block h-11 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
             >
               <option value="updated">最近更新</option>
               <option value="oldest">最早更新</option>
@@ -148,7 +148,7 @@ export default async function WikiIndexPage({
           </label>
           <button
             type="submit"
-            className="h-10 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            className="h-11 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90"
           >
             查找
           </button>

@@ -21,7 +21,13 @@ import {
 } from "lucide-react";
 import type { GraphData } from "@llm-wiki/core";
 import { filterGraph, layoutGraph, neighborhoodGraph } from "./graph-layout";
-import { nodeRadius, placeGraphLabels } from "./graph-labels";
+import {
+  GRAPH_LABEL_BASELINE,
+  GRAPH_LABEL_FONT_SIZE,
+  GRAPH_LABEL_LINE_HEIGHT,
+  nodeRadius,
+  placeGraphLabels,
+} from "./graph-labels";
 import styles from "./graph.module.css";
 
 const SpatialGraph = dynamic(
@@ -48,7 +54,7 @@ export function graphType(group: string) {
 }
 
 const iconButton =
-  "grid h-9 w-9 shrink-0 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-30";
+  "grid h-11 w-11 shrink-0 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-30";
 type Camera = { x: number; y: number; zoom: number };
 type Mode = "2d" | "3d";
 
@@ -70,11 +76,18 @@ export function VaultGraph({
   const [canFullscreen, setCanFullscreen] = useState(false);
   const [size, setSize] = useState({ w: 900, h: 540 });
   const [camera, setCamera] = useState<Camera>({ x: 450, y: 270, zoom: 1 });
-  const [spaceCommand, setSpaceCommand] = useState({ action: "fit", tick: 0 });
+  const [spaceCommand, setSpaceCommand] = useState({ action: "fit", tick: 0, instant: true });
+  const [keyboardInput, setKeyboardInput] = useState(false);
   const surfaceRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
-  const drag = useRef<{ x: number; y: number; camera: Camera; moved: boolean } | null>(null);
+  const drag = useRef<{
+    pointerId: number;
+    x: number;
+    y: number;
+    camera: Camera;
+    moved: boolean;
+  } | null>(null);
   const suppressClick = useRef(false);
   const scoped = useMemo(
     () => (localOnly ? neighborhoodGraph(data, selectedId) : data),
@@ -204,9 +217,9 @@ export function VaultGraph({
     svg.addEventListener("wheel", wheel, { passive: false });
     return () => svg.removeEventListener("wheel", wheel);
   }, [mode, hasResults]);
-  function command(action: string) {
+  function command(action: string, instant = false) {
     if (mode === "3d") {
-      setSpaceCommand((current) => ({ action, tick: current.tick + 1 }));
+      setSpaceCommand((current) => ({ action, tick: current.tick + 1, instant }));
       return;
     }
     if (action === "fit") fit();
@@ -287,6 +300,12 @@ export function VaultGraph({
       <div
         ref={panelRef}
         className={`${styles.panel} overflow-hidden rounded-2xl border border-border bg-card`}
+        data-input={keyboardInput ? "keyboard" : "pointer"}
+        onKeyDownCapture={() => setKeyboardInput(true)}
+        onPointerDownCapture={() => setKeyboardInput(false)}
+        onPointerMoveCapture={(event) => {
+          if (event.pointerType === "mouse" && keyboardInput) setKeyboardInput(false);
+        }}
       >
         <div className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2 sm:gap-3 sm:px-5 sm:py-3">
           <div
@@ -399,12 +418,12 @@ export function VaultGraph({
             ref={surfaceRef}
             className={`${styles.surface} relative h-[460px] min-w-0 overflow-hidden sm:h-[580px]`}
           >
-            <div className="pointer-events-none absolute left-4 top-4 z-10 rounded-xl border border-border/50 bg-card/85 px-3 py-2.5 backdrop-blur-md sm:left-5 sm:top-5">
-              <p className="flex items-center gap-2 text-[9px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
+            <div className="pointer-events-none absolute left-4 top-4 z-10 w-[232px] max-w-[calc(100%-96px)] rounded-xl border border-border/50 bg-card/85 px-3 py-2.5 backdrop-blur-md sm:left-5 sm:top-5">
+              <p className="flex items-center gap-2 text-[16px] font-medium leading-6 tracking-wide text-muted-foreground">
                 <span className="h-1.5 w-1.5 rounded-full bg-primary/70" />
                 {mode === "2d" ? "Knowledge atlas" : "Knowledge orbit"}
               </p>
-              <p className="mt-1 text-[11px] text-muted-foreground" aria-live="polite">
+              <p className="mt-1 text-[16px] leading-6 text-muted-foreground" aria-live="polite">
                 {filtered.nodes.length} 个页面 · {filtered.links.length} 条关联
                 {(query || group || localOnly) && " · 已筛选"}
               </p>
@@ -493,30 +512,48 @@ export function VaultGraph({
                     }));
                 }}
                 onPointerDown={(event) => {
-                  if (event.button !== 0 || (event.target as Element).closest("[data-graph-node]"))
+                  if (
+                    drag.current ||
+                    !event.isPrimary ||
+                    event.button !== 0 ||
+                    (event.target as Element).closest("[data-graph-node]")
+                  )
                     return;
                   suppressClick.current = false;
-                  drag.current = { x: event.clientX, y: event.clientY, camera, moved: false };
+                  drag.current = {
+                    pointerId: event.pointerId,
+                    x: event.clientX,
+                    y: event.clientY,
+                    camera,
+                    moved: false,
+                  };
                   event.currentTarget.setPointerCapture(event.pointerId);
                 }}
                 onPointerMove={(event) => {
-                  if (!drag.current) return;
+                  if (drag.current?.pointerId !== event.pointerId) return;
                   const dx = event.clientX - drag.current.x,
                     dy = event.clientY - drag.current.y;
                   if (Math.hypot(dx, dy) > 4) drag.current.moved = true;
                   setCamera({
                     ...drag.current.camera,
-                    x: drag.current.camera.x - dx / camera.zoom,
-                    y: drag.current.camera.y - dy / camera.zoom,
+                    x: drag.current.camera.x - dx / drag.current.camera.zoom,
+                    y: drag.current.camera.y - dy / drag.current.camera.zoom,
                   });
                 }}
                 onPointerUp={(event) => {
-                  suppressClick.current = drag.current?.moved ?? false;
+                  if (drag.current?.pointerId !== event.pointerId) return;
+                  suppressClick.current = drag.current.moved;
                   drag.current = null;
                   if (event.currentTarget.hasPointerCapture(event.pointerId))
                     event.currentTarget.releasePointerCapture(event.pointerId);
                 }}
-                onPointerCancel={() => {
+                onPointerCancel={(event) => {
+                  if (drag.current?.pointerId !== event.pointerId) return;
+                  drag.current = null;
+                  suppressClick.current = true;
+                }}
+                onLostPointerCapture={(event) => {
+                  if (drag.current?.pointerId !== event.pointerId) return;
                   drag.current = null;
                   suppressClick.current = true;
                 }}
@@ -594,8 +631,10 @@ export function VaultGraph({
                         aria-pressed={focused}
                         className={`${styles.node} group cursor-pointer outline-none`}
                         opacity={muted && !hovered ? 0.18 : 1}
-                        onMouseEnter={() => setHoverId(node.id)}
-                        onMouseLeave={() => setHoverId(undefined)}
+                        onPointerEnter={(event) => {
+                          if (event.pointerType === "mouse") setHoverId(node.id);
+                        }}
+                        onPointerLeave={() => setHoverId(undefined)}
                         onFocus={() => setHoverId(node.id)}
                         onBlur={() => setHoverId(undefined)}
                         onClick={(event) => {
@@ -661,14 +700,18 @@ export function VaultGraph({
                             />
                             <text
                               x={label.w / 2}
-                              y={16}
+                              y={GRAPH_LABEL_BASELINE}
                               textAnchor="middle"
                               fill="hsl(var(--foreground))"
-                              fontSize={size.w < 600 ? 10.5 : 11.5}
+                              fontSize={GRAPH_LABEL_FONT_SIZE}
                               fontWeight={focused ? 600 : 500}
                             >
                               {label.lines.map((line, index) => (
-                                <tspan key={index} x={label.w / 2} dy={index ? 16 : 0}>
+                                <tspan
+                                  key={index}
+                                  x={label.w / 2}
+                                  dy={index ? GRAPH_LABEL_LINE_HEIGHT : 0}
+                                >
                                   {line}
                                 </tspan>
                               ))}
@@ -685,7 +728,7 @@ export function VaultGraph({
               <div className="absolute bottom-5 right-4 z-10 flex items-center gap-0.5 rounded-xl border border-border/80 bg-card/95 p-1 shadow-sm backdrop-blur sm:right-5">
                 <button
                   type="button"
-                  onClick={() => command("out")}
+                  onClick={(event) => command("out", event.detail === 0)}
                   className={iconButton}
                   aria-label="缩小图谱"
                   disabled={mode === "2d" && camera.zoom <= 0.12}
@@ -699,7 +742,7 @@ export function VaultGraph({
                 )}
                 <button
                   type="button"
-                  onClick={() => command("in")}
+                  onClick={(event) => command("in", event.detail === 0)}
                   className={iconButton}
                   aria-label="放大图谱"
                   disabled={mode === "2d" && camera.zoom >= 3}
@@ -709,7 +752,7 @@ export function VaultGraph({
                 <span className="mx-1 h-4 border-l border-border" />
                 <button
                   type="button"
-                  onClick={() => command("fit")}
+                  onClick={(event) => command("fit", event.detail === 0)}
                   className={iconButton}
                   aria-label="适应画布"
                   title="适应画布"
@@ -718,14 +761,18 @@ export function VaultGraph({
                 </button>
               </div>
             )}
-            <p className="pointer-events-none absolute bottom-[76px] left-4 text-[10px] leading-relaxed text-muted-foreground sm:hidden">
-              拖动探索
-              <span className="mx-1.5 opacity-40">/</span>点 + 放大
+            <p className="pointer-events-none absolute bottom-[84px] left-4 text-[16px] leading-6 text-muted-foreground sm:left-5">
+              {size.w < 600 ? (
+                <>
+                  拖动探索<span className="mx-1.5 opacity-40">/</span>点 + 放大
+                </>
+              ) : (
+                <>
+                  {mode === "2d" ? "拖动画布 · 滚轮缩放" : "拖动旋转 · 滚轮缩放"}
+                  <span className="mx-2 opacity-40">/</span>点击节点查看关联
+                </>
+              )}
             </p>
-            <div className="pointer-events-none absolute bottom-6 left-5 hidden text-[10px] text-muted-foreground/70 sm:block">
-              {mode === "2d" ? "拖动画布 · 滚轮缩放" : "拖动旋转 · 滚轮缩放"}
-              <span className="mx-2 opacity-40">/</span>点击节点查看关联
-            </div>
           </div>
 
           <aside
@@ -796,7 +843,7 @@ export function VaultGraph({
                   </Link>
                   <button
                     type="button"
-                    onClick={() => command("focus")}
+                    onClick={(event) => command("focus", event.detail === 0)}
                     disabled={!selectedVisible}
                     className="rounded-lg border border-border px-3 text-muted-foreground hover:bg-secondary disabled:opacity-30"
                     aria-label="居中所选节点"
@@ -938,11 +985,12 @@ export function VaultGraph({
         </span>
         <button
           type="button"
-          onClick={() => {
+          onClick={(event) => {
+            setKeyboardInput(event.detail === 0);
             clearFilters();
             select();
             setShowLabels(true);
-            command("fit");
+            command("fit", event.detail === 0);
           }}
           className="inline-flex items-center gap-1.5 py-1 hover:text-foreground"
         >

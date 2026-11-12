@@ -19,10 +19,11 @@
 .stat:last-child {
   border-right: 0;
 }
-
-.stat:hover {
-  color: hsl(var(--primary));
-  background: hsl(var(--card) / 0.65);
+@media (hover: hover) and (pointer: fine) {
+  .stat:hover {
+    color: hsl(var(--primary));
+    background: hsl(var(--card) / 0.65);
+  }
 }
 
 .statValue {
@@ -65,12 +66,13 @@
   padding: 0.875rem 0.75rem;
   border-left: 3px solid transparent;
   border-radius: 0 0.375rem 0.375rem 0;
-  font-size: 1rem;
+  font-size: 1.125rem;
   text-align: left;
 }
-
-.collection:hover {
-  background: hsl(var(--accent) / 0.6);
+@media (hover: hover) and (pointer: fine) {
+  .collection:hover {
+    background: hsl(var(--accent) / 0.6);
+  }
 }
 
 .collection[aria-pressed="true"] {
@@ -104,11 +106,12 @@
   border: 1px solid transparent;
   border-radius: 0.25rem;
   color: hsl(var(--muted-foreground));
-  font-size: 0.9375rem;
+  font-size: 1.125rem;
 }
-
-.filter:hover {
-  background: hsl(var(--accent) / 0.6);
+@media (hover: hover) and (pointer: fine) {
+  .filter:hover {
+    background: hsl(var(--accent) / 0.6);
+  }
 }
 
 .filter[aria-pressed="true"] {
@@ -136,9 +139,10 @@
 .bookmark[aria-pressed="true"] {
   background: hsl(var(--primary) / 0.09);
 }
-
-.bookmark:hover {
-  background: hsl(var(--accent));
+@media (hover: hover) and (pointer: fine) {
+  .bookmark:hover {
+    background: hsl(var(--accent));
+  }
 }
 
 .bookmark:disabled {
@@ -147,7 +151,7 @@
 
 .kind {
   color: hsl(var(--muted-foreground));
-  font-size: 0.875rem;
+  font-size: 1rem;
   line-height: 1.5;
 }
 
@@ -160,9 +164,10 @@
   line-height: 1.55;
   overflow-wrap: anywhere;
 }
-
-.title:hover {
-  color: hsl(var(--primary));
+@media (hover: hover) and (pointer: fine) {
+  .title:hover {
+    color: hsl(var(--primary));
+  }
 }
 
 .note {
@@ -174,7 +179,7 @@
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   color: hsl(var(--muted-foreground));
-  font-size: 1rem;
+  font-size: 1.125rem;
   line-height: 1.8;
   white-space: pre-wrap;
   overflow-wrap: anywhere;

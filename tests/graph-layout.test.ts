@@ -156,7 +156,7 @@ describe("graph label placement", () => {
     const half = placeGraphLabels(nodes, { ...camera, zoom: 0.5 }, { w: 600, h: 460 }, []).get(
       "a",
     )!;
-    expect(full).toEqual({ x: -39, y: 23, w: 78, h: 25, lines: ["知识 Graph"] });
+    expect(full).toEqual({ x: -49.5, y: 23, w: 99, h: 34, lines: ["知识 Graph"] });
     expect(half).toEqual({ ...full, y: 15.5 });
     expect(nodeRadius(0, 0.12) * 0.12).toBe(6);
     expect(nodeRadius(1000, 1)).toBe(16);
@@ -166,7 +166,7 @@ describe("graph label placement", () => {
     const nodes = [positioned("a", 0, 0), positioned("b", 0, 40)];
     const labels = placeGraphLabels(nodes, camera, { w: 600, h: 460 }, ["a"], false);
     expect([...labels.keys()]).toEqual(["a"]);
-    expect(labels.get("a")!.y).toBe(-42);
+    expect(labels.get("a")!.y).toBe(-51);
     expect(placeGraphLabels(nodes, camera, { w: 600, h: 460 }, [], false).size).toBe(0);
   });
 
@@ -185,14 +185,57 @@ describe("graph label placement", () => {
     const size = { w: 390, h: 460 };
     const blocked = [positioned("hud", -115, -188)];
     expect(placeGraphLabels(blocked, camera, size, ["hud"]).size).toBe(0);
-    const toggle = [positioned("a", 140, -188)];
+    // Larger text cannot fit between the HUD and toggle; a short label can.
+    expect(placeGraphLabels([positioned("a", 140, -188)], camera, size, ["a"]).size).toBe(0);
+    const toggle = [positioned("a", 130, -188, "A")];
     const besideToggle = placeGraphLabels(toggle, camera, size, ["a"]).get("a")!;
     expect(besideToggle.x + besideToggle.w).toBe(-17);
-    const bottom = [positioned("a", 60, 180)];
+    const bottom = [positioned("a", 100, 160)];
     const aboveToolbar = placeGraphLabels(bottom, camera, size, ["a"]).get("a")!;
-    expect(size.h / 2 + 180 + aboveToolbar.y + aboveToolbar.h).toBeLessThanOrEqual(size.h - 65);
+    expect(size.h / 2 + 160 + aboveToolbar.y + aboveToolbar.h).toBeLessThanOrEqual(size.h - 78);
     // A label with no legal position between the toolbar and mobile hint is hidden.
     expect(placeGraphLabels([positioned("a", 0, 180)], camera, size, ["a"]).size).toBe(0);
+  });
+
+  it("keeps a selected title readable in a dense fitted 390px mobile graph", () => {
+    // Screen positions reproduced from the 16-page mobile browser fixture.
+    // Centre-aligned labels had no legal position at this fit scale.
+    const points = [
+      [4.2, -6.14],
+      [-35.64, 36.01],
+      [1.97, -58.7],
+      [45.31, 23.52],
+      [-58.25, -26.79],
+      [57.16, -36.85],
+      [-1.93, 67.2],
+      [-49.89, -57.06],
+      [106.68, 21.93],
+      [-97.89, 12.98],
+      [42, -92.12],
+      [54.88, 53.18],
+      [-107.89, -58],
+      [107.89, -15.44],
+      [-62.11, 81.59],
+      [-18.22, -87.53],
+    ];
+    const size = { w: 341, h: 460 };
+    const zoom = 0.3;
+    const nodes = points.map(([x, y], index) =>
+      positioned(String(index), x! / zoom, y! / zoom, "文献综述：共识与分歧"),
+    );
+    const labels = placeGraphLabels(nodes, { ...camera, zoom }, size, ["6"], false);
+    expect([...labels.keys()]).toEqual(["6"]);
+    const label = labels.get("6")!;
+    const x = size.w / 2 + points[6]![0]! + label.x;
+    const y = size.h / 2 + points[6]![1]! + label.y;
+    expect(x).toBeGreaterThanOrEqual(4);
+    expect(x + label.w).toBeLessThanOrEqual(size.w - 4);
+    expect(y + label.h).toBeLessThanOrEqual(size.h - 112);
+    for (const [px, py] of points) {
+      const horizontal = Math.max(x - size.w / 2 - px!, 0, size.w / 2 + px! - x - label.w);
+      const vertical = Math.max(y - size.h / 2 - py!, 0, size.h / 2 + py! - y - label.h);
+      expect(Math.hypot(horizontal, vertical)).toBeGreaterThanOrEqual(10);
+    }
   });
 
   it("keeps every returned pill inside the canvas and clear of all node cores and other pills", () => {
@@ -220,7 +263,7 @@ describe("graph label placement", () => {
         expect(box.x).toBeGreaterThanOrEqual(4);
         expect(box.x + box.w).toBeLessThanOrEqual(size.w - 4);
         expect(box.y).toBeGreaterThanOrEqual(4);
-        expect(box.y + box.h).toBeLessThanOrEqual(size.h - 65);
+        expect(box.y + box.h).toBeLessThanOrEqual(size.h - 78);
         for (const item of nodes) {
           const px = size.w / 2 + item.x * zoom;
           const py = size.h / 2 + item.y * zoom;

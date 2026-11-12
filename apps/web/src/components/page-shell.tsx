@@ -45,7 +45,7 @@ export function PageHeader({
     <header className="mb-7 flex flex-col gap-4 border-b border-border pb-6 sm:flex-row sm:items-end sm:justify-between">
       <div className="min-w-0">
         {eyebrow ? <p className="text-xs text-muted-foreground">{eyebrow}</p> : null}
-        <h1 className="mt-2 font-display text-[30px] font-medium leading-tight tracking-tight sm:text-[36px]">
+        <h1 className="mt-2 font-display text-[34px] font-medium leading-tight tracking-tight sm:text-[40px]">
           {title}
         </h1>
         {description ? (

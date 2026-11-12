@@ -1,0 +1,56 @@
+.drawer {
+  position: relative;
+  z-index: 40;
+  display: flex;
+}
+.backdrop {
+  display: none;
+}
+
+@media (max-width: 639px) {
+  .drawer {
+    position: absolute;
+    inset: 0 auto 0 0;
+    visibility: hidden;
+    transform: translateX(-100%);
+    transition:
+      transform 140ms var(--ease-out),
+      visibility 0s 140ms;
+  }
+  .drawer[data-open="true"] {
+    visibility: visible;
+    transform: translateX(0);
+    transition-duration: 220ms, 0s;
+    transition-delay: 0s;
+    box-shadow: 12px 0 32px -20px rgb(0 0 0 / 0.4);
+  }
+  .backdrop {
+    position: absolute;
+    inset: 0;
+    z-index: 30;
+    display: block;
+    visibility: hidden;
+    opacity: 0;
+    background: rgb(0 0 0 / 0.4);
+    transition:
+      opacity 140ms var(--ease-out),
+      visibility 0s 140ms;
+  }
+  .backdrop[data-open="true"] {
+    visibility: visible;
+    opacity: 1;
+    transition-duration: 180ms, 0s;
+    transition-delay: 0s;
+  }
+  .drawer[data-motion="instant"],
+  .backdrop[data-motion="instant"] {
+    transition: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drawer,
+  .backdrop {
+    transition: none;
+  }
+}

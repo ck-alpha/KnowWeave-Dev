@@ -244,7 +244,7 @@ export function ChatView({ chatId, initialChat, knownSlugs, folders }: Props) {
                   setEditingTitle(false);
                 }
               }}
-              className="h-10 text-base"
+              className="h-12 text-base"
             />
           ) : (
             <button
@@ -375,9 +375,7 @@ export function ChatView({ chatId, initialChat, knownSlugs, folders }: Props) {
                   <div className="flex justify-end">
                     <div className="max-w-[80%] rounded-2xl rounded-tr-md bg-primary/10 px-4 py-3 text-sm text-foreground">
                       <MarkdownView content={m.content} knownSlugs={knownSlugs} />
-                      <p className="mt-1 text-right text-xs text-muted-foreground/70">
-                        {m.time}
-                      </p>
+                      <p className="mt-1 text-right text-xs text-muted-foreground/70">{m.time}</p>
                     </div>
                   </div>
                 ) : (

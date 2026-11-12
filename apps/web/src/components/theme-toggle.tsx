@@ -34,7 +34,7 @@ export function ThemeToggle() {
   }
 
   if (!mounted) {
-    return <div className="h-8 w-8" aria-hidden />;
+    return <div className="h-11 w-11 shrink-0" aria-hidden />;
   }
 
   return (
@@ -43,14 +43,14 @@ export function ThemeToggle() {
       onClick={next}
       aria-label={LABEL[theme]}
       title={LABEL[theme]}
-      className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+      className="ui-pressable ui-button-ghost inline-flex h-11 w-11 items-center justify-center shrink-0 rounded-lg text-muted-foreground"
     >
       {theme === "light" ? (
-        <Sun className="h-4 w-4" />
+        <Sun className="h-5 w-5" />
       ) : theme === "dark" ? (
-        <Moon className="h-4 w-4" />
+        <Moon className="h-5 w-5" />
       ) : (
-        <Monitor className="h-4 w-4" />
+        <Monitor className="h-5 w-5" />
       )}
     </button>
   );

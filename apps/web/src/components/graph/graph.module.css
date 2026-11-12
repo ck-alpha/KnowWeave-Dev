@@ -42,7 +42,7 @@
 }
 
 .node {
-  transition: opacity 180ms ease;
+  transition: opacity 100ms ease;
 }
 
 .nodeCore {
@@ -50,9 +50,12 @@
 }
 
 .edge {
-  transition:
-    opacity 180ms ease,
-    stroke 180ms ease;
+  transition: opacity 100ms ease;
+}
+
+.panel[data-input="keyboard"] .node,
+.panel[data-input="keyboard"] .edge {
+  transition: none;
 }
 
 .detailAccent {
@@ -81,6 +84,13 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .node,
+  .edge {
+    transition: none;
+  }
+}
+
+@media (hover: none), (pointer: coarse) {
   .node,
   .edge {
     transition: none;

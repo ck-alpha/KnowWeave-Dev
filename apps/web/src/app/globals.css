@@ -45,6 +45,9 @@
     --input: 35.2 20.6% 72.4%; /* #c7bbaa */
     --ring: 349.5 60.6% 27.8%; /* #721c2b */
     --radius: 0.5rem;
+    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+    --duration-press: 140ms;
+    --duration-enter: 180ms;
   }
 
   .dark {
@@ -85,7 +88,7 @@
     @apply antialiased;
   }
   body {
-    @apply bg-background text-foreground font-sans;
+    @apply bg-background text-foreground font-sans text-base;
     line-height: 1.6;
     font-feature-settings:
       "rlig" 1,
@@ -117,57 +120,13 @@
   @apply font-mono;
 }
 
-/* Active nav indicator — a thin paper-red underline below the active link. */
-.nav-link {
-  @apply relative px-1 py-1 text-sm text-muted-foreground transition-colors hover:text-foreground;
-}
-.nav-link.is-active {
-  @apply text-foreground;
-}
-.nav-link.is-active::after {
-  content: "";
-  @apply absolute left-0 right-0 -bottom-[5px] h-px bg-primary;
-}
-
-/* Quiet paper surfaces; the home reading cover carries the visual identity. */
-.app-masthead {
-  box-shadow: inset 0 3px 0 hsl(var(--primary));
-}
-.brand-mark {
-  display: flex;
-  width: 33px;
-  height: 36px;
-  align-items: center;
-  justify-content: center;
-  color: hsl(var(--primary));
-}
-.brand-mark svg {
-  width: 33px;
-  height: 33px;
-}
-
+/* The graph type filter retains its horizontal scroll treatment. */
 .app-navigation {
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
 .app-navigation::-webkit-scrollbar {
   display: none;
-}
-.desk-nav-link {
-  @apply relative inline-flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap px-3 text-ui text-muted-foreground transition-colors hover:text-foreground;
-}
-.desk-nav-link.is-active {
-  @apply text-primary bg-primary/[0.055];
-}
-.desk-nav-link.is-active::after {
-  content: "";
-  position: absolute;
-  height: 2px;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  border-radius: 2px 2px 0 0;
-  background: hsl(var(--primary));
 }
 
 /* A visible keyboard path through every page, including native selects/links. */
@@ -193,6 +152,54 @@
   background: hsl(var(--primary) / 0.16);
 }
 
+/* Press feedback is for pointer activation; keyboard focus stays still. */
+.ui-pressable {
+  touch-action: manipulation;
+  transition:
+    transform var(--duration-press) var(--ease-out),
+    opacity var(--duration-press) var(--ease-out);
+}
+.ui-pressable:active:not(:focus-visible):not(:disabled):not([aria-disabled="true"]) {
+  transform: scale(0.97);
+}
+.ui-pressable:focus-visible {
+  transition: none;
+}
+@media (hover: hover) and (pointer: fine) {
+  .ui-button-primary:hover {
+    background: hsl(var(--primary) / 0.9);
+  }
+  .ui-button-destructive:hover {
+    background: hsl(var(--destructive) / 0.9);
+  }
+  .ui-button-secondary:hover {
+    background: hsl(var(--secondary) / 0.8);
+  }
+  .ui-button-outline:hover,
+  .ui-button-ghost:hover {
+    background: hsl(var(--accent));
+    color: hsl(var(--accent-foreground));
+  }
+  .ui-button-link:hover {
+    text-decoration-line: underline;
+  }
+}
+
+/* Occasional inline panels enter gently. Search and list navigation stay instant. */
+.ui-disclosure[data-motion="pointer"] {
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    opacity var(--duration-enter) var(--ease-out),
+    transform var(--duration-enter) var(--ease-out);
+}
+@starting-style {
+  .ui-disclosure[data-motion="pointer"] {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -201,5 +208,13 @@
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+  .ui-pressable:active:not(:focus-visible):not(:disabled):not([aria-disabled="true"]) {
+    transform: none;
+  }
+  .ui-disclosure[data-motion="pointer"] {
+    transform: none;
+    transition-property: opacity;
+    transition-duration: 100ms !important;
   }
 }

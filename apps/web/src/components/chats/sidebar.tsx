@@ -96,7 +96,7 @@ export function ChatsSidebar() {
   return (
     <aside className="flex w-[280px] shrink-0 flex-col self-stretch border-r border-border bg-secondary">
       <div className="space-y-2 px-4 pb-2 pt-4">
-        <Button onClick={onNewChat} disabled={creating} className="h-10 w-full text-ui">
+        <Button onClick={onNewChat} disabled={creating} className="min-h-11 w-full text-ui">
           {creating ? "创建中…" : "+ 新建会话"}
         </Button>
         <Input
@@ -104,7 +104,7 @@ export function ChatsSidebar() {
           placeholder="搜索会话…"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          className="h-10 border-border/70 bg-background/60 text-base"
+          className="h-12 border-border/70 bg-background/60 text-base"
         />
       </div>
 

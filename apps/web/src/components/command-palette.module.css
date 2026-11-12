@@ -1,0 +1,29 @@
+/* A frequent keyboard tool: opening and selection are always immediate. */
+.dialog {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(88dvh - 1rem);
+}
+.results {
+  min-height: 0;
+  flex: 1 1 auto;
+  scrollbar-gutter: stable;
+}
+.result:focus-visible,
+.close:focus-visible {
+  outline-offset: -3px;
+}
+@media (hover: hover) and (pointer: fine) {
+  .close:hover {
+    background: hsl(var(--accent));
+    color: hsl(var(--foreground));
+  }
+}
+@media (max-width: 639px) {
+  .backdrop {
+    padding: 1rem 0.75rem;
+  }
+  .dialog {
+    max-height: calc(100dvh - 2rem);
+  }
+}

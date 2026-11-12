@@ -1,0 +1,39 @@
+.panel {
+  transform-origin: top left;
+}
+.panel[data-motion="pointer"] {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  transition:
+    opacity var(--duration-enter, 180ms) var(--ease-out, cubic-bezier(0.23, 1, 0.32, 1)),
+    transform var(--duration-enter, 180ms) var(--ease-out, cubic-bezier(0.23, 1, 0.32, 1));
+}
+@starting-style {
+  .panel[data-motion="pointer"] {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+}
+@media (hover: hover) and (pointer: fine) {
+  .trigger:hover {
+    background: hsl(var(--accent));
+    border-color: hsl(var(--primary) / 0.4);
+  }
+  .item:hover:not(:disabled) {
+    background: hsl(var(--accent));
+  }
+}
+.item:focus-visible {
+  outline-offset: -3px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .panel[data-motion="pointer"] {
+    transform: none;
+    transition: opacity 100ms linear;
+  }
+  @starting-style {
+    .panel[data-motion="pointer"] {
+      transform: none;
+    }
+  }
+}

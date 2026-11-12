@@ -80,7 +80,7 @@ export function WikiSidebar() {
           aria-label="查找 Wiki 页面"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          className="h-10 border-border/70 bg-background/60 text-base"
+          className="h-12 border-border/70 bg-background/60 text-base"
         />
       </div>
 
@@ -92,7 +92,9 @@ export function WikiSidebar() {
             isIndex ? "bg-primary/10 text-foreground" : "text-foreground/70 hover:bg-accent/60",
           )}
         >
-          <span className="font-mono text-[10px] text-primary">¶</span>
+          <span aria-hidden="true" className="font-mono text-caption text-primary">
+            ¶
+          </span>
           Wiki · 全部知识
           {pages && (
             <span className="ml-auto text-xs tabular-nums text-muted-foreground">

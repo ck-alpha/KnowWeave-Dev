@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 
 import { cn } from "@/lib/utils";
+import styles from "./wiki-switcher.module.css";
 
 type WikiDetail = {
   path: string;
@@ -26,8 +27,13 @@ export function WikiSwitcher() {
   const router = useRouter();
   const [data, setData] = useState<ListResponse | null>(null);
   const [open, setOpen] = useState(false);
+  const [motion, setMotion] = useState<"pointer" | "instant">("instant");
   const [switching, setSwitching] = useState<string | null>(null);
+  const [error, setError] = useState("");
   const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const panelId = useId();
 
   const refresh = useCallback(async () => {
     try {
@@ -44,28 +50,50 @@ export function WikiSwitcher() {
     void refresh();
   }, [refresh]);
 
-  // Close on outside click + Escape so the dropdown behaves like a
-  // proper menu.
+  // A disclosure with ordinary links/buttons: Tab follows the document order,
+  // Escape restores the trigger, and focus leaving the control dismisses it.
   useEffect(() => {
     if (!open) return;
-    function onDown(e: MouseEvent) {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
+    const trigger = triggerRef.current;
+    const frame = window.requestAnimationFrame(() => {
+      panelRef.current
+        ?.querySelector<HTMLElement>("button:not(:disabled), a[href]")
+        ?.focus({ preventScroll: true });
+    });
+    function onOutside(event: Event) {
+      if (rootRef.current && !rootRef.current.contains(event.target as Node)) {
         setOpen(false);
       }
     }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
+    function onKey(event: KeyboardEvent) {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      event.preventDefault();
+      setOpen(false);
+      trigger?.focus({ preventScroll: true });
     }
-    window.addEventListener("mousedown", onDown);
+    window.addEventListener("pointerdown", onOutside);
+    window.addEventListener("focusin", onOutside);
     window.addEventListener("keydown", onKey);
     return () => {
-      window.removeEventListener("mousedown", onDown);
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("pointerdown", onOutside);
+      window.removeEventListener("focusin", onOutside);
       window.removeEventListener("keydown", onKey);
     };
   }, [open]);
 
+  function closePanel() {
+    const panel = panelRef.current;
+    const active = document.activeElement;
+    const restoreFocus = panel && (panel.contains(active) || active === document.body);
+    setOpen(false);
+    if (restoreFocus) triggerRef.current?.focus({ preventScroll: true });
+  }
+
   async function onSwitch(path: string) {
+    if (switching) return;
     setSwitching(path);
+    setError("");
     try {
       const res = await fetch("/api/wikis", {
         method: "POST",
@@ -74,16 +102,16 @@ export function WikiSwitcher() {
       });
       if (!res.ok) {
         const j = (await res.json().catch(() => ({}))) as { error?: string };
-        // Soft failure — leave the dropdown open so the user can react.
-        // eslint-disable-next-line no-alert
-        alert(j.error ?? `切换失败（HTTP ${res.status}）`);
+        setError(j.error ?? `切换失败（HTTP ${res.status}）`);
         return;
       }
-      setOpen(false);
+      closePanel();
       await refresh();
       // Re-render every server component so the new wiki's data shows up
       // on whatever page the user is currently looking at.
       router.refresh();
+    } catch {
+      setError("无法切换知识库，请检查连接后重试。");
     } finally {
       setSwitching(null);
     }
@@ -104,45 +132,69 @@ export function WikiSwitcher() {
     });
 
   return (
-    <div ref={rootRef} className="relative">
+    <div ref={rootRef} className="relative min-w-0">
       <button
+        ref={triggerRef}
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={(event) => {
+          setMotion(event.detail > 0 ? "pointer" : "instant");
+          setError("");
+          if (!open) void refresh();
+          setOpen((v) => !v);
+        }}
+        onKeyDown={(event) => {
+          if (event.key !== "ArrowDown") return;
+          event.preventDefault();
+          setMotion("instant");
+          setError("");
+          if (!open) void refresh();
+          setOpen(true);
+          panelRef.current
+            ?.querySelector<HTMLElement>("button:not(:disabled), a[href]")
+            ?.focus({ preventScroll: true });
+        }}
         className={cn(
-          "group flex max-w-[14rem] items-center gap-1.5 rounded-md border border-border/60 bg-secondary/40 px-2 py-1 text-xs text-foreground/80 transition-colors hover:border-border hover:bg-secondary/60 hover:text-foreground",
+          "ui-pressable group flex h-11 w-full min-w-0 max-w-[20rem] items-center gap-2 rounded-lg border border-border bg-secondary/40 px-3 text-base text-foreground",
+          styles.trigger,
           open && "border-border bg-secondary/60",
         )}
-        aria-haspopup="menu"
+        aria-controls={panelId}
         aria-expanded={open}
-        title={data?.active.path ?? "当前 Wiki"}
+        title={`当前 Wiki：${chipLabel}`}
       >
-        <span aria-hidden className="text-muted-foreground">
+        <span aria-hidden className="shrink-0 text-muted-foreground">
           ⌂
         </span>
-        <span className="truncate">{chipLabel}</span>
-        <span aria-hidden className="text-muted-foreground/70">
+        <span className="min-w-0 flex-1 truncate text-left">{chipLabel}</span>
+        <span aria-hidden className="shrink-0 text-muted-foreground">
           ▾
         </span>
       </button>
 
       {open ? (
         <div
-          role="menu"
-          className="absolute left-0 top-full z-50 mt-1.5 w-[280px] overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-lg"
+          id={panelId}
+          ref={panelRef}
+          role="region"
+          aria-label="切换知识库"
+          aria-busy={switching !== null}
+          data-motion={motion}
+          className={cn(
+            "absolute left-0 top-full z-50 mt-2 max-h-[min(70dvh,36rem)] w-[min(22rem,calc(100vw-2rem))] overflow-y-auto overscroll-contain rounded-xl border border-border bg-popover text-popover-foreground shadow-lg",
+            styles.panel,
+          )}
         >
-          <div className="border-b border-border px-3 py-2">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground">当前 Wiki</p>
-            <p className="mt-0.5 truncate text-sm font-medium">{chipLabel}</p>
-            <p className="mt-0.5 truncate font-mono text-xs text-muted-foreground">
+          <div className="border-b border-border px-4 py-3">
+            <p className="text-sm text-muted-foreground">当前 Wiki</p>
+            <p className="mt-1 break-words text-base font-medium">{chipLabel}</p>
+            <p className="mt-1 break-all font-mono text-xs text-muted-foreground">
               {data?.active.path}
             </p>
           </div>
 
           {others.length > 0 ? (
             <div className="border-b border-border py-1">
-              <p className="px-3 pb-1 pt-1.5 text-xs uppercase tracking-wider text-muted-foreground">
-                切换到
-              </p>
+              <p className="px-4 pb-1 pt-2 text-sm text-muted-foreground">切换到</p>
               <ul>
                 {others.map((w) => {
                   const isLoading = switching === w.path;
@@ -152,13 +204,16 @@ export function WikiSwitcher() {
                         type="button"
                         onClick={() => void onSwitch(w.path)}
                         disabled={switching !== null}
-                        className="flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-sm hover:bg-accent/60 disabled:opacity-60"
+                        className={cn(
+                          "flex min-h-11 w-full items-center justify-between gap-3 px-4 py-2.5 text-left text-base disabled:opacity-60",
+                          styles.item,
+                        )}
                       >
-                        <span className="truncate">{w.topic ?? friendlyFolderName(w.path)}</span>
+                        <span className="min-w-0 break-words">
+                          {w.topic ?? friendlyFolderName(w.path)}
+                        </span>
                         {isLoading ? (
-                          <span className="shrink-0 text-xs text-muted-foreground">
-                            切换中…
-                          </span>
+                          <span className="shrink-0 text-xs text-muted-foreground">切换中…</span>
                         ) : null}
                       </button>
                     </li>
@@ -168,18 +223,24 @@ export function WikiSwitcher() {
             </div>
           ) : null}
 
+          {error && (
+            <p role="alert" className="border-b border-border px-4 py-3 text-sm text-destructive">
+              {error}
+            </p>
+          )}
+
           <div className="py-1">
             <Link
               href="/settings?tab=wikis"
-              onClick={() => setOpen(false)}
-              className="block px-3 py-1.5 text-sm hover:bg-accent/60"
+              onClick={closePanel}
+              className={cn("flex min-h-11 items-center px-4 py-2.5 text-base", styles.item)}
             >
               + 新建 Wiki
             </Link>
             <Link
               href="/settings?tab=wikis"
-              onClick={() => setOpen(false)}
-              className="block px-3 py-1.5 text-sm hover:bg-accent/60"
+              onClick={closePanel}
+              className={cn("flex min-h-11 items-center px-4 py-2.5 text-base", styles.item)}
             >
               管理 Wiki…
             </Link>

@@ -1,11 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { Search, X } from "lucide-react";
 
 import { useTheme } from "@/components/theme-provider";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import styles from "./command-palette.module.css";
 
 // Discriminated action type. Each kind has its own activation behavior:
 //  - navigate       → router.push(href)
@@ -193,14 +195,17 @@ export function CommandPalette() {
   const [chats, setChats] = useState<ChatItem[]>([]);
   const [wikis, setWikis] = useState<WikiItem[]>([]);
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
+  const listId = useId();
 
   // Global keyboard handler: Cmd/Ctrl+K toggles, Cmd/Ctrl+, opens Settings.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
+      if (e.isComposing || e.keyCode === 229) return;
       const cmd = e.metaKey || e.ctrlKey;
       if (cmd && e.key.toLowerCase() === "k") {
         e.preventDefault();
@@ -226,24 +231,34 @@ export function CommandPalette() {
     setQuery("");
     setError("");
     setActiveIndex(0);
+    setPages([]);
+    setChats([]);
+    setWikis([]);
+    setCrossWikiPages([]);
+    setActiveWikiPath(null);
+    setLoading(true);
     const previousFocus = document.activeElement as HTMLElement | null;
-    inputRef.current?.focus();
-    let cancelled = false;
+    const previousDialogId = previousFocus?.closest<HTMLElement>('[role="dialog"][id]')?.id;
+    inputRef.current?.focus({ preventScroll: true });
+    const controller = new AbortController();
+    const request = { cache: "no-store", signal: controller.signal } as const;
     void (async () => {
       try {
         const [pagesRes, chatsRes, wikisRes, crossPagesRes] = await Promise.all([
-          fetch("/api/pages", { cache: "no-store" }),
-          fetch("/api/chats", { cache: "no-store" }),
-          fetch("/api/wikis", { cache: "no-store" }),
-          fetch("/api/wikis/pages", { cache: "no-store" }),
+          fetch("/api/pages", request),
+          fetch("/api/chats", request),
+          fetch("/api/wikis", request),
+          fetch("/api/wikis/pages", request),
         ]);
-        if (cancelled) return;
+        if (controller.signal.aborted) return;
         if (pagesRes.ok) {
           const data = (await pagesRes.json()) as { pages: PageItem[] };
+          if (controller.signal.aborted) return;
           setPages(data.pages.map((p) => ({ slug: p.slug, title: p.title })));
         }
         if (chatsRes.ok) {
           const data = (await chatsRes.json()) as { chats: ChatItem[] };
+          if (controller.signal.aborted) return;
           setChats(data.chats.map((c) => ({ id: c.id, title: c.title, folder: c.folder })));
         }
         if (wikisRes.ok) {
@@ -251,6 +266,7 @@ export function CommandPalette() {
             active: { path: string };
             recents: Array<{ path: string; topic: string | null; exists: boolean }>;
           };
+          if (controller.signal.aborted) return;
           setActiveWikiPath(data.active.path);
           // Non-active + on-disk wikis only — switching to a missing folder
           // would error, and switching to the already-active one is a no-op.
@@ -264,6 +280,7 @@ export function CommandPalette() {
           const data = (await crossPagesRes.json()) as {
             pages: CrossWikiPageItem[];
           };
+          if (controller.signal.aborted) return;
           // Drop active-wiki pages — they're already in the "Pages" group
           // above; including them again would just duplicate every active
           // page under "Cross-wiki pages" too.
@@ -271,11 +288,31 @@ export function CommandPalette() {
         }
       } catch {
         // ignore — input still works against the actions list
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
       }
     })();
     return () => {
-      cancelled = true;
-      previousFocus?.focus();
+      controller.abort();
+      const canFocus = (element: HTMLElement | null | undefined): element is HTMLElement =>
+        Boolean(
+          element?.isConnected &&
+          element !== document.body &&
+          !element.closest("[inert]") &&
+          element.getClientRects().length &&
+          window.getComputedStyle(element).visibility === "visible",
+        );
+      const dialogTrigger = previousDialogId
+        ? Array.from(document.querySelectorAll<HTMLElement>("[aria-controls]")).find(
+            (element) =>
+              element.getAttribute("aria-controls") === previousDialogId && canFocus(element),
+          )
+        : null;
+      const searchTrigger = document.querySelector<HTMLButtonElement>(
+        'header button[aria-label="搜索页面、会话或功能"]',
+      );
+      const returnTarget = [previousFocus, dialogTrigger, searchTrigger].find(canFocus);
+      returnTarget?.focus({ preventScroll: true });
     };
   }, [open]);
 
@@ -383,6 +420,9 @@ export function CommandPalette() {
       close();
       return;
     }
+    // Pointer activation can focus a result that is about to become disabled.
+    // Keep focus in the combobox while asynchronous actions are pending or fail.
+    inputRef.current?.focus({ preventScroll: true });
     if (item.type === "copy-text") {
       try {
         await navigator.clipboard.writeText(item.value);
@@ -443,8 +483,11 @@ export function CommandPalette() {
   }
 
   function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    // Enter confirms an IME candidate before it is allowed to activate a result.
+    if (e.nativeEvent.isComposing || e.keyCode === 229) return;
     if (e.key === "Escape") {
       e.preventDefault();
+      e.stopPropagation();
       close();
     } else if (e.key === "ArrowDown") {
       e.preventDefault();
@@ -465,43 +508,59 @@ export function CommandPalette() {
     el?.scrollIntoView({ block: "nearest" });
   }, [activeIndex]);
 
+  useEffect(() => {
+    setActiveIndex((index) => Math.min(index, Math.max(0, flatItems.length - 1)));
+  }, [flatItems.length]);
+
   if (!open) return null;
 
   let runningIndex = 0;
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 px-4 pt-[12vh]"
+      className={cn(
+        "fixed inset-0 z-50 flex items-start justify-center bg-black/40 px-4 pt-[12vh]",
+        styles.backdrop,
+      )}
       onClick={close}
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-label="搜索页面与功能"
-        className="w-full max-w-xl overflow-hidden rounded-xl border border-border bg-popover text-popover-foreground shadow-2xl"
+        className={cn(
+          "w-full max-w-xl overflow-hidden rounded-xl border border-border bg-popover text-popover-foreground shadow-2xl",
+          styles.dialog,
+        )}
         onKeyDown={(event) => {
+          if (event.nativeEvent.isComposing || event.keyCode === 229) return;
           if (event.key === "Escape") {
             event.preventDefault();
+            event.stopPropagation();
             close();
           }
           if (event.key === "Tab") {
             const focusable = Array.from(
-              event.currentTarget.querySelectorAll<HTMLElement>("input, button:not(:disabled)"),
-            );
+              event.currentTarget.querySelectorAll<HTMLElement>(
+                'input:not(:disabled), button:not(:disabled):not([tabindex="-1"])',
+              ),
+            ).filter((element) => element.tabIndex >= 0 && element.getClientRects().length > 0);
             const first = focusable[0];
             const last = focusable.at(-1);
-            if (event.shiftKey && document.activeElement === first) {
+            const currentIndex = focusable.indexOf(document.activeElement as HTMLElement);
+            const shouldWrap = event.shiftKey
+              ? currentIndex <= 0
+              : currentIndex < 0 || currentIndex === focusable.length - 1;
+            if (shouldWrap) {
               event.preventDefault();
-              last?.focus();
-            } else if (!event.shiftKey && document.activeElement === last) {
-              event.preventDefault();
-              first?.focus();
+              (event.shiftKey ? last : first)?.focus({ preventScroll: true });
             }
           }
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="border-b border-border p-2">
+        <div className="flex items-center gap-1 border-b border-border p-2">
+          <Search size={20} aria-hidden className="ml-2 shrink-0 text-muted-foreground" />
           <Input
             ref={inputRef}
             value={query}
@@ -512,35 +571,68 @@ export function CommandPalette() {
             onKeyDown={onKeyDown}
             placeholder="搜索页面、会话或功能…"
             aria-label="搜索页面、会话或功能"
+            role="combobox"
+            aria-autocomplete="list"
+            aria-expanded="true"
+            aria-controls={listId}
+            aria-activedescendant={flatItems.length ? `${listId}-${activeIndex}` : undefined}
             autoComplete="off"
-            className="h-10 border-0 bg-transparent text-base focus-visible:ring-0"
+            className="h-12 min-w-0 border-0 bg-transparent text-base focus-visible:ring-0"
           />
+          <button
+            type="button"
+            onClick={close}
+            aria-label="关闭搜索"
+            className={cn(
+              "flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-muted-foreground",
+              styles.close,
+            )}
+          >
+            <X size={20} aria-hidden />
+          </button>
         </div>
-        <ul ref={listRef} className="max-h-[50vh] overflow-y-auto py-1">
+        <ul
+          ref={listRef}
+          id={listId}
+          role="listbox"
+          aria-label="搜索结果"
+          aria-busy={busy || loading}
+          className={cn("max-h-[50vh] overflow-y-auto overscroll-contain py-1", styles.results)}
+        >
           {flatItems.length === 0 ? (
-            <li className="px-3 py-4 text-center text-sm text-muted-foreground">
-              没有找到匹配项。
+            <li role="presentation" className="px-3 py-6 text-center text-sm text-muted-foreground">
+              {loading ? "正在载入知识库…" : "没有找到匹配项，试试标题、关键词或功能名。"}
             </li>
           ) : (
             Array.from(grouped.entries()).map(([group, list]) => (
-              <li key={group}>
-                <div className="px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <li key={group} role="group" aria-label={GROUP_LABELS[group]}>
+                <div
+                  aria-hidden
+                  className="px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+                >
                   {GROUP_LABELS[group]}
                 </div>
-                <ul>
+                <ul role="presentation">
                   {list.map((item) => {
                     const idx = runningIndex++;
                     return (
-                      <li key={item.id}>
+                      <li key={item.id} role="presentation">
                         <button
                           type="button"
+                          role="option"
+                          id={`${listId}-${idx}`}
+                          aria-selected={activeIndex === idx}
+                          tabIndex={-1}
                           data-idx={idx}
-                          onMouseEnter={() => setActiveIndex(idx)}
+                          onPointerMove={(event) => {
+                            if (event.pointerType === "mouse") setActiveIndex(idx);
+                          }}
                           onClick={() => void activate(item)}
                           disabled={busy}
                           className={cn(
-                            "flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm disabled:opacity-50",
-                            activeIndex === idx ? "bg-accent" : "hover:bg-accent/60",
+                            "flex min-h-11 w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm disabled:opacity-50",
+                            styles.result,
+                            activeIndex === idx && "bg-accent",
                           )}
                         >
                           <span className="truncate">{item.label}</span>
@@ -563,8 +655,11 @@ export function CommandPalette() {
             {error}
           </p>
         )}
-        <div className="border-t border-border px-3 py-1.5 text-xs text-muted-foreground">
-          ↑↓ 选择 · Enter 打开 · Esc 关闭 · Cmd/Ctrl + K 唤起
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-t border-border px-3 py-2 text-xs text-muted-foreground">
+          <span>↑↓ 选择 · Enter 打开 · Esc 关闭</span>
+          <span role="status" aria-live="polite">
+            {busy ? "正在切换知识库…" : loading ? "正在载入…" : `${flatItems.length} 个匹配项`}
+          </span>
         </div>
       </div>
     </div>

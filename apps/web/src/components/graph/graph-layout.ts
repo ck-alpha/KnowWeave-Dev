@@ -116,14 +116,14 @@ export function neighborhoodGraph(data: GraphData, selectedId?: string): GraphDa
   };
 }
 
-export function titleLines(title: string): string[] {
+export function titleLines(title: string, maxWidth = 25): string[] {
   const chars = Array.from(title);
   const lines: string[] = [];
   let line = "",
     width = 0;
   for (const char of chars) {
     const size = /[\u0000-\u00ff]/.test(char) ? 1 : 1.8;
-    if (width + size > 25) {
+    if (width + size > maxWidth) {
       lines.push(line.trim());
       if (lines.length === 2) return [lines[0]!, lines[1]!.slice(0, -1) + "…"];
       line = "";

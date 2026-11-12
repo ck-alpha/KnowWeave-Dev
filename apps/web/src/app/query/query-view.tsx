@@ -277,7 +277,7 @@ export function QueryView() {
                 void refreshIndexStatus();
               }}
               disabled={busy || indexBusy}
-              className="min-h-10 w-full min-w-0 max-w-full rounded-md border border-input bg-background px-2 py-1 sm:w-auto"
+              className="min-h-11 w-full min-w-0 max-w-full rounded-md border border-input bg-background px-2 py-1 sm:w-auto"
             >
               <option value="bm25">BM25 · 关键词</option>
               <option value="embedding">Embedding · 语义</option>

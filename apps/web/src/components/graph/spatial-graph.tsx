@@ -10,11 +10,20 @@ import ForceGraph3D, {
 import type { GraphData, GraphNode } from "@llm-wiki/core";
 import { graphType } from "./vault-graph";
 import { layoutGraph } from "./graph-layout";
+import {
+  GRAPH_LABEL_FONT_SIZE,
+  GRAPH_LABEL_LINE_HEIGHT,
+  graphControlRects,
+  graphLabelMetrics,
+  graphLabelOffsets,
+  graphRectsOverlap,
+  type GraphLabel,
+} from "./graph-labels";
 import { createSpatialNode, spatialLights } from "./spatial-materials";
 
 type SceneNode = NodeObject<GraphNode>;
 type SceneLink = LinkObject<GraphNode>;
-type Label = { id: string; x: number; y: number; opacity: number; offset: number };
+type Label = GraphLabel & { id: string; opacity: number };
 type OrbitControls = {
   minDistance: number;
   maxDistance: number;
@@ -48,7 +57,7 @@ export function SpatialGraph({
   selectedId?: string;
   onSelect: (id?: string) => void;
   size: { w: number; h: number };
-  command: { action: string; tick: number };
+  command: { action: string; tick: number; instant: boolean };
   onFallback?: () => void;
   showLabels?: boolean;
 }) {
@@ -175,7 +184,7 @@ export function SpatialGraph({
   // Stable coordinates make switching views predictable; real depth remains
   // visible through perspective, lighting and user-controlled orbiting.
   const fitScene = useCallback(
-    (duration = 450) => {
+    (duration = 220) => {
       const fg = graph.current;
       if (!fg || !sceneData.nodes.length) return;
       const xs = sceneData.nodes.map((node) => node.x);
@@ -257,9 +266,11 @@ export function SpatialGraph({
       if (graph.current && time - last > 80 && !document.hidden) {
         last = time;
         const next: Label[] = [];
-        const camera = graph.current.camera() as {
+        const renderer = graph.current;
+        const camera = renderer.camera() as {
           position: { x: number; y: number; z: number };
           quaternion: { x: number; y: number; z: number; w: number };
+          fov: number;
         };
         const q = camera.quaternion;
         const forward = {
@@ -267,46 +278,71 @@ export function SpatialGraph({
           y: -2 * (q.y * q.z - q.w * q.x),
           z: -(1 - 2 * (q.x * q.x + q.y * q.y)),
         };
-        for (const node of labelNodes) {
+        const projected = sceneData.nodes.flatMap((node) => {
           const delta = {
             x: node.x - camera.position.x,
             y: node.y - camera.position.y,
             z: node.z - camera.position.z,
           };
           const depth = delta.x * forward.x + delta.y * forward.y + delta.z * forward.z;
-          if (depth <= 0) continue;
-          const point = graph.current.graph2ScreenCoords(node.x, node.y, node.z);
-          const offset = Math.max(
-            16,
-            Math.min(30, ((nodeRadius(node) * size.h) / depth) * 1.2 + 8),
+          if (depth <= 0) return [];
+          const point = renderer.graph2ScreenCoords(node.x, node.y, node.z);
+          if (!Number.isFinite(point.x) || !Number.isFinite(point.y)) return [];
+          const r =
+            (nodeRadius(node) * size.h) / (2 * Math.tan((camera.fov * Math.PI) / 360) * depth);
+          return [{ id: node.id, ...point, depth, r }];
+        });
+        const pointsById = new Map(projected.map((point) => [point.id, point]));
+        const reserved = graphControlRects(size, true);
+        for (const node of labelNodes) {
+          const point = pointsById.get(node.id);
+          if (!point) continue;
+          const { lines, w, h } = graphLabelMetrics(
+            node.title,
+            node.id === selectedId,
+            size.w < 600,
           );
-          if (
-            !Number.isFinite(point.x) ||
-            !Number.isFinite(point.y) ||
-            point.x < 75 ||
-            point.x > size.w - 75 ||
-            point.y < 85 ||
-            point.y > size.h - 100 ||
-            (point.x > size.w - 170 && point.y < 155)
-          )
-            continue;
-          if (
-            next.some(
-              (label) => Math.abs(label.x - point.x) < 160 && Math.abs(label.y - point.y) < 46,
+          const offset = Math.max(16, point.r + 8);
+          const candidates = graphLabelOffsets(offset, w, h, size.w < 600).map((position) => ({
+            x: point.x + position.x,
+            y: point.y + position.y,
+            w,
+            h,
+          }));
+          // Perspective can close an otherwise usable gap by a few pixels.
+          // Keep this mobile fallback close to its node and under the same culling checks.
+          if (size.w < 600)
+            candidates.push(
+              { x: point.x - w / 2, y: point.y + offset + 8, w, h },
+              { x: point.x - w / 2, y: point.y - offset - h - 8, w, h },
+            );
+          const rect = candidates.find((candidate) => {
+            if (
+              candidate.x < 4 ||
+              candidate.x + w > size.w - 4 ||
+              candidate.y < 4 ||
+              candidate.y + h > size.h - 78 ||
+              reserved.some((box) => graphRectsOverlap(candidate, box)) ||
+              next.some((box) => graphRectsOverlap(candidate, box, 5))
             )
-          )
-            continue;
+              return false;
+            return !projected.some((other) => {
+              const dx = other.x - Math.max(candidate.x, Math.min(other.x, candidate.x + w));
+              const dy = other.y - Math.max(candidate.y, Math.min(other.y, candidate.y + h));
+              return dx * dx + dy * dy < (other.r + 4) ** 2;
+            });
+          });
+          if (!rect) continue;
           const emphasized = node.id === selectedId || node.id === hoverId;
           next.push({
             id: node.id,
-            x: point.x,
-            y: point.y,
-            offset,
+            ...rect,
+            lines,
             opacity: emphasized
               ? 1
               : activeId && !neighbors.has(node.id)
                 ? 0.25
-                : Math.max(0.65, Math.min(1, 700 / depth)),
+                : Math.max(0.65, Math.min(1, 700 / point.depth)),
           });
         }
         setLabels((current) =>
@@ -317,7 +353,9 @@ export function SpatialGraph({
               Math.abs(label.x - next[i]!.x) < 0.5 &&
               Math.abs(label.y - next[i]!.y) < 0.5 &&
               Math.abs(label.opacity - next[i]!.opacity) < 0.02 &&
-              Math.abs(label.offset - next[i]!.offset) < 0.5,
+              label.w === next[i]!.w &&
+              label.h === next[i]!.h &&
+              label.lines.join("\n") === next[i]!.lines.join("\n"),
           )
             ? current
             : next,
@@ -327,24 +365,28 @@ export function SpatialGraph({
     };
     frame = requestAnimationFrame(update);
     return () => cancelAnimationFrame(frame);
-  }, [labelNodes, size, supported, selectedId, hoverId, activeId, neighbors]);
+  }, [labelNodes, sceneData, size, supported, selectedId, hoverId, activeId, neighbors]);
 
-  const focus = useCallback(() => {
-    const node = selectedId ? nodesById.get(selectedId) : undefined;
-    if (!node) return;
-    graph.current?.cameraPosition(
-      { x: node.x, y: node.y + 25, z: node.z + 240 },
-      node,
-      reducedMotion ? 0 : 650,
-    );
-  }, [nodesById, selectedId, reducedMotion]);
+  const focus = useCallback(
+    (duration: number) => {
+      const node = selectedId ? nodesById.get(selectedId) : undefined;
+      if (!node) return;
+      graph.current?.cameraPosition(
+        { x: node.x, y: node.y + 25, z: node.z + 240 },
+        node,
+        reducedMotion ? 0 : duration,
+      );
+    },
+    [nodesById, selectedId, reducedMotion],
+  );
 
   useEffect(() => {
     const fg = graph.current;
     if (!fg || command.tick === 0) return;
     setOrbiting(false);
-    if (command.action === "fit") fitScene();
-    else if (command.action === "focus") focus();
+    const duration = command.instant || reducedMotion ? 0 : 220;
+    if (command.action === "fit") fitScene(duration);
+    else if (command.action === "focus") focus(duration);
     else {
       const position = (fg.camera() as { position: { x: number; y: number; z: number } }).position;
       const target = (fg.controls() as OrbitControls).target ?? { x: 0, y: 0, z: 0 };
@@ -362,7 +404,7 @@ export function SpatialGraph({
           z: target.z + (position.z - target.z) * factor,
         },
         target,
-        reducedMotion ? 0 : 250,
+        duration,
       );
     }
     // Only explicit toolbar commands move the camera; selection preserves orientation.
@@ -442,7 +484,9 @@ export function SpatialGraph({
           onSelect(node.id);
         }}
         onBackgroundClick={() => onSelect()}
-        onNodeHover={(node) => setHoverId(node?.id)}
+        onNodeHover={(node) => {
+          if (window.matchMedia("(hover: hover) and (pointer: fine)").matches) setHoverId(node?.id);
+        }}
       />
       <div
         className="pointer-events-none absolute inset-0"
@@ -459,7 +503,7 @@ export function SpatialGraph({
         disabled={reducedMotion}
         onClick={() => setOrbiting((value) => !value)}
         title={reducedMotion ? "已遵循系统的减少动态效果设置" : "拖动图谱或选择节点会暂停环绕"}
-        className="absolute right-4 top-[4.5rem] z-10 inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-card/85 px-3 py-2 text-xs text-muted-foreground shadow-sm backdrop-blur-md transition-colors hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-45 sm:right-5 sm:top-[4.75rem]"
+        className="absolute right-4 top-32 z-10 inline-flex min-h-11 items-center gap-1.5 rounded-full border border-border/70 bg-card/85 px-3 py-2 text-sm leading-6 text-muted-foreground shadow-sm backdrop-blur-md transition-colors hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-45 sm:right-5"
       >
         {orbiting ? <Pause size={13} aria-hidden /> : <Orbit size={13} aria-hidden />}
         {orbiting ? "暂停环绕" : "缓慢环绕"}
@@ -478,8 +522,10 @@ export function SpatialGraph({
                 setOrbiting(false);
                 onSelect(node.id);
               }}
-              onMouseEnter={() => setHoverId(node.id)}
-              onMouseLeave={() => setHoverId(undefined)}
+              onPointerEnter={(event) => {
+                if (event.pointerType === "mouse") setHoverId(node.id);
+              }}
+              onPointerLeave={() => setHoverId(undefined)}
               onFocus={() => {
                 setOrbiting(false);
                 setHoverId(node.id);
@@ -487,12 +533,24 @@ export function SpatialGraph({
               onBlur={() => setHoverId(undefined)}
               aria-pressed={selected}
               title={node.title}
-              className={`pointer-events-auto absolute max-w-[165px] -translate-x-1/2 rounded-lg border px-2.5 py-1.5 text-center text-[11px] leading-snug backdrop-blur-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${selected ? "border-primary/40 bg-card/95 font-medium text-foreground shadow-md" : "border-border/45 bg-card/75 text-foreground/80 shadow-sm hover:border-primary/30 hover:text-foreground"}`}
-              style={{ left: label.x, top: label.y + label.offset, opacity: label.opacity }}
+              className={`pointer-events-auto absolute rounded-lg border px-2.5 py-1.5 text-center backdrop-blur-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${selected ? "border-primary/40 bg-card/95 font-medium text-foreground shadow-md" : "border-border/45 bg-card/75 text-foreground/80 shadow-sm hover:border-primary/30 hover:text-foreground"}`}
+              style={{
+                left: label.x,
+                top: label.y,
+                width: label.w,
+                height: label.h,
+                opacity: label.opacity,
+                fontSize: GRAPH_LABEL_FONT_SIZE,
+                lineHeight: `${GRAPH_LABEL_LINE_HEIGHT}px`,
+              }}
             >
-              <span className="line-clamp-2">{node.title}</span>
+              {label.lines.map((line, index) => (
+                <span key={index} className="block whitespace-nowrap">
+                  {line}
+                </span>
+              ))}
               {selected && (
-                <span className="mt-1 block text-[9px] font-normal tracking-wide text-muted-foreground">
+                <span className="mt-1 block text-[14px] font-normal leading-5 text-muted-foreground">
                   {node.degree} 条引用关联
                 </span>
               )}
