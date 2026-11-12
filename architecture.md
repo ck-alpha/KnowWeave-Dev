@@ -1,6 +1,6 @@
 # KnowWeave 项目架构
 
-最后核对：2026-11-12（Asia/Shanghai，补充 Remote SSH、Chat 动态入口、中英界面、Graph 双视图与 Lint 中文交互）。当前实现范围：Round 01–03。
+最后核对：2026-11-12（Asia/Shanghai，知识工作台升级：专题、阅读记录、回收恢复与数据库导出）。当前实现范围：Round 01–03 与知识工作台升级。
 本文件是当前架构的统一入口；模块、调用链、接口、数据格式、检索/模型协议或部署入口变化时，随代码在同一次提交中更新核对日期。当前名称 **KnowWeave**；既有 `KNOWWAEVE_*` 环境变量和内部包名为兼容保留。
 
 ## 技术栈与入口
@@ -47,6 +47,27 @@ flowchart LR
 UI 的 `[[slug]]` 跳到 Wiki，再经 Sources 链接进入原文；读取 API 仍为 `/api/pages/[slug]` 与 `/api/sources/[id]`。Round 02–03 不改变 Ingest 与聊天的候选检索策略，它们继续使用 BM25；三模式明确用于独立 Query。
 
 聊天：`/chats` 布局显式使用 `force-dynamic`，访问时按当前 Wiki 的主题和 Chat 模型槽执行 `requireSetup("chat")`，避免把构建时的未配置跳转永久缓存。新建会话经 `POST /api/chats` 进入 `/chats/[id]`；发送经 `POST /api/chats/[id]/messages` → `sendChatMessage` → `chatComplete` → Ollama，保存会话 Markdown 与 SQLite 元数据。浏览器只调用本站 API，无需转发 Ollama 端口；当前回复完整生成后一次返回。
+
+## 专题与个人阅读工作台
+
+`/workspace` 使用 `openWikiContext` → [workspace.ts](packages/core/src/workspace.ts) 的 `getWorkspaceSnapshot`，读取当前 Wiki 的页面、专题、收藏、阅读进度和个人笔记。`WorkspaceView` 提供专题创建/编辑/删除、加入/移出页面、搜索与状态筛选；`?collection=<id>&status=reading&starred=1` 可进入指定视图。[PageWorkspaceActions](apps/web/src/components/wiki/page-workspace-actions.tsx) 供阅读页收藏、标记阅读和保存专题/笔记。写入后刷新服务端路由数据，切换 Wiki 以 Wiki 身份重新挂载客户端状态。
+
+每个 `.llm-wiki/meta.sqlite` 幂等新增三表：`workspace_collections(id,title,description,created_at,updated_at)`、`page_workspace(page_slug,starred,reading_status,note,updated_at)`、`workspace_collection_pages(collection_id,page_slug)`。记录引用 `pages.slug`，关系引用专题；外键级联清理。`unread/reading/reviewed` 只表示个人阅读进度，默认未读，不表示事实审查或模型置信度。专题允许多对多归类；名称最长 120、说明 2000、笔记 20000 字符；修改使用事务，先验证所有专题存在再写入，拒绝未知字段。笔记不改正文/来源/向量，也不传给模型。
+
+删除专题只移除归类，保留 Wiki 与个人笔记。通过产品软删除页面时，[editor.ts](packages/core/src/editor.ts) 先写 `.llm-wiki/trash/wiki/<trashFilename>.workspace.json`（`version:1`，保存 slug、收藏、阅读状态、笔记与专题 ID），再移入 Markdown 并删除数据库记录。撤销先校验 sidecar，再恢复页面与个人记录，仅恢复仍存在的专题；旧回收文件没有 sidecar 仍可恢复。两文件保留期从删除时开始，沿用 30 日清理。外部直接删除 Markdown 不经过此恢复流程；文件和数据库仍非跨介质事务。
+
+`GET /api/wikis/export` 在现有文档 ZIP 中加入 SQLite `backup` 生成的一致快照 `.llm-wiki/meta.sqlite`，保留专题、笔记、来源关系等不可从 Markdown 重建的信息。临时快照在成功/失败后清理，ZIP 使用已安装 archiver v8 的 `ZipArchive`。设置、历史和回收站仍不包含；数据库快照与 Markdown 文件拷贝不构成统一时点事务，宜在停止编辑/导入后导出。还原时先停止应用，将 ZIP 解压到目标 Wiki 后重新配置模型；不要把该包称为包含全部配置/历史的完整备份。下载继续在内存缓冲，超大库未验证。
+
+| 接口 | 契约 |
+| --- | --- |
+| `GET /api/workspace` | `{collections,pages,summary}`；pages 含 `starred,readingStatus,note,collectionIds,touchedAt`，summary 为真实状态计数 |
+| `POST /api/workspace/collections` | `{title,description?}`，创建专题 |
+| `PATCH /api/workspace/collections/[id]` | `{title?,description?}`，同名返回 409 |
+| `DELETE /api/workspace/collections/[id]` | 删除专题和归类关系，保留页面 |
+| `GET /api/workspace/pages/[slug]` | `{page,collections}`，为阅读页载入个人记录与可选专题 |
+| `PATCH /api/workspace/pages/[slug]` | 部分更新 `{starred?,readingStatus?,note?,collectionIds?}`；明确给出 collectionIds 才整体替换该页归类；返回 `{page}` |
+
+输入错误为 400、不存在为 404、名称冲突为 409；每请求关闭数据库。继续沿用本机单用户部署，无新增身份认证或跨进程编辑锁。UI 与测试入口及产品取舍见 [产品升级记录](docs/PRODUCT_UPGRADE.md)。
 
 ## 网页语言与知识图谱
 
@@ -108,6 +129,7 @@ Round 02 历史检索结果与完整命令见 [Round 02 验收](docs/ROUND_02_AC
 
 | 日期（Asia/Shanghai） | 变更 |
 | --- | --- |
+| 2026-11-12 | 新增每 Wiki 专题/收藏/阅读状态/个人笔记及工作台 HTTP；软删除 sidecar 恢复个人记录，ZIP 包含 SQLite 一致快照。 |
 | 2026-11-12 | Lint 提供中文交互与报告提示词；本地结果仅展示层映射，保留机器字段/修复目标与正文语言，历史时间显示为北京时间。 |
 | 2026-11-12 | 增加中英混合界面、Map/Space 双图谱视图、共享筛选与深链接；继续使用既有 GraphData、Wiki 引用和 3D 依赖，无后端协议变化。 |
 | 2026-11-12 | 修复 Chat 索引页生产构建缓存 setup 跳转的问题；Chat 布局按运行时 Wiki 配置动态渲染，聊天接口与模型协议不变。 |

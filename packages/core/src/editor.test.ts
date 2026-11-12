@@ -1,4 +1,4 @@
-import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, rm, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -20,6 +20,8 @@ import { queryWiki } from "./query";
 import { refreshEmbeddings, retrievalStatus } from "./retrieval";
 import { retrievalContentHash } from "./retrieval-store";
 import { DEFAULT_SCHEMA_TEMPLATE } from "./templates";
+import { purgeOldTrash } from "./chat";
+import { createWorkspaceCollection, deleteWorkspaceCollection, getPageWorkspace, getWorkspaceSnapshot, updatePageWorkspace } from "./workspace";
 import { initWikiFolder, readPage, readSchema, WIKI_PATHS, writePage } from "./wiki";
 
 let wikiPath: string;
@@ -241,6 +243,49 @@ describe("softDeletePage", () => {
 });
 
 describe("restoreDeletedPage", () => {
+  it("restores personal notes, star, reading state and only collections that still exist", async () => {
+    await seedPage("reading", "Keep this evidence.\n");
+    const kept = createWorkspaceCollection(db, { title: "Ongoing project" });
+    const removed = createWorkspaceCollection(db, { title: "Finished project" });
+    updatePageWorkspace(db, "reading", { starred: true, readingStatus: "reading", note: "My important observation", collectionIds: [kept.id, removed.id] });
+    const del = await softDeletePage(wikiPath, db, "reading");
+    expect(getWorkspaceSnapshot(db).pages).toEqual([]);
+    const recoveryPath = `${del.trashPath}.workspace.json`;
+    expect(JSON.parse(await readFile(recoveryPath, "utf8"))).toMatchObject({ version: 1, slug: "reading", note: "My important observation" });
+    deleteWorkspaceCollection(db, removed.id);
+    await restoreDeletedPage(wikiPath, db, "reading", del.trashFilename);
+    expect(getPageWorkspace(db, "reading")).toMatchObject({ starred: true, readingStatus: "reading", note: "My important observation", collectionIds: [kept.id] });
+    await expect(readFile(recoveryPath)).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it("leaves Markdown in trash when its personal-state backup is invalid", async () => {
+    await seedPage("recoverable", "Original evidence.\n");
+    const del = await softDeletePage(wikiPath, db, "recoverable");
+    await writeFile(`${del.trashPath}.workspace.json`, JSON.stringify({ version: 1, slug: "wrong" }));
+    await expect(restoreDeletedPage(wikiPath, db, "recoverable", del.trashFilename)).rejects.toThrow("Invalid reading-state backup");
+    expect(await readFile(del.trashPath, "utf8")).toContain("Original evidence.");
+    expect(getPage(db, "recoverable")).toBeNull();
+  });
+
+  it("keeps older trash without personal-state sidecars compatible", async () => {
+    await seedPage("legacy", "Legacy evidence.\n");
+    const del = await softDeletePage(wikiPath, db, "legacy");
+    await rm(`${del.trashPath}.workspace.json`);
+    await restoreDeletedPage(wikiPath, db, "legacy", del.trashFilename);
+    expect(getPageWorkspace(db, "legacy")).toMatchObject({ starred: false, readingStatus: "unread", note: "" });
+  });
+
+  it("retains an old page from deletion time and purges Markdown with its sidecar after expiry", async () => {
+    await seedPage("old-page", "Long-lived evidence.\n");
+    const old = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000);
+    await utimes(join(wikiPath, WIKI_PATHS.wiki, "old-page.md"), old, old);
+    const del = await softDeletePage(wikiPath, db, "old-page");
+    expect(await purgeOldTrash(wikiPath)).toBe(0);
+    await utimes(del.trashPath, old, old);
+    await utimes(`${del.trashPath}.workspace.json`, old, old);
+    expect(await purgeOldTrash(wikiPath)).toBe(2);
+  });
+
   it("moves the trash file back, repopulates DB, returns the page", async () => {
     await seedPage("comeback", "Original body about [[other]].\n");
     const del = await softDeletePage(wikiPath, db, "comeback");

@@ -1,9 +1,10 @@
-import { access, copyFile, mkdir, readFile, rename, stat, writeFile } from "node:fs/promises";
+import { access, copyFile, mkdir, readFile, rename, stat, unlink, utimes, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import type { Db } from "./db";
 import {
   deletePage as deletePageRow,
+  getPage as getPageRow,
   indexPageForSearch,
   unindexPageFromSearch,
   upsertPage,
@@ -17,6 +18,7 @@ import {
 import { uniqueLinkedSlugs } from "./links";
 import type { Page, PageType } from "./types";
 import { appendLog, listPages, readPage, WIKI_PATHS, writeIndex, writePage } from "./wiki";
+import { getPageWorkspace, listWorkspaceCollections, READING_STATUSES, updatePageWorkspace, type WorkspacePage } from "./workspace";
 
 const PAGE_HISTORY_DIR = "page-history";
 
@@ -303,6 +305,25 @@ export async function createPage(
 // ---- soft delete + restore for wiki pages -------------------------------
 
 const WIKI_TRASH_DIR = "trash/wiki";
+const WORKSPACE_TRASH_SUFFIX = ".workspace.json";
+type WorkspaceTrashState = Pick<WorkspacePage, "slug" | "starred" | "readingStatus" | "note" | "collectionIds"> & { version: 1 };
+
+async function readWorkspaceTrash(path: string, slug: string): Promise<WorkspaceTrashState | null> {
+  let raw: string;
+  try { raw = await readFile(path, "utf8"); }
+  catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return null; // Older trash has no sidecar.
+    throw err;
+  }
+  const value = JSON.parse(raw) as WorkspaceTrashState;
+  if (!value || value.version !== 1 || value.slug !== slug || typeof value.starred !== "boolean"
+    || !READING_STATUSES.includes(value.readingStatus) || typeof value.note !== "string" || value.note.length > 20000
+    || !Array.isArray(value.collectionIds) || value.collectionIds.length > 100
+    || !value.collectionIds.every((id) => typeof id === "string" && id.length > 0 && id.length <= 100)) {
+    throw new Error("Invalid reading-state backup; the page remains in trash for recovery.");
+  }
+  return value;
+}
 
 export type SoftDeletePageResult = {
   slug: string;
@@ -365,7 +386,28 @@ export async function softDeletePage(
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
   const trashFilename = `${stamp}-${slug}.md`;
   const trashPath = join(trashDir, trashFilename);
-  await rename(filePath, trashPath);
+  const workspace = getPageRow(db, slug) ? getPageWorkspace(db, slug) : null;
+  const workspacePath = `${trashPath}${WORKSPACE_TRASH_SUFFIX}`;
+  if (workspace) {
+    const state: WorkspaceTrashState = {
+      version: 1, slug, starred: workspace.starred, readingStatus: workspace.readingStatus,
+      note: workspace.note, collectionIds: workspace.collectionIds,
+    };
+    // Write the recovery record first. A failed disk write must not delete the page.
+    await writeFile(workspacePath, JSON.stringify(state), { encoding: "utf8", flag: "wx" });
+  }
+  try {
+    await rename(filePath, trashPath);
+  } catch (error) {
+    if (workspace) await unlink(workspacePath).catch(() => {});
+    throw error;
+  }
+  // Best-effort retention timestamp: a filesystem timestamp error must not
+  // interrupt deletion after Markdown has moved but before SQLite is cleaned.
+  // Normally both files start the existing 30-day purge policy at deletion.
+  const deletedAt = new Date();
+  await utimes(trashPath, deletedAt, deletedAt).catch(() => {});
+  if (workspace) await utimes(workspacePath, deletedAt, deletedAt).catch(() => {});
 
   // DB + FTS5 + index cleanup. Cascades: page_sources rows drop via FK.
   deletePageRow(db, slug);
@@ -415,6 +457,9 @@ export class PageRestoreConflictError extends Error {
  * the same slug (caller should surface the error and let the user resolve
  * the conflict manually).
  *
+ * Reading state is restored from the accompanying versioned JSON sidecar;
+ * references to collections deleted in the meantime are not recreated.
+ * Older trash files without a sidecar restore with the default reading state.
  * Note: page_sources links are NOT restored — they cascaded on delete and
  * we don't keep a separate audit log of what they were. Re-ingesting the
  * source(s) would re-create them. For now, the restored page is "lineage-
@@ -435,6 +480,10 @@ export async function restoreDeletedPage(
   // Validate the trash file exists + lives under our trash dir (defense
   // against a malicious caller passing "../etc/passwd").
   const trashDir = join(wikiPath, WIKI_PATHS.tooling, WIKI_TRASH_DIR);
+  if (trashFilename.includes("/") || trashFilename.includes("\\")) {
+    throw new Error("trashFilename must not contain path separators");
+  }
+  if (!trashFilename.endsWith(`-${slug}.md`)) throw new Error("trashFilename does not match the page slug");
   const trashPath = join(trashDir, trashFilename);
   // Reject anything that escapes the trash dir.
   const normalizedTrashPath = trashPath.replace(/\\/g, "/");
@@ -445,6 +494,11 @@ export async function restoreDeletedPage(
   if (!(await fileExists(trashPath))) {
     throw new Error(`trash file not found: ${trashFilename}`);
   }
+
+  const workspacePath = `${trashPath}${WORKSPACE_TRASH_SUFFIX}`;
+  // Parse and validate before moving Markdown, preserving recoverability when a
+  // manually edited sidecar is invalid.
+  const workspace = await readWorkspaceTrash(workspacePath, slug);
 
   await rename(trashPath, filePath);
 
@@ -467,6 +521,17 @@ export async function restoreDeletedPage(
     content: page.content,
     tags,
   });
+
+  if (workspace) {
+    const existing = new Set(listWorkspaceCollections(db).map((collection) => collection.id));
+    updatePageWorkspace(db, slug, {
+      starred: workspace.starred, readingStatus: workspace.readingStatus, note: workspace.note,
+      collectionIds: workspace.collectionIds.filter((id) => existing.has(id)),
+    });
+    // The restored state is already durable. Leftover cleanup can be retried by
+    // the ordinary trash purge and must not turn a successful restore into 500.
+    await unlink(workspacePath).catch(() => {});
+  }
 
   try {
     const s = await stat(filePath);

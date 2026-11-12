@@ -1,72 +1,69 @@
-import { basename } from "node:path";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { basename, join } from "node:path";
 
-import archiver from "archiver";
+import { ZipArchive, type Archiver } from "archiver";
 
-import { resolveWikiPath } from "@/lib/server-wiki";
+import { openWikiContext } from "@/lib/server-wiki";
 
 export const dynamic = "force-dynamic";
-// archiver is Node-only (fs + zlib); force the Node runtime so this route
-// isn't accidentally picked up by the Edge bundler.
 export const runtime = "nodejs";
 
-// GET /api/wikis/export — returns a zip of the active wiki's contents as
-// a downloadable attachment. Skips `.llm-wiki/` (regenerable from the rest
-// — SQLite, page-history, schema-history, trash all reproducible) so the
-// download is portable and minimal.
-//
-// We buffer the entire zip in memory rather than streaming it. The trade-off:
-// memory grows with wiki size, but the response gets a real Content-Length
-// (so the browser shows progress + can use a normal download flow instead
-// of falling back to "Keep / Resume" UI on a stream of unknown length) and
-// we avoid the Node Readable → Web ReadableStream pitfalls in Next 14's
-// App Router that produced empty / .txt-typed responses earlier. For a
-// V1 personal wiki this is fine; a streaming variant can come back when
-// users actually hit memory pressure on hundreds-of-MB wikis.
+// Markdown, raw sources and chats are copied as files. Metadata is a consistent
+// SQLite backup, including WAL changes; copying only the live .sqlite file can
+// silently omit recent notes and source relationships. The combined archive is
+// not a transaction across the database and Markdown, so export while idle.
+// Other .llm-wiki content (settings, histories, trash) remains excluded.
+// The archive is buffered for a reliable download + Content-Length; memory use
+// still grows with Wiki size, as in the existing export implementation.
 export async function GET() {
-  const wikiPath = resolveWikiPath();
-  const folderName = basename(wikiPath) || "knowwaeve";
-  const stamp = new Date().toISOString().slice(0, 10);
-  const filename = `${folderName}-${stamp}.zip`;
+  const ctx = await openWikiContext();
+  let temporaryDirectory: string | undefined;
+  let archive: Archiver | undefined;
+  try {
+    temporaryDirectory = await mkdtemp(join(tmpdir(), "knowweave-export-"));
+    const snapshot = join(temporaryDirectory, "meta.sqlite");
+    await ctx.db.backup(snapshot);
 
-  const archive = archiver("zip", { zlib: { level: 6 } });
-  const chunks: Buffer[] = [];
+    archive = new ZipArchive({ zlib: { level: 6 } });
+    const chunks: Buffer[] = [];
+    archive.on("data", (chunk: Buffer) => chunks.push(chunk));
+    const zip = archive;
+    await new Promise<void>((resolve, reject) => {
+      zip.on("end", resolve);
+      zip.on("error", reject);
+      // Do not silently present a partial archive as a successful download.
+      zip.on("warning", reject);
+      zip.glob("**/*", {
+        cwd: ctx.wikiPath,
+        dot: true,
+        ignore: [".llm-wiki/**", ".llm-wiki"],
+      });
+      zip.file(snapshot, { name: ".llm-wiki/meta.sqlite" });
+      void zip.finalize().catch(reject);
+    });
 
-  archive.on("data", (chunk: Buffer) => {
-    chunks.push(chunk);
-  });
-  archive.on("warning", (err) => {
-    // ENOENT during glob walk just means a file disappeared mid-zip —
-    // surface anything else.
-    if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
-      console.error("[export] archiver warning:", err);
+    const body = Buffer.concat(chunks);
+    const stamp = new Date().toISOString().slice(0, 10);
+    const filename = `${basename(ctx.wikiPath) || "knowweave"}-${stamp}.zip`;
+    const encodedFilename = encodeURIComponent(filename).replace(
+      /[!'()*]/g,
+      (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`,
+    );
+    return new Response(body, {
+      headers: {
+        "Content-Type": "application/zip",
+        "Content-Length": String(body.length),
+        "Content-Disposition": `attachment; filename="knowweave-${stamp}.zip"; filename*=UTF-8''${encodedFilename}`,
+        "Cache-Control": "no-store",
+      },
+    });
+  } finally {
+    archive?.abort();
+    try {
+      ctx.db.close();
+    } finally {
+      if (temporaryDirectory) await rm(temporaryDirectory, { recursive: true, force: true });
     }
-  });
-
-  // Walk the wiki folder, exclude .llm-wiki/. archiver.glob handles
-  // recursion for us and the ignore pattern works on POSIX + Windows.
-  archive.glob("**/*", {
-    cwd: wikiPath,
-    dot: true, // include .gitignore + .DS_Store-style files if any
-    ignore: [".llm-wiki/**", ".llm-wiki"],
-  });
-
-  // Wait for archiver to drain. `end` fires after `finalize()` has emitted
-  // every chunk; `error` fires on a fatal write failure (which we
-  // re-throw as a 500 to the client).
-  await new Promise<void>((resolve, reject) => {
-    archive.on("end", resolve);
-    archive.on("error", reject);
-    void archive.finalize();
-  });
-
-  const body = Buffer.concat(chunks);
-
-  return new Response(body, {
-    headers: {
-      "Content-Type": "application/zip",
-      "Content-Length": String(body.length),
-      "Content-Disposition": `attachment; filename="${filename}"`,
-      "Cache-Control": "no-store",
-    },
-  });
+  }
 }

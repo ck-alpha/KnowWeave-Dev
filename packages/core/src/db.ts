@@ -65,6 +65,28 @@ CREATE TABLE IF NOT EXISTS page_sources (
   FOREIGN KEY (source_id) REFERENCES sources(id) ON DELETE CASCADE
 );
 
+-- Personal organization is independent of generated Wiki content and retrieval.
+CREATE TABLE IF NOT EXISTS workspace_collections (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL COLLATE NOCASE UNIQUE,
+  description TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS page_workspace (
+  page_slug TEXT PRIMARY KEY REFERENCES pages(slug) ON DELETE CASCADE,
+  starred INTEGER NOT NULL DEFAULT 0 CHECK(starred IN (0, 1)),
+  reading_status TEXT NOT NULL DEFAULT 'unread' CHECK(reading_status IN ('unread', 'reading', 'reviewed')),
+  note TEXT NOT NULL DEFAULT '',
+  updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS workspace_collection_pages (
+  collection_id TEXT NOT NULL REFERENCES workspace_collections(id) ON DELETE CASCADE,
+  page_slug TEXT NOT NULL REFERENCES pages(slug) ON DELETE CASCADE,
+  PRIMARY KEY (collection_id, page_slug)
+);
+CREATE INDEX IF NOT EXISTS workspace_collection_pages_slug ON workspace_collection_pages(page_slug);
+
 CREATE TABLE IF NOT EXISTS chats (
   id TEXT PRIMARY KEY,
   filename TEXT NOT NULL,

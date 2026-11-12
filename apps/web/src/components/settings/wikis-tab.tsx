@@ -244,13 +244,19 @@ export function WikisTab() {
               href="/api/wikis/export"
               download
               className="rounded-md border border-border bg-background px-3 py-1.5 text-xs hover:border-primary/40 hover:bg-accent"
-              title="导出当前 Wiki 的 Markdown、原始资料、会话、规则、索引和日志；不包含 .llm-wiki/ 元数据。"
+              title="导出 Markdown、原始资料、会话、规则、目录、日志与 SQLite 元数据快照（含专题、阅读笔记和来源关系）；不含历史、回收站、Wiki 设置与密钥。"
             >
               ↓ 导出当前 Wiki
             </a>
           ) : null}
         </div>
       </div>
+
+      <p className="text-xs leading-relaxed text-muted-foreground">
+        导出包含当前知识内容和 SQLite
+        元数据（专题、阅读笔记、来源关系等），不含历史版本、回收站、Wiki 设置与密钥。
+        为保持内容一致，请在导入或编辑完成后导出；文件与数据库并非同一时点的原子备份。
+      </p>
 
       {data?.fixedPath ? (
         <p className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">

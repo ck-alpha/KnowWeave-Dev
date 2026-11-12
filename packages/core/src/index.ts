@@ -7,6 +7,7 @@ export * from "./db-pages";
 export * from "./retrieval";
 export * from "./retrieval-store";
 export * from "./db-sources";
+export * from "./workspace";
 export { getChat, insertChat, updateChat, listChatRows } from "./db-chats";
 export * from "./db-usage";
 export * from "./db-sync";
