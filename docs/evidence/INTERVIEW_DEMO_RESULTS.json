@@ -1,0 +1,93 @@
+{
+  "checkedAt": "2026-11-12T15:56:17.949631+00:00",
+  "timezone": "Asia/Shanghai",
+  "purpose": "AI 产品经理 5–8 分钟面试 Demo；人工预置资料，真实应用与模型调用。",
+  "fixture": {
+    "pages": 14,
+    "wikiLinks": 38,
+    "sources": 5,
+    "pendingSources": 1,
+    "collections": [11, 3, 0],
+    "validExcerpts": 2
+  },
+  "build": {
+    "buildId": "HG_Gt1Ybz34DuUspeKC0T",
+    "snapshotHash": "ef22a453057ae798cc617ff9d8eb6b55197c2139a41dc35f66e491704760c3fe",
+    "productionTypeAndLint": "passed",
+    "workspaceHeaderLayout": "标题保留24rem flex basis，让操作区自然换行"
+  },
+  "verification": {
+    "launcherTests": {
+      "passed": 13
+    },
+    "scriptsTypecheck": "passed",
+    "initialThreeModeApi": {
+      "status": "passed",
+      "checks": 12,
+      "index": 14
+    },
+    "separateFullIngestApi": {
+      "status": "passed",
+      "checks": 13,
+      "newPages": 1,
+      "updatedPages": 2,
+      "index": 15,
+      "modes": ["bm25", "embedding", "hybrid"]
+    },
+    "browser": {
+      "status": "passed",
+      "checks": 42,
+      "screenshots": 18,
+      "downloads": 3,
+      "errors": [],
+      "httpErrors": [],
+      "writes": [
+        {
+          "method": "POST",
+          "path": "/api/query"
+        }
+      ]
+    },
+    "browserDefault": {
+      "status": "passed",
+      "checks": 36,
+      "screenshots": 15,
+      "downloads": 2,
+      "errors": [],
+      "httpErrors": [],
+      "writes": []
+    },
+    "browserGuardRejections": 6,
+    "stopAndRestart": "SIGTERM stops owned process group and clears lock; same source reuses production build",
+    "existingServices": "3000/3001 build preserved as 9XZbBCMvqQFSLSyAhZBxN; not restarted or used for mutations"
+  },
+  "artifacts": {
+    "initialApi": ".local/interview-demo/reports/check-1794498551162-1183459/report.json",
+    "fullIngestApi": ".local/interview-ingest-rehearsal/reports/check-1794498731292-1185225/report.json",
+    "browser": ".local/interview-demo/reports/browser-final-layout/browser.json",
+    "browserDefault": ".local/interview-demo/reports/browser-default/browser.json"
+  },
+  "screenshots": [
+    "docs/images/interview-home.png",
+    "docs/images/interview-workspace.png",
+    "docs/images/interview-query.png",
+    "docs/images/interview-source.png"
+  ],
+  "iterations": [
+    "首次启动直接node运行Next导致better-sqlite3解析失败，HTTP500；修为pnpm start后实际预检与模型验收通过。",
+    "首轮浏览器41项通过但目视发现标题被挤窄；调整flex basis并新增断言后最终42项通过。"
+  ],
+  "notVerified": [
+    "全新机器安装",
+    "Windows启动器进程管理",
+    "实际手机触控/GPU性能",
+    "全量SciFact重跑",
+    "PDF/OCR与中文专项质量",
+    "真实用户价值、留存或节省工时"
+  ],
+  "boundaries": [
+    "人工样例不是模型整理成果；仅明确标注的真实导入/回答属于模型输出。",
+    "引用、正文hash和实际usage不证明回答事实正确；未抓取模型完整prompt。",
+    "此次未提交或推送，保留开始时既有未提交功能改动。"
+  ]
+}

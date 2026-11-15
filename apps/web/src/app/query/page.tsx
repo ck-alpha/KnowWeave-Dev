@@ -1,13 +1,36 @@
+import { listWorkspaceCollections } from "@llm-wiki/core";
 import { QueryView } from "./query-view";
-import { requireSetup } from "@/lib/server-wiki";
+import { openWikiContext, requireSetup } from "@/lib/server-wiki";
+import { wikiIdentity } from "@/lib/wiki-identity";
 
 export const dynamic = "force-dynamic";
 
-// Server wrapper that gates the query UI behind requireSetup(). Without
-// this, a direct bookmark to /query with no API key would fall through to
-// the client view and fail loud at /api/query with a no-key error instead
-// of redirecting to onboarding.
-export default async function QueryPage() {
+export default async function QueryPage({
+  searchParams,
+}: {
+  searchParams?: { collection?: string | string[] };
+}) {
   await requireSetup("query");
-  return <QueryView />;
+  const ctx = await openWikiContext();
+  try {
+    const wikiId = wikiIdentity(ctx.wikiPath);
+    const collectionId = Array.isArray(searchParams?.collection)
+      ? searchParams.collection[0]
+      : searchParams?.collection;
+    const collections = listWorkspaceCollections(ctx.db).map(({ id, title, pageCount }) => ({
+      id,
+      title,
+      pageCount,
+    }));
+    return (
+      <QueryView
+        key={`${wikiId}:${collectionId ?? "all"}`}
+        wikiId={wikiId}
+        collectionId={collectionId}
+        collections={collections}
+      />
+    );
+  } finally {
+    ctx.db.close();
+  }
 }

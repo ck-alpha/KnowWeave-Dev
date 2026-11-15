@@ -1,18 +1,26 @@
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
-
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { getSource, listPageRows, WIKI_PATHS } from "@llm-wiki/core";
+import {
+  ExcerptError,
+  getSource,
+  getSourceExcerpt,
+  listPageRows,
+  locateExcerpt,
+  listWorkspaceCollections,
+  readSourceTextPreview,
+  type ExcerptText,
+  type SourceExcerpt,
+} from "@llm-wiki/core";
 
 import { PageContainer, PageHeader } from "@/components/page-shell";
 import { MarkdownView } from "@/components/wiki/markdown-view";
+import { SourceExcerptReader } from "@/components/excerpts/source-excerpt-reader";
+import { ExcerptList } from "@/components/excerpts/excerpt-list";
+import { wikiIdentity } from "@/lib/wiki-identity";
 import { openWikiContext, requireSetup } from "@/lib/server-wiki";
 
 export const dynamic = "force-dynamic";
-
-const MAX_RAW_BYTES = 1_000_000; // 1 MB
 
 const FORMAT_LABEL: Record<string, string> = {
   markdown: "Markdown",
@@ -66,8 +74,10 @@ function pagesUsingSource(
 
 export default async function SourceDetailPage({
   params,
+  searchParams,
 }: {
   params: { id: string };
+  searchParams?: { excerpt?: string | string[] };
 }) {
   await requireSetup("ingest");
   const ctx = await openWikiContext();
@@ -78,32 +88,46 @@ export default async function SourceDetailPage({
     const pages = pagesUsingSource(ctx, params.id);
     const knownSlugs = listPageRows(ctx.db).map((r) => r.slug);
 
-    const rawPath = join(ctx.wikiPath, WIKI_PATHS.raw, source.filename);
+    const wikiKey = wikiIdentity(ctx.wikiPath);
+    const collections = listWorkspaceCollections(ctx.db);
+    let excerptText: ExcerptText | null = null;
+    let locatedExcerpt: SourceExcerpt | undefined;
+    let locationError: string | undefined;
+    const excerptId = Array.isArray(searchParams?.excerpt)
+      ? searchParams.excerpt[0]
+      : searchParams?.excerpt;
+    if (excerptId) {
+      try {
+        const excerpt = await getSourceExcerpt(ctx.db, ctx.wikiPath, excerptId);
+        if (excerpt.sourceId !== source.id) locationError = "这条摘录不属于当前来源。";
+        else locatedExcerpt = excerpt;
+      } catch (error) {
+        locationError = error instanceof ExcerptError ? error.message : "无法读取这条摘录。";
+      }
+    }
+
     let rawText: string | null = null;
     let rawError: string | null = null;
     let truncated = false;
     try {
-      const buf = await readFile(rawPath);
-      if (buf.length > MAX_RAW_BYTES) {
-        rawText = buf.subarray(0, MAX_RAW_BYTES).toString("utf8");
-        truncated = true;
-      } else {
-        rawText = buf.toString("utf8");
+      const preview = await readSourceTextPreview(ctx.wikiPath, source);
+      rawText = preview.text;
+      truncated = preview.truncated;
+      if (["md", "txt"].includes(source.format) && preview.contentHash) {
+        excerptText = { text: preview.text, contentHash: preview.contentHash };
       }
-      // Quick binary sniff — the replacement char shows up when utf8 decode
-      // hits non-text bytes.
-      if (rawText.includes("�")) {
-        rawText = null;
-        rawError = "此格式无法直接预览，请使用支持该格式的应用打开原文件。";
-      }
-    } catch (err) {
-      rawError = (err as NodeJS.ErrnoException).code === "ENOENT"
-        ? "找不到原始文件。请从备份恢复后，再核对这份来源。"
-        : "无法读取原始文件，请检查 Wiki 目录中的文件权限。";
+    } catch (error) {
+      rawError = error instanceof ExcerptError ? error.message : "无法读取原始文件。";
     }
 
-    const title =
-      source.title?.trim() || source.original_name?.trim() || source.filename;
+    if (excerptText && locatedExcerpt) {
+      locatedExcerpt = {
+        ...locatedExcerpt,
+        locationStatus: locateExcerpt(locatedExcerpt, excerptText),
+      };
+    }
+
+    const title = source.title?.trim() || source.original_name?.trim() || source.filename;
     const formatLabel = FORMAT_LABEL[source.format] ?? source.format.toUpperCase();
 
     return (
@@ -111,9 +135,7 @@ export default async function SourceDetailPage({
         <PageHeader
           eyebrow="Source"
           title={title}
-          description={
-            <span className="font-mono text-sm break-all">raw/{source.filename}</span>
-          }
+          description={<span className="font-mono text-sm break-all">raw/{source.filename}</span>}
           actions={
             <Link
               href="/sources"
@@ -128,18 +150,12 @@ export default async function SourceDetailPage({
             things you'd want at a glance before reading the body. */}
         <dl className="mb-6 grid grid-cols-2 gap-x-6 gap-y-2 [&>div]:min-w-0 [&_dd]:break-words rounded-md border border-border/70 bg-card p-4 text-sm sm:grid-cols-4">
           <div>
-            <dt className="text-xs uppercase tracking-wider text-muted-foreground">
-              格式
-            </dt>
+            <dt className="text-xs uppercase tracking-wider text-muted-foreground">格式</dt>
             <dd className="mt-0.5 font-medium">{formatLabel}</dd>
           </div>
           <div>
-            <dt className="text-xs uppercase tracking-wider text-muted-foreground">
-              大小
-            </dt>
-            <dd className="mt-0.5 font-medium tabular-nums">
-              {formatSize(source.size_bytes)}
-            </dd>
+            <dt className="text-xs uppercase tracking-wider text-muted-foreground">大小</dt>
+            <dd className="mt-0.5 font-medium tabular-nums">{formatSize(source.size_bytes)}</dd>
           </div>
           <div>
             <dt className="text-xs uppercase tracking-wider text-muted-foreground">
@@ -157,17 +173,13 @@ export default async function SourceDetailPage({
           </div>
           {source.original_name ? (
             <div className="col-span-2">
-              <dt className="text-xs uppercase tracking-wider text-muted-foreground">
-                原始文件名
-              </dt>
+              <dt className="text-xs uppercase tracking-wider text-muted-foreground">原始文件名</dt>
               <dd className="mt-0.5 break-all font-mono text-xs">{source.original_name}</dd>
             </div>
           ) : null}
           {source.url ? (
             <div className="col-span-2">
-              <dt className="text-xs uppercase tracking-wider text-muted-foreground">
-                来源 URL
-              </dt>
+              <dt className="text-xs uppercase tracking-wider text-muted-foreground">来源 URL</dt>
               <dd className="mt-0.5">
                 <a
                   href={source.url}
@@ -205,36 +217,52 @@ export default async function SourceDetailPage({
           </section>
         ) : null}
 
-        {/* Raw body — the unmodified content as the LLM saw it. Markdown
+        {excerptText ? (
+          <SourceExcerptReader
+            key={`${wikiKey}:${source.id}:${excerptId ?? ""}`}
+            sourceId={source.id}
+            rawText={excerptText.text}
+            contentHash={excerptText.contentHash}
+            wikiKey={wikiKey}
+            collections={collections}
+            locatedExcerpt={locatedExcerpt}
+            locationError={locationError}
+          />
+        ) : (
+          <>
+            {/* Raw body — the unmodified content as the LLM saw it. Markdown
             renders nicely; plain text falls through the same renderer. */}
-        <section>
-          <h2 className="mb-3 text-caption font-semibold uppercase tracking-wider text-muted-foreground">
-            原始内容
-          </h2>
-          {rawError ? (
-            <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-800 dark:text-amber-200">
-              <p>{rawError}</p>
-              <p className="mt-2 text-xs">
-                在 Wiki 文件夹中打开{" "}
-                <code className="font-mono break-all">raw/{source.filename}</code>。
-              </p>
-            </div>
-          ) : rawText ? (
-            <>
-              <article className="rounded-md border border-border/70 bg-card p-5">
-                <MarkdownView content={rawText} knownSlugs={knownSlugs} />
-              </article>
-              {truncated ? (
-                <p className="mt-2 text-caption text-muted-foreground">
-                  当前仅预览前 1 MB；完整内容保存在 Wiki 文件夹的{" "}
-                  <code className="font-mono break-all">raw/{source.filename}</code>。
-                </p>
-              ) : null}
-            </>
-          ) : (
-            <p className="text-sm text-muted-foreground">暂无可预览内容。</p>
-          )}
-        </section>
+            <section>
+              <h2 className="mb-3 text-caption font-semibold uppercase tracking-wider text-muted-foreground">
+                原始内容
+              </h2>
+              {rawError ? (
+                <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-800 dark:text-amber-200">
+                  <p>{rawError}</p>
+                  <p className="mt-2 text-xs">
+                    在 Wiki 文件夹中打开{" "}
+                    <code className="font-mono break-all">raw/{source.filename}</code>。
+                  </p>
+                </div>
+              ) : rawText ? (
+                <>
+                  <article className="rounded-md border border-border/70 bg-card p-5">
+                    <MarkdownView content={rawText} knownSlugs={knownSlugs} />
+                  </article>
+                  {truncated ? (
+                    <p className="mt-2 text-caption text-muted-foreground">
+                      当前仅预览前 1 MB，暂不能创建定位摘录；完整内容保存在 Wiki 文件夹的{" "}
+                      <code className="font-mono break-all">raw/{source.filename}</code>。
+                    </p>
+                  ) : null}
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground">暂无可预览内容。</p>
+              )}
+            </section>
+            <ExcerptList key={`${wikiKey}:${source.id}`} sourceId={source.id} wikiKey={wikiKey} />
+          </>
+        )}
       </PageContainer>
     );
   } finally {

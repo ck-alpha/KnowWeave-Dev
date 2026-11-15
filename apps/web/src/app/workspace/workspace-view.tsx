@@ -27,6 +27,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { PAGE_TYPE_LABELS } from "@/components/wiki/library-model";
+import { CreatePageButton } from "@/components/wiki/create-page-button";
+import { ExcerptList } from "@/components/excerpts/excerpt-list";
 import { collectionExportFilename, collectionMarkdown } from "@/lib/collection-export";
 
 import styles from "./workspace.module.css";
@@ -39,11 +41,13 @@ const STATUS_LABEL: Record<ReadingStatus, string> = {
 type CollectionDraft = { id?: string; title: string; description: string };
 
 export function WorkspaceView({
+  wikiKey,
   initial,
   initialCollection,
   initialStatus,
   initialStarred,
 }: {
+  wikiKey: string;
   initial: WorkspaceSnapshot;
   initialCollection?: string;
   initialStatus?: string;
@@ -410,6 +414,17 @@ export function WorkspaceView({
             </div>
             {collection && (
               <div className="flex flex-wrap gap-1">
+                <Button variant="outline" size="sm" asChild>
+                  <Link href={`/query?collection=${encodeURIComponent(collection.id)}`}>
+                    专题问答
+                  </Link>
+                </Button>
+                <CreatePageButton
+                  key={collection.id}
+                  wikiKey={wikiKey}
+                  initialCollectionId={collection.id}
+                  buttonLabel="写研究笔记"
+                />
                 <Button variant="ghost" size="sm" asChild>
                   <Link href={`/graph?collection=${encodeURIComponent(collection.id)}`}>
                     <Network className="mr-1.5 h-4 w-4" aria-hidden />
@@ -647,6 +662,15 @@ export function WorkspaceView({
                   <Link href="/sources">导入第一份资料</Link>
                 </Button>
               )}
+            </div>
+          )}
+          {(!collectionId || collection) && (
+            <div className="mt-10 border-t border-border pt-6">
+              <ExcerptList
+                key={collectionId || "all"}
+                collectionId={collection?.id}
+                wikiKey={wikiKey}
+              />
             </div>
           )}
         </section>

@@ -1,6 +1,6 @@
 # KnowWeave 项目架构
 
-最后核对：2026-11-12（Asia/Shanghai，专题关系图谱、引用方向、阅读上下文、纸面图册及专题清单导出；本轮验证结果见进度与开发日志）。当前实现范围：Round 01–03、知识工作台、图谱呈现与研究札记视觉升级；本轮验证状态见 [PROGRESS](docs/PROGRESS.md)。
+最后核对：2026-11-15（Asia/Shanghai，提交前核对既有科研工作流与隔离面试 Demo；专题问答、文本摘录、研究模板及启动入口与源码一致）。当前实现范围：Round 01–03、知识工作台、研究札记视觉与科研工作流；本轮验证状态见 [PROGRESS](docs/PROGRESS.md)。
 本文件是当前架构的统一入口；模块、调用链、接口、数据格式、检索/模型协议或部署入口变化时，随代码在同一次提交中更新核对日期。当前名称 **KnowWeave**；既有 `KNOWWAEVE_*` 环境变量和内部包名为兼容保留。
 
 ## 技术栈与入口
@@ -42,7 +42,7 @@ flowchart LR
 
 导入：`POST /api/ingest` → `ingestPastedText` / `ingestSource` → prompt → `callLLM` → `IngestResponseSchema` → `applyIngestResponse`。新来源使用 `raw/<date>-<slug>-<source UUID>.<ext>` 排他创建，避免同名导入覆盖原文；旧文件名仍可读取。写入 `wiki/*.md`、`index.md`、`log.md`，维护 `pages`、`pages_fts`、`sources`、`page_sources`；来源 UUID 同时存于 frontmatter。Ingest 在同 Wiki 的应用进程内互斥写入，写页前拒绝同一提案重复 slug 或把现存页当作 newPage；失败来源保持 pending，可在 Sources Retry。Ingest 和手工创建/编辑均读取序列化后实际落盘正文用于索引与返回值，并等待同步状态完成，保证新建/更新内容与 Query 的正文指纹相同。此互斥不覆盖多个服务进程或外部编辑器并发。
 
-问答：`POST /api/query` → `queryWiki` → `retrievePages` → 从磁盘 `readPage` → `buildQueryPrompt` → Qwen → `QueryResponseSchema` → 校验引用属于实际供给正文。返回 `pagesUsed` 和 `retrieval`，后者含模式、排名、模型、参数、耗时以及 `suppliedPages` 的正文 SHA256/UTF8 字节数。排名本身不作为模型证据，真正供给的是当前页面正文。无命中直接返回低置信证据不足；低置信模型回答可无引用，其他回答必须有引用。引用存在性不证明科学结论正确。
+问答：`POST /api/query` → `queryWiki` → `retrievePages` → 从磁盘 `readPage` → `buildQueryPrompt` → Qwen → `QueryResponseSchema` → 校验引用属于实际供给正文。返回 `scope`、`pagesUsed` 和 `retrieval`，后者含模式、排名、模型、参数、耗时以及 `suppliedPages` 的正文 SHA256/UTF8 字节数。排名本身不作为模型证据，真正供给的是当前页面正文。无命中直接返回低置信证据不足；低置信模型回答可无引用，其他回答必须有引用。引用存在性不证明科学结论正确。
 
 UI 的 `[[slug]]` 跳到 Wiki，再经 Sources 链接进入原文；读取 API 仍为 `/api/pages/[slug]` 与 `/api/sources/[id]`。Round 02–03 不改变 Ingest 与聊天的候选检索策略，它们继续使用 BM25；三模式明确用于独立 Query。
 
@@ -70,6 +70,48 @@ Workspace 选中专题后可「导出阅读清单」。客户端 [collection-exp
 | `PATCH /api/workspace/pages/[slug]` | 部分更新 `{starred?,readingStatus?,note?,collectionIds?}`；明确给出 collectionIds 才整体替换该页归类；返回 `{page}` |
 
 输入错误为 400、不存在为 404、名称冲突为 409；每请求关闭数据库。继续沿用本机单用户部署，无新增身份认证或跨进程编辑锁。UI 与测试入口及产品取舍见 [产品升级记录](docs/PRODUCT_UPGRADE.md)。
+
+## 科研工作流：专题问答、文本摘录与研究模板
+
+### 专题问答与证据边界
+
+Workspace 的「专题问答」进入 `/query?collection=<id>`，Query 默认仍为全库，可明确切换范围。服务端按 Wiki 身份与专题重新挂载界面；请求携带 Wiki 路径 SHA256，当前库不符时返回409，避免旧页面提交到新 Wiki。不存在的专题返回404，不回退全库；空专题禁用界面提交，核心返回无证据结果，不调用回答或向量模型。
+
+[query-scope.ts](packages/core/src/query-scope.ts) 在开始检索时读取专题及真实页面成员，生成 `scope {kind,title,collectionId?,pageSlugs,capturedAt}` 快照。`queryWiki` 将快照的 `pageSlugs` 作为 `retrievePages.allowedSlugs`：BM25 在 SQL 排名截断前过滤，Embedding 只扫描该范围有效向量，Hybrid 两路在同一范围内排名后 RRF。专题的向量就绪检查只统计范围内文档，其他专题待更新不会阻止本专题查询；全库刷新/重建仍维护整个 Wiki，UI 明确区分。默认全库沿用既有行为。
+
+专题查询不读取全库 `index.md`，模型目录只列本次允许的页面；实际证据仍从入选页面的当前正文读取，保持指纹检查与引用必须属于 `suppliedPages` 的约束。专题说明、`page_workspace.note`、独立摘录与批注均不供给模型。范围以提交时的成员快照为准，查询中途改归类不重写已经提交的范围。响应的 `scope` 与正文指纹一起返回，答案显示与 Markdown 导出使用响应快照，不读取之后的界面选择。
+
+| 接口 | 新增契约 |
+| --- | --- |
+| `POST /api/query` | 可选 `collectionId`；省略为全库。可选 `wikiId`（Wiki 路径SHA256）；响应 `response.scope` 记录实际范围 |
+| `GET /api/retrieval?collection=<id>&wikiId=<hash>` | 当前范围的向量状态；无 collection 则全库；失效专题404、切库409 |
+| `POST /api/retrieval` | 继续全库构建；可选 `wikiId` 防止旧界面误操作另一 Wiki |
+
+### 稳定文本来源的独立摘录
+
+[excerpts.ts](packages/core/src/excerpts.ts) 负责读取、校验、保存和定位；来源详情的文本选择器与 Workspace 的 [ExcerptList](apps/web/src/components/excerpts/excerpt-list.tsx) 构成「选择原文 → 批注/归类 → 返回原文」闭环。定位摘录当前仅支持完整有效 UTF-8 的 `md/txt` 来源，最大1,000,000字节；更大文本仍保留前1 MB的有界预览并禁用定位摘录；不使用 Markdown 渲染后的字符位置，不覆盖 PDF 页码、OCR、网页 DOM 或 Office 批注。
+
+每 Wiki 幂等新增 `source_excerpts` 和 `excerpt_collections`。摘录保存独立 UUID、sourceId、来源标题/文件名快照、原文片段、原始 UTF-16 `[start,end)`、原文件字节SHA256、相邻上下文、个人批注及创建/修改时间。重复片段通过偏移区分，中文与代理对使用同一 UTF-16 约定；只读文本框显式处理左右键、Shift扩选、Home/End与Ctrl/Meta起止键，按Unicode字符移动而不拆分emoji，保留输入法与平台字词快捷键；浏览器 textarea 的 CRLF/LF 归一由双向偏移转换处理。服务端重新读取原文，核验指纹与精确切片，拒绝伪造/过期选择；读取限制在当前 Wiki 内的普通文本文件，拒绝危险路径和最终符号链接。
+
+定位仅在原文件指纹与切片完全匹配时有效；原文任何修改均标 `changed`，来源记录或文件缺失标 `missing`，不支持或无法读取分别标 `unsupported/unavailable`。不对相似/重复文本猜测重定位。返回 `/sources/<sourceId>?excerpt=<id>` 时仅有效摘录高亮选区；失效摘录保留原始证据快照与批注。来源删除不级联删除摘录；专题删除只删除其摘录归类。用户可独立删除摘录、修改个人批注及专题归属，不能修改已保存的原文片段来冒充来源。
+
+| 接口 | 契约 |
+| --- | --- |
+| `GET /api/excerpts?wikiKey=<hash>` | 按可选 `collectionId/sourceId` 读取摘录与实时定位状态，返回可选专题 |
+| `POST /api/excerpts` | 必需 `wikiKey`；保存来源ID、原文片段、偏移、指纹、个人批注及专题；服务端校验当前原文 |
+| `PATCH /api/excerpts/[id]` | 必需 `wikiKey`；仅更新批注/专题，证据快照保持不变 |
+| `GET /api/excerpts/[id]?wikiKey=<hash>` | 读取单条摘录及当前定位状态，导出前也复用此接口 |
+| `DELETE /api/excerpts/[id]` | JSON body 必需 `wikiKey`；删除指定摘录及其专题关系 |
+
+摘录 API 校验 `wikiKey` 防止跨 Wiki 旧草稿写入。`GET /api/sources/[id]` 对完整、有效、受支持的文本增加 `contentHash`；截断预览无定位指纹。独立 Markdown 导出前重新读取并核验摘录，区分原文与个人判断，包含来源定位链接、位置、指纹及最近核验的定位状态；这是可读复用格式，不是数据库恢复包。现有 Wiki ZIP 的 SQLite 一致快照包含摘录与归类，原始 `raw/` 文件也随包导出，恢复到新路径仍以来源ID和内容指纹定位。数据库快照与文件仍非统一时点事务，导出/恢复须沿用既有停止编辑与停止应用约定。
+
+### 研究笔记模板与模型语义
+
+[research-templates.ts](apps/web/src/lib/research-templates.ts) 提供文献阅读、研究比较、决策记录的纯 Markdown 模板，围绕研究问题、原文证据、局限、个人判断和下一步组织。现有 [CreatePageButton](apps/web/src/components/wiki/create-page-button.tsx) 从 Wiki 或 Workspace 打开；专题入口预选当前专题，用户可选择真实来源并编辑正文后保存。模板仅能预填空正文，不自动调用模型、保存、覆盖草稿或标为已验证。草稿明确标注需要核对，新增页面默认为未读。
+
+保存继续走 `POST /api/pages` → `createPage`，增加可选 `collectionIds` 与 `wikiKey`，校验来源与专题真实存在并维护既有 `page_sources` 与专题关系。页面排他创建，数据库注册失败清理本次新文件；主体已保存但日志或目录更新失败时返回成功及 `warnings`，界面保留已保存链接并禁止重复提交。同一草稿使用固定 slug；文件/数据库跨介质崩溃不构成完整事务。源码中的页面来源关系现在在创建时立即可供来源页反查。
+
+**模型边界没有扩大到私人阅读记录。** 模板保存为普通 Wiki 页面，因此正文与已有手写 Wiki 一样可被检索；保存前明确提示，模板标签和正文标注研究草稿，不能把它称为经过验证的原文证据。页面侧栏的个人笔记、独立摘录及其批注继续只存数据库，不加入模型上下文。用户若主动将自己的判断写入 Wiki 正文，该正文仍可能进入模型，引用本身不证明结论正确。
 
 ## 网页语言与知识图谱
 
@@ -115,7 +157,7 @@ Query 提供比较研究、简报、决策问题模板，仅填写输入框，�
 ## 检索、模型与持久化协议
 
 - BM25：沿用 FTS5 默认 tokenizer/权重，最多 64 个转义词项 OR，按 BM25 和 slug 稳定排序；无额外分词或 stemming。
-- Embedding：原始 `title + "\n\n" + content`，Nomic 文档前缀 `search_document: `、问题前缀 `search_query: `，经 L2 归一化后以 little-endian Float32 BLOB 保存。精确余弦扫描全部有效向量；不引入 ANN 或外部数据库。
+- Embedding：原始 `title + "\n\n" + content`，Nomic 文档前缀 `search_document: `、问题前缀 `search_query: `，经 L2 归一化后以 little-endian Float32 BLOB 保存。精确余弦扫描允许范围内的全部有效向量（默认全库）；不引入 ANN 或外部数据库。
 - Hybrid：每路最多 100 候选、等权 RRF `sum(1/(60 + rank))`，rank 从 1 开始，最终最多 10 页；相同分数以 slug 排序。参数在看 test 结果前固定。纯向量总会给出最近邻，不能把正相似度当作证据充分性阈值，最终由问答判断是否足以回答。
 - `retrieval_documents` 保存 slug/title/content/content_hash；`page_embeddings` 保存 slug、content_hash、model_key、模型 JSON、维度、vector、updated_at，外键删除级联。模型键包含实际模型 tag/digest、前缀、请求上下文和输入格式版本，避免不同模型/文本空间混用。
 - `indexPageForSearch` 同步 FTS 与检索文档并使变化向量立即失效；`unindexPageFromSearch` / 删除清理文档与向量。创建、Ingest、手工编辑、软删除、恢复和磁盘同步复用这些入口。
@@ -128,7 +170,7 @@ Qwen 仍使用 `qwen3.8:27b`，`/api/chat` 请求级 `num_ctx=32768`、`num_pred
 
 | 接口 | 行为 |
 | --- | --- |
-| `POST /api/query` | `{question, mode?: "bm25"\|"embedding"\|"hybrid", model?}`；省略 mode 为 BM25；响应 `response.retrieval` 记录实际取证 |
+| `POST /api/query` | `{question, mode?: "bm25"\|"embedding"\|"hybrid", model?, collectionId?, wikiId?}`；省略 mode 为 BM25；响应 `response.retrieval` 记录实际取证 |
 | `POST /api/sources/[id]/retry` | 重试尚未完成的来源；响应与 Ingest 一致（`kind: applied/preview`、`fullResponse`），遵守审批设置；已完成来源再次 Retry/Apply 返回 409。PDF/图片需转文本或重新上传，Office 文件重新提取 |
 | `POST /api/sources/[id]/delete` | 删除来源；除原文件已不存在外，I/O 失败保留记录；若历史其他来源共享同一原文件则保留文件 |
 | `GET /api/retrieval` | 当前 Wiki 的 total/indexed/pending/ready、模型状态与提示；模型不可用仍可查看本地状态 |
@@ -137,6 +179,18 @@ Qwen 仍使用 `qwen3.8:27b`，`/api/chat` 请求级 `num_ctx=32768`、`num_pred
 Query UI 提供模式解释、索引状态、构建/刷新按钮、取证页链接；空 Wiki 显示先导入，刷新显示新建/复用数量，失败后重读实际状态，模式切换和窗口聚焦时重新核对。Sources 失败后刷新 pending 列表，同页 Retry 与新 Ingest 互斥；重复导入仍是新来源，失败应使用 Retry 复用原文。Wiki 显示已删除来源计数，原文详情默认展示相对路径。BM25 保持无需 Embedding 服务，错误不会冒充降级后的成功。所有 Wiki 数据库相互隔离，无全局向量池。
 
 ## 评测和验证边界
+
+### 面试 Demo 入口
+
+[prepare-interview-demo.mts](scripts/prepare-interview-demo.mts) / `pnpm demo:interview:prepare [新空目录]` 默认创建 `.local/interview-demo`。主题 `KnowWeave Interview Demo`，14 页人工中文资料、38 条真实 Wiki 引用、5 份来源（1 pending）、3 个专题和2条精确摘录，复用现有存储/API，不调用模型。`fixture.json` 的 `version:1,synthetic:true` 标识样例，记录 Wiki/config 绝对路径、专题/来源/摘录 ID、问题和相对链接；数据与模型回答不提交 Git。
+
+[interview-demo.mjs](scripts/interview-demo.mjs) / `pnpm demo:interview:start [--dir 路径] [--port 3002]` 是前台隔离生产启动器：校验样例真实路径，拒绝3000/3001和被占端口；在样例 `builds/` 复制源码与配置，复用已安装第三方依赖但将工作区包链接指向副本。锁文件避免同样例并发启动，源码/lockfile/启动脚本摘要匹配才复用构建；build/start均通过pnpm保持原生外部依赖解析。固定两组兼容Wiki/config环境变量，只监听127.0.0.1；Ollama地址与向量模型优先采用启动环境变量，再回退到样例manifest值，生成模型读取样例Wiki设置。不执行默认库setup，不共享已有实例`.next`。Ctrl-C/SIGTERM传播到所拥有的POSIX进程组并清理锁；异常强杀后的锁须确认旧进程停止后手工移除。Windows未实测。未新增常驻服务、npm依赖或自动端口转发。
+
+[check-interview-demo.mjs](scripts/check-interview-demo.mjs) / `pnpm demo:interview:check` 默认只读HTTP预检（API可能同步Markdown元数据、检查Ollama模型信息），检查样例身份、固定Wiki、专题、原文定位和页面入口。`--model` 显式调用实际向量模型并彩排三模式问答，核对返回模式、候选/正文/引用范围、落盘正文指纹和新生成usage，检查空专题没有生成usage；`--ingest` 额外整理pending来源并核对落盘及来源关系，应用于独立彩排库。`reports/check-*` 保留JSON和实际回答Markdown，失败明确记录，不把人工页当作模型成果，不将这些检查作为prompt抓包或回答事实正确率。
+
+[interview-demo-browser.mjs](scripts/interview-demo-browser.mjs) 使用真实Chromium与CDP，无新增浏览器依赖。必须显式指定样例，核对loopback、专用端口、服务Wiki路径和主题；默认只读导航、两次真实Markdown下载、定位与模板草稿，保存截图及错误报告。`--3d` 可选软件WebGL检查；`--model` 额外通过界面真实提交一次问答并下载回答，严格限制允许的写请求。前后比较业务数据快照，输出目录须不存在。主讲稿面向AI产品经理5–8分钟，说明开源/AI辅助边界与未执行的用户价值研究，见 [INTERVIEW_DEMO](docs/INTERVIEW_DEMO.md)。
+
+### 既有科研和产品验收
 
 知识工作台升级的 [prepare-workspace-demo.mts](scripts/prepare-workspace-demo.mts) / `pnpm demo:workspace:prepare [新空目录]` 创建明确标记的人工演示 Wiki 与独立配置（16 页、原文样例、两个专题、阅读记录），不调用模型，拒绝非空目录。用环境变量指定它们启动独立实例。[workspace-browser.mjs](scripts/workspace-browser.mjs) 要求 loopback、服务端返回的准确 Wiki 路径和固定演示主题/页面，使用真实 Chromium 输入与鼠标操作检验工作流和响应式界面，拒绝覆盖已有报告。它不运行生成模型；真实 Qwen、下载、跨 Wiki 与部署验证另行记录。两种演示不能替代 SciFact 评测，具体结果见 [产品升级记录](docs/PRODUCT_UPGRADE.md)。
 
@@ -162,6 +216,8 @@ Round 02 历史检索结果与完整命令见 [Round 02 验收](docs/ROUND_02_AC
 
 | 日期（Asia/Shanghai） | 变更 |
 | --- | --- |
+| 2026-11-12 | 新增人工面试样例、源码快照隔离生产启动、HTTP/真实模型彩排与真实浏览器截图/下载入口；复用既有API与存储，新增AI产品经理5–8分钟剧本。 |
+| 2026-11-12 | 新增专题问答范围快照与三路候选约束、稳定UTF-8文本摘录及归类/定位/导出、研究笔记模板与真实来源关联；摘录/私人阅读笔记不进模型，模板Wiki正文延续既有检索规则。 |
 | 2026-11-12 | 图谱重绘为纸面图册与页边札记，读取专题/个人阅读上下文，增加专题范围、全库孤页与互斥方向分组；Workspace 增加专题图谱往返入口及 Markdown 阅读清单导出，无新存储/API/模型协议。 |
 | 2026-11-12 | 整站普通文字/操作18px、阅读20px、辅助16px，首页标题改英文；新增导航CSS module、桌面双行栏目与窄屏栏目菜单，补齐焦点行为；放大2D/3D标签并同步碰撞范围，后端接口与数据不变。 |
 | 2026-11-12 | 统一14px标签、15px操作、16px说明/输入和18px阅读尺度，治理显式小字号并同步控件/窄屏排版；首页近期页面类型改英文，数据与接口不变。 |

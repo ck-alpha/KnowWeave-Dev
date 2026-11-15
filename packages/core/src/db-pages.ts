@@ -146,7 +146,12 @@ function sanitizeFtsQuery(q: string): string {
     .join(" OR ");
 }
 
-export function searchPages(db: Db, query: string, limit = 20): SearchHit[] {
+export function searchPages(
+  db: Db,
+  query: string,
+  limit = 20,
+  allowedSlugs?: readonly string[],
+): SearchHit[] {
   const sanitized = sanitizeFtsQuery(query);
   if (sanitized.length === 0) return [];
   const rows = db
@@ -154,9 +159,14 @@ export function searchPages(db: Db, query: string, limit = 20): SearchHit[] {
       `SELECT slug, title, snippet(pages_fts, 2, '[', ']', '...', 16) AS snippet, -rank AS score
          FROM pages_fts
         WHERE pages_fts MATCH ?
+        ${allowedSlugs === undefined ? "" : "AND slug IN (SELECT value FROM json_each(?))"}
         ORDER BY rank, slug
         LIMIT ?`,
     )
-    .all(sanitized, limit) as SearchHit[];
+    .all(
+      sanitized,
+      ...(allowedSlugs === undefined ? [] : [JSON.stringify(allowedSlugs)]),
+      limit,
+    ) as SearchHit[];
   return rows;
 }

@@ -9,8 +9,14 @@ import { buildQueryPrompt } from "./prompts/query";
 import type { ExistingPageSnippet } from "./prompts/ingest";
 import { QueryResponseSchema, type QueryResponse } from "./schema";
 import { readIndex, readPage, readSchema } from "./wiki";
-import { retrievePages, RetrievalError, type RetrievalMode, type RetrievalResult } from "./retrieval";
+import {
+  retrievePages,
+  RetrievalError,
+  type RetrievalMode,
+  type RetrievalResult,
+} from "./retrieval";
 import { retrievalContentHash } from "./retrieval-store";
+import { resolveQueryScope, type QueryScope } from "./query-scope";
 
 const TOP_K_RELEVANT_PAGES = 10;
 
@@ -20,8 +26,15 @@ export type QueryProgressEvent =
   | { phase: "done"; result: QueryWikiResult };
 
 export type QueryWikiResult = QueryResponse & {
+  scope: QueryScope;
   retrieval: RetrievalResult & {
-    suppliedPages: Array<{ slug: string; title: string; contentHash: string; contentBytes: number; documentHash: string }>;
+    suppliedPages: Array<{
+      slug: string;
+      title: string;
+      contentHash: string;
+      contentBytes: number;
+      documentHash: string;
+    }>;
   };
 };
 
@@ -32,6 +45,7 @@ export type QueryWikiOptions = {
   client: LlmClient;
   /** Per docs/05, use the query model slot (defaults to a smart model). */
   model: string;
+  collectionId?: string;
   retrievalMode?: RetrievalMode;
   embedder?: Embedder;
   onProgress?: (event: QueryProgressEvent) => void;
@@ -46,21 +60,33 @@ export async function queryWiki(opts: QueryWikiOptions): Promise<QueryWikiResult
     throw new Error("queryWiki: question must be non-empty");
   }
 
+  const scope = resolveQueryScope(opts.db, opts.collectionId);
   opts.onProgress?.({ phase: "context", message: "Loading wiki schema and index..." });
 
   const [schema, index] = await Promise.all([
     readSchemaOrDefault(opts.wikiPath),
-    readIndexOrDefault(opts.wikiPath),
+    scope.kind === "wiki"
+      ? readIndexOrDefault(opts.wikiPath)
+      : Promise.resolve(
+          `Question scope: collection ${scope.title}. Only the following page slugs are eligible:\n${scope.pageSlugs.map((slug) => `- [[${slug}]]`).join("\n")}`,
+        ),
   ]);
 
   opts.onProgress?.({ phase: "context", message: "Searching for relevant pages..." });
-  const ranking = await retrievePages({ db: opts.db, question: opts.question,
-    mode: opts.retrievalMode ?? "bm25", embedder: opts.embedder, limit: TOP_K_RELEVANT_PAGES });
+  const ranking = await retrievePages({
+    db: opts.db,
+    question: opts.question,
+    mode: opts.retrievalMode ?? "bm25",
+    embedder: opts.embedder,
+    limit: TOP_K_RELEVANT_PAGES,
+    allowedSlugs: scope.pageSlugs,
+  });
   const relevantPages = await loadRelevantPages(opts.wikiPath, opts.db, ranking);
   const retrieval: QueryWikiResult["retrieval"] = {
     ...ranking,
     suppliedPages: relevantPages.map((page) => ({
-      slug: page.slug, title: page.title,
+      slug: page.slug,
+      title: page.title,
       contentHash: createHash("sha256").update(page.excerpt).digest("hex"),
       contentBytes: Buffer.byteLength(page.excerpt),
       documentHash: retrievalContentHash(page.title, page.excerpt),
@@ -76,6 +102,7 @@ export async function queryWiki(opts: QueryWikiOptions): Promise<QueryWikiResult
       confidence: "low",
       caveats: ["No relevant page content was retrieved; no model answer was generated."],
       retrieval,
+      scope,
     };
     opts.onProgress?.({ phase: "done", result: response });
     return response;
@@ -113,8 +140,15 @@ export async function queryWiki(opts: QueryWikiOptions): Promise<QueryWikiResult
 
   // Do not expose invented or index-only citations as traceable evidence.
   const supplied = new Set(relevantPages.map((page) => page.slug));
-  const cited = new Set([...result.data.pagesUsed, ...uniqueLinkedSlugs(result.data.answer)]);
-  const unsupported = [...cited].filter((slug) => !supplied.has(slug));
+  const cited = new Set([...result.data.pagesUsed, ...answerPageReferences(result.data.answer)]);
+  const otherText = [
+    ...result.data.caveats,
+    result.data.suggestedNewPage?.content ?? "",
+    result.data.suggestedNewPage?.reason ?? "",
+  ].join("\n");
+  const unsupported = [...new Set([...cited, ...answerPageReferences(otherText)])].filter(
+    (slug) => !supplied.has(slug),
+  );
   if (unsupported.length) {
     throw new Error(
       `Answer cited pages not supplied as evidence: ${unsupported.join(", ")}. Try a more specific question.`,
@@ -126,12 +160,26 @@ export async function queryWiki(opts: QueryWikiOptions): Promise<QueryWikiResult
     );
   }
   result.data.pagesUsed = [...cited];
-  const response: QueryWikiResult = { ...result.data, retrieval };
+  const response: QueryWikiResult = { ...result.data, retrieval, scope };
   opts.onProgress?.({ phase: "done", result: response });
   return response;
 }
 
 // ---- internals ------------------------------------------------------------
+
+/** Models occasionally write a Markdown URL instead of the prescribed wikilink.
+ * Validate those page destinations too, including percent-encoded slugs. */
+function answerPageReferences(text: string): Set<string> {
+  const slugs = uniqueLinkedSlugs(text);
+  for (const match of text.matchAll(/(?:\/wiki\/|#wikilink:)([^\s()[\]<>?#]+)/g)) {
+    try {
+      slugs.add(decodeURIComponent(match[1]!));
+    } catch {
+      slugs.add(match[1]!);
+    }
+  }
+  return slugs;
+}
 
 async function readSchemaOrDefault(wikiPath: string): Promise<string> {
   try {
@@ -158,11 +206,21 @@ async function loadRelevantPages(
   for (const hit of ranking.hits) {
     try {
       const page = await readPage(wikiPath, hit.slug);
-      const indexed = db.prepare("SELECT content_hash FROM retrieval_documents WHERE slug=?").get(hit.slug) as { content_hash: string } | undefined;
+      const indexed = db
+        .prepare("SELECT content_hash FROM retrieval_documents WHERE slug=?")
+        .get(hit.slug) as { content_hash: string } | undefined;
       if (indexed?.content_hash !== retrievalContentHash(page.frontmatter.title, page.content)) {
-        indexPageForSearch(db, { slug: page.slug, title: page.frontmatter.title,
-          content: page.content, tags: page.frontmatter.tags ?? [] });
-        if (ranking.mode !== "bm25") throw new RetrievalError("INDEX_NOT_READY", "Wiki content changed before evidence loading. Refresh the embedding index or select BM25.");
+        indexPageForSearch(db, {
+          slug: page.slug,
+          title: page.frontmatter.title,
+          content: page.content,
+          tags: page.frontmatter.tags ?? [],
+        });
+        if (ranking.mode !== "bm25")
+          throw new RetrievalError(
+            "INDEX_NOT_READY",
+            "Wiki content changed before evidence loading. Refresh the embedding index or select BM25.",
+          );
       }
       snippets.push({
         slug: page.slug,

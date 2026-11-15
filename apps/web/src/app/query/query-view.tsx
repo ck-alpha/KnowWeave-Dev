@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useState, useTransition } from "react";
 
 import type { QueryWikiResult } from "@llm-wiki/core";
 
@@ -31,7 +32,21 @@ const CONFIDENCE_STYLES: Record<QueryWikiResult["confidence"], string> = {
   low: "bg-destructive/10 text-destructive",
 };
 
-export function QueryView() {
+export function QueryView({
+  wikiId,
+  collectionId,
+  collections,
+}: {
+  wikiId: string;
+  collectionId?: string;
+  collections: Array<{ id: string; title: string; pageCount: number }>;
+}) {
+  const router = useRouter();
+  const [scopePending, startScopeTransition] = useTransition();
+  const selectedCollection = collections.find((collection) => collection.id === collectionId);
+  const missingCollection = collectionId !== undefined && !selectedCollection;
+  const emptyCollection = selectedCollection?.pageCount === 0;
+  const scopeBlocked = missingCollection || emptyCollection;
   const [question, setQuestion] = useState("");
   const [knownSlugs, setKnownSlugs] = useState<string[]>([]);
   const settings = useWikiSettings();
@@ -52,7 +67,9 @@ export function QueryView() {
 
   const refreshIndexStatus = useCallback(async () => {
     try {
-      const res = await fetch("/api/retrieval", { cache: "no-store" });
+      const params = new URLSearchParams({ wikiId });
+      if (collectionId !== undefined) params.set("collection", collectionId);
+      const res = await fetch(`/api/retrieval?${params}`, { cache: "no-store" });
       const data = (await res.json()) as {
         ok?: boolean;
         status?: { total: number; indexed: number; pending: number; ready: boolean };
@@ -65,15 +82,17 @@ export function QueryView() {
         !status
           ? "暂时无法获取向量索引状态。"
           : status.total === 0
-            ? "还没有 Wiki 页面。请先导入资料，再构建向量索引。"
-            : `向量索引：${status.indexed} / ${status.total} 个页面已就绪，${status.pending} 个待更新。${data.modelError ? " 当前显示缓存状态，向量模型暂不可用；仍可使用 BM25。" : status.ready ? " 可以开始检索。" : " 请构建或刷新索引后使用 Embedding / Hybrid。"}`,
+            ? collectionId !== undefined
+              ? "该专题还没有 Wiki 页面，请先从 Workspace 加入页面。"
+              : "还没有 Wiki 页面。请先导入资料，再构建向量索引。"
+            : `当前问答范围的向量索引：${status.indexed} / ${status.total} 个页面已就绪，${status.pending} 个待更新。${data.modelError ? " 当前显示缓存状态，向量模型暂不可用；仍可使用 BM25。" : status.ready ? " 可以开始检索。" : " 请构建或刷新索引后使用 Embedding / Hybrid。"}`,
       );
       setIndexError(data.modelError ?? null);
     } catch (err) {
       setIndexStatus("暂时无法获取向量索引状态。");
       setIndexError((err as Error).message);
     }
-  }, []);
+  }, [collectionId, wikiId]);
 
   useEffect(() => {
     void refreshIndexStatus();
@@ -106,7 +125,7 @@ export function QueryView() {
       const res = await fetch("/api/retrieval", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ force }),
+        body: JSON.stringify({ force, wikiId }),
       });
       const data = (await res.json()) as {
         ok?: boolean;
@@ -132,7 +151,7 @@ export function QueryView() {
 
   async function onAsk(e: React.FormEvent) {
     e.preventDefault();
-    if (!question.trim() || busy || indexBusy) return;
+    if (!question.trim() || busy || indexBusy || scopeBlocked || scopePending) return;
     setBusy(true);
     setResult(null);
     setError(null);
@@ -144,7 +163,12 @@ export function QueryView() {
       const res = await fetch("/api/query", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ question: submittedQuestion, mode }),
+        body: JSON.stringify({
+          question: submittedQuestion,
+          mode,
+          wikiId,
+          ...(collectionId !== undefined ? { collectionId } : {}),
+        }),
       });
       const json = (await res.json()) as QuerySuccess | QueryFailure;
       if (!res.ok || !("ok" in json) || json.ok !== true) {
@@ -176,6 +200,7 @@ export function QueryView() {
           title: s.title,
           type: "concept",
           content: s.content,
+          wikiKey: wikiId,
         }),
       });
       const json = (await res.json()) as { ok?: true; slug?: string; error?: string };
@@ -224,6 +249,58 @@ export function QueryView() {
         title="Query · 让知识回应问题"
         description="从资料中寻找答案，沿引用核对证据，再把结论带回研究与工作。连续追问可使用 Chats。"
       />
+
+      <section className="mb-6 border-y border-border py-5" aria-label="问答范围">
+        <div className="flex flex-wrap items-center gap-3">
+          <label htmlFor="query-scope" className="text-ui font-semibold">
+            当前问答范围
+          </label>
+          <select
+            id="query-scope"
+            value={collectionId ?? ""}
+            disabled={busy || indexBusy || scopePending}
+            onChange={(event) => {
+              const href = event.target.value
+                ? `/query?collection=${encodeURIComponent(event.target.value)}`
+                : "/query";
+              startScopeTransition(() => router.push(href));
+            }}
+            className="min-h-12 w-full min-w-0 max-w-full rounded-md border border-input bg-background px-3 py-2 text-ui sm:w-auto sm:max-w-md"
+          >
+            <option value="">全库</option>
+            {missingCollection ? (
+              <option value={collectionId}>专题已删除或不属于当前 Wiki</option>
+            ) : null}
+            {collections.map((collection) => (
+              <option key={collection.id} value={collection.id}>
+                {collection.title} · {collection.pageCount} 页
+              </option>
+            ))}
+          </select>
+          {selectedCollection ? (
+            <Link
+              className="text-ui underline underline-offset-4"
+              href={`/workspace?collection=${encodeURIComponent(selectedCollection.id)}`}
+            >
+              返回专题阅读
+            </Link>
+          ) : null}
+        </div>
+        <p className="mt-3 break-words text-sm" role="status">
+          {scopePending
+            ? "正在切换问答范围…"
+            : missingCollection
+              ? "这个专题已不存在。请重新选择专题，或明确切换到全库。"
+              : emptyCollection
+                ? "这个专题还没有页面。请先加入 Wiki 页面，再开始问答。"
+                : selectedCollection
+                  ? `仅在「${selectedCollection.title}」的 ${selectedCollection.pageCount} 个 Wiki 页面内查找证据。`
+                  : "在当前 Wiki 的全部页面内查找证据。"}
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          个人笔记、摘录批注和专题说明不作为模型证据。问答范围以提交时的页面成员为准。
+        </p>
+      </section>
 
       {!result ? (
         <section className="mb-6 grid gap-3 sm:grid-cols-3" aria-label="问题模板">
@@ -276,7 +353,7 @@ export function QueryView() {
                 setMode(e.target.value as RetrievalMode);
                 void refreshIndexStatus();
               }}
-              disabled={busy || indexBusy}
+              disabled={busy || indexBusy || scopePending}
               className="min-h-11 w-full min-w-0 max-w-full rounded-md border border-input bg-background px-2 py-1 sm:w-auto"
             >
               <option value="bm25">BM25 · 关键词</option>
@@ -286,7 +363,7 @@ export function QueryView() {
             <Button
               type="button"
               variant="outline"
-              disabled={busy || indexBusy}
+              disabled={busy || indexBusy || scopePending}
               onClick={() => onBuildIndex()}
             >
               {indexBusy ? "构建中…" : "构建 / 刷新向量索引"}
@@ -294,7 +371,7 @@ export function QueryView() {
             <Button
               type="button"
               variant="ghost"
-              disabled={busy || indexBusy}
+              disabled={busy || indexBusy || scopePending}
               onClick={() => onBuildIndex(true)}
             >
               全量重建
@@ -304,8 +381,8 @@ export function QueryView() {
             {indexStatus}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            首次使用 Embedding / Hybrid 前，请先构建索引；页面新增或修改后再刷新。BM25
-            无需向量模型。
+            索引构建与全量重建维护整个
+            Wiki；上方状态只统计当前问答范围。页面新增或修改后再刷新。BM25 无需向量模型。
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
             {mode === "bm25"
@@ -344,7 +421,10 @@ export function QueryView() {
           }}
         />
         <div className="flex items-center gap-2">
-          <Button type="submit" disabled={!question.trim() || busy || indexBusy}>
+          <Button
+            type="submit"
+            disabled={!question.trim() || busy || indexBusy || scopeBlocked || scopePending}
+          >
             {busy ? "正在检索与回答…" : "提问"}
           </Button>
           <p className="text-xs text-muted-foreground">
@@ -395,6 +475,16 @@ export function QueryView() {
               {exportMessage}
             </p>
           ) : null}
+          <p
+            className="break-words border-l-2 border-primary pl-4 text-sm"
+            data-testid="answer-scope"
+          >
+            本次实际范围：
+            {result.response.scope.kind === "collection"
+              ? `专题「${result.response.scope.title}」`
+              : "全库"}{" "}
+            · {result.response.scope.pageSlugs.length} 个页面（提交时）
+          </p>
           <div className="flex flex-wrap items-center gap-2 text-xs">
             <span
               className={cn(

@@ -39,7 +39,9 @@ Wiki 页面：查看整理后的知识，并沿 Sources 返回原始文献。
 | 知识馆藏 | 搜索标题/标签/目录摘要，组合类型/标签筛选与排序；可直接写笔记，阅读页有目录和 Markdown 导出 |
 | 工作首页 | 真实近期更新、阅读进度、继续阅读和待处理来源入口；桌面/窄屏、深浅色界面 |
 | 文档 → Wiki | Qwen 生成或更新 Markdown 页面；同名原文独立保存，失败来源可重试，保留页面来源关系 |
-| 三路检索 | Query 可选 BM25、Embedding、Hybrid（RRF）；默认 BM25，无需 Embedding 模型 |
+| 三路检索 | Query 可选 BM25、Embedding、Hybrid（RRF）；全库默认，也可限定专题；默认 BM25，无需 Embedding 模型 |
+| 文本证据摘录 | 从 UTF-8 文本选择原文、保存批注和专题归类、精确返回位置；源变化明确标记失效 |
+| 研究笔记模板 | 文献阅读、研究比较、决策记录仅预填草稿，编辑后保存 Markdown 并关联真实来源 |
 | 可维护向量索引 | 各 Wiki 独立存储；内容变化使旧向量失效，显式增量刷新，支持全量重建 |
 | 回答与证据 | 实际页面正文进入模型上下文；引用须来自供给正文，支持 Wiki → 原始来源回溯 |
 | 知识复用与备份 | 专题阅读清单含个人笔记；问题/回答/引用一起导出；Wiki ZIP 包含文档与 SQLite 一致快照 |
@@ -92,6 +94,12 @@ pnpm dev
 
 日常使用可从 **Workspace → 新建专题** 开始，例如「课题文献综述」或「项目知识手册」。把 Wiki 页面加入专题，在阅读页收藏、标记阅读中，并展开 **专题与笔记** 保存自己的判断。个人笔记不会改写正文或进入模型证据；已读仅表示阅读进度。**Wiki → 写一篇笔记** 可以不调用模型直接积累自己的内容。
 
+**Workspace → 选中专题 → 专题问答** 只在该专题的 Wiki 页面内检索，Query 顶部显示当前范围，可明确切回全库。BM25、Embedding、Hybrid 使用相同专题成员；空专题先加入页面，失效专题须重新选择。向量状态只统计当前范围，构建/刷新与全量重建仍维护整个 Wiki。回答及 Markdown 导出记录提交时的实际专题名称、ID和成员，不随之后的选择改变。
+
+**Sources → 打开 `.txt` / `.md` 原文 → 选择片段** 可以保存原文摘录、独立个人批注，并加入一个或多个专题。Workspace 底部的「证据摘录」可继续修改批注、归类、导出或返回原文；同一段重复文字按实际选择位置区分。原文修改/删除后明确标记定位失效，保留摘录快照，不猜测新位置。当前仅支持不超过1 MB的完整UTF-8文本，尚不是PDF页码/OCR批注系统。摘录和批注不会自动进入模型证据；备份恢复继续使用包含SQLite与raw文件的Wiki ZIP。
+
+**Wiki → 写一篇笔记** 或 **Workspace → 写研究笔记** 提供文献阅读、研究比较和决策记录模板。点击「预填模板」只填写空白正文，已有草稿不会覆盖；编辑后选择真实来源和专题，再保存。模板没有自动验证结论：保存为 Wiki 正文后会像既有手写 Wiki 一样参与问答检索，个人判断仍需核对；阅读页侧栏的个人笔记和摘录批注继续不进入模型。
+
 选中专题后，**导出阅读清单** 可下载专题说明、全部成员的 Wiki 链接、标签、收藏/阅读状态和个人笔记。导出不受当前搜索或状态筛选影响，空专题也可下载；个人笔记标为个人记录，不是原文证据。清单不含 Wiki 正文或原始文件，不替代 ZIP 备份；链接需要当前实例可访问。
 
 Wiki 目录可组合搜索、类型、标签与排序；Sources 可按待处理或格式筛选。Query 的三个问题模板只填写输入框，由你决定何时提交；回答生成后可 **复制回答与引用** 或 **导出 Markdown**，导出保留本次实际提交的问题。引用链接仍指向当前 KnowWeave 实例。
@@ -118,6 +126,21 @@ pnpm start
 通过 VS Code Remote SSH 打开本仓库根目录时，[工作区配置](.vscode/settings.json)会自动发现并转发服务器上已运行的 `3000`（默认知识库）和 `3001`（演示知识库），并恢复此前的转发。`3000` 新建自动转发时会请求打开本机浏览器，`3001` 静默转发；其他端口不自动转发。默认访问 `http://localhost:3000`，本机端口被占用时以 VS Code「端口 / Ports」面板的本地地址为准。已有转发被恢复时可能不会再次弹出浏览器，仍可使用该地址。第一次应用配置可执行 `Developer: Reload Window`，使用期间保持 Remote SSH 连接。
 
 此配置以服务器应用已经运行为前提，不负责启动应用；服务器重启或应用停止后，在远程终端执行 `pnpm start`（需已有生产构建），本机浏览器即可继续通过转发访问。服务器不需要安装浏览器。也可在浏览器所在电脑运行 `ssh -N -L 13000:127.0.0.1:3000 <账号>@<服务器>`，再访问 `http://127.0.0.1:13000`。演示使用端口 `3001` 时相应调整转发端口。
+
+## AI 产品经理面试 Demo（5–8 分钟）
+
+完整点击顺序、逐段讲稿、3 分钟速演、vibe coding 贡献说明及面试追问见 [面试演示手册](docs/INTERVIEW_DEMO.md)。以“本地知识助手技术选型”为任务，串起专题阅读 → 范围问答 → 引用回原文 → 决策记录 → 导出；人工预置资料与真实模型输出分别说明。
+
+```bash
+pnpm demo:interview:prepare
+pnpm demo:interview:start
+# 另一个终端；真实模型彩排会构建向量并生成三模式回答
+pnpm demo:interview:check --model
+```
+
+打开 <http://127.0.0.1:3002>。准备器在新空目录 `.local/interview-demo` 创建 14 页、38 条引用、5 份来源、3 个专题和 2 条摘录，不调用模型。启动器自动构建独立源码快照，复用已安装依赖，固定演示 Wiki；不共用运行中 `3000/3001` 的 `.next`。首次构建需等待，源码相同时复用产物，按 `Ctrl-C` 停止。Remote SSH 用户手动转发 `3002`。
+
+省略 `--model` 只做 HTTP/样例预检；默认 Qwen / Nomic 需已安装才可生成答案。真实回答归档与报告在演示目录 `reports/`，可作为明确标注的彩排后备材料。完整导入可在**另一份演示样例**上加 `--ingest` 彩排，避免消耗正式演示的待处理来源。重复准备拒绝覆盖，重演用 `pnpm demo:interview:prepare <新目录>`，启动和检查对应加 `--dir <新目录>`。详细浏览器验收、截图和离线方案见手册。
 
 ## 不调用模型的产品演示样例
 
@@ -175,6 +198,36 @@ node scripts/graph-exploration-browser.mjs --base-url http://127.0.0.1:3002 \
 ```
 
 它只读取专用 Wiki，下载文件写入验收输出目录；再次运行请换一个新的输出目录。
+
+## 科研工作流人工验收
+
+[样例准备器](scripts/prepare-research-demo.mts) 创建两份独立 Wiki、专题内外页面、空专题和含重复中文/emoji/CRLF的文本来源，明确标记为人工资料，不调用模型。要求新空目录：
+
+```bash
+pnpm exec tsx scripts/prepare-research-demo.mts /dev/shm/knowweave-research-demo
+```
+
+使用独立源码副本构建和启动3002，设置 `KNOWWAEVE_CONFIG_DIR=/dev/shm/knowweave-research-demo/fixture-config`。此样例需要切 Wiki 验收时不要额外设置固定 `KNOWWAEVE_WIKI_PATH`。不要在运行3000/3001的共用 `.next` 上开发或构建。
+
+```bash
+node scripts/research-workflow-browser.mjs \
+  --base-url http://127.0.0.1:3002 \
+  --fixture /dev/shm/knowweave-research-demo/fixture.json \
+  --chromium /path/to/chromium \
+  --output-dir /dev/shm/knowweave-research-browser
+```
+
+浏览器脚本会写入该专用样例，拒绝其他Wiki、外部地址或覆盖已有报告。它验证交互、定位、模板和真实下载；真实Ollama三模式验证与备份恢复结果另见 [DEVLOG](docs/DEVLOG.md)，不将人工样例计作科学结论或PDF验收。
+
+[真实 API 验收脚本](scripts/research-workflow-api.mts) 需另外准备一套新样例并在3003启动，避免与浏览器编辑共享索引；会实际调用已配置的Qwen和Nomic、修改该样例并测试ZIP恢复与切Wiki：
+
+```bash
+pnpm exec tsx scripts/research-workflow-api.mts \
+  --base-url http://127.0.0.1:3003 \
+  --fixture /path/to/api-demo/fixture.json \
+  --output-dir /path/to/new-api-report
+```
+
 
 ## 模型与检索 Demo
 

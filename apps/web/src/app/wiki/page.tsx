@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import { ArrowUpRight, BookOpen, Search, SlidersHorizontal } from "lucide-react";
 import Link from "next/link";
 
@@ -57,7 +59,12 @@ export default async function WikiIndexPage({
       <PageHeader
         title="Wiki · 知识馆藏"
         description="让每一次阅读留下积累。查找、连接，再把知识变成自己的理解。"
-        actions={<CreatePageButton />}
+        actions={
+          <CreatePageButton
+            key={createHash("sha256").update(ctx.wikiPath).digest("hex")}
+            wikiKey={createHash("sha256").update(ctx.wikiPath).digest("hex")}
+          />
+        }
       />
       {searchParams.deleted && searchParams.trash && (
         <UndoDeleteBanner

@@ -3,6 +3,12 @@ import type { QueryWikiResult } from "../packages/core/src/index";
 import { answerMarkdown } from "../apps/web/src/lib/answer-export";
 
 const response = {
+  scope: {
+    kind: "wiki",
+    title: "全库",
+    pageSlugs: ["research"],
+    capturedAt: "2026-11-12T00:00:00Z",
+  },
   answer: "支持的结论 [[research|原文]]，尚待确认 [[unknown]]。",
   confidence: "low",
   pagesUsed: ["research"],
@@ -39,4 +45,51 @@ describe("answer handoff", () => {
     expect(result).toContain("本次回答没有引用页面。");
     expect(result).not.toContain("/wiki/");
   });
+});
+
+it("exports the actual submitted collection snapshot, including all eligible members", () => {
+  const exported = answerMarkdown({
+    question: "Q",
+    model: "local",
+    mode: "bm25",
+    origin: "http://localhost:3000",
+    response: {
+      ...response,
+      scope: {
+        kind: "collection",
+        collectionId: "original-id",
+        title: "原始专题 [中文]",
+        pageSlugs: ["research", "not-cited"],
+        capturedAt: "2026-11-12T00:00:00Z",
+      },
+    },
+  });
+  expect(exported).toContain("专题：原始专题 \\[中文\\]（ID：original-id）");
+  expect(exported).toContain("提交时范围：2 个页面");
+  expect(exported).toContain("2026-11-12T00:00:00Z");
+  expect(exported).toContain("- `not-cited`");
+});
+
+it("distinguishes an empty collection from the whole Wiki", () => {
+  const exported = answerMarkdown({
+    question: "Q",
+    model: "local",
+    mode: "hybrid",
+    origin: "http://localhost:3000",
+    response: {
+      ...response,
+      scope: {
+        kind: "collection",
+        collectionId: "empty",
+        title: "空专题",
+        pageSlugs: [],
+        capturedAt: "2026-11-12T00:00:00Z",
+      },
+      pagesUsed: [],
+      answer: "No evidence",
+    },
+  });
+  expect(exported).toContain("专题：空专题");
+  expect(exported).toContain("该范围没有页面。");
+  expect(exported).not.toContain("\n全库\n");
 });

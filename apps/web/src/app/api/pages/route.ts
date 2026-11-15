@@ -1,6 +1,15 @@
+import { createHash } from "node:crypto";
+
 import { NextResponse } from "next/server";
 
-import { createPage, listPageRows, PageAlreadyExistsError } from "@llm-wiki/core";
+import {
+  createPage,
+  getSource,
+  listPageRows,
+  listWorkspaceCollections,
+  PageAlreadyExistsError,
+  WorkspaceError,
+} from "@llm-wiki/core";
 
 import { openWikiContext } from "@/lib/server-wiki";
 
@@ -37,6 +46,8 @@ type CreateBody = {
   content?: string;
   tags?: string[];
   sources?: string[];
+  collectionIds?: string[];
+  wikiKey?: string;
 };
 
 const SLUG_RE = /^[a-z0-9-]+$/;
@@ -69,14 +80,52 @@ export async function POST(req: Request) {
   if (typeof body.content !== "string") {
     return NextResponse.json({ error: "content must be a string" }, { status: 400 });
   }
-  for (const field of ["tags", "sources"] as const) {
-    if (body[field] !== undefined && (!Array.isArray(body[field]) || !body[field].every((value) => typeof value === "string"))) {
+  for (const field of ["tags", "sources", "collectionIds"] as const) {
+    if (
+      body[field] !== undefined &&
+      (!Array.isArray(body[field]) || !body[field].every((value) => typeof value === "string"))
+    ) {
       return NextResponse.json({ error: `${field} must be an array of strings` }, { status: 400 });
     }
+  }
+  if (
+    body.collectionIds &&
+    (body.collectionIds.length > 100 || body.collectionIds.some((id) => !id || id.length > 100))
+  ) {
+    return NextResponse.json({ error: "专题列表须为最多 100 个有效专题 ID。" }, { status: 400 });
+  }
+  if (
+    body.wikiKey !== undefined &&
+    (typeof body.wikiKey !== "string" || !/^[a-f0-9]{64}$/.test(body.wikiKey))
+  ) {
+    return NextResponse.json({ error: "Wiki 身份无效，请刷新页面后重试。" }, { status: 400 });
   }
 
   const ctx = await openWikiContext();
   try {
+    if (body.wikiKey && body.wikiKey !== createHash("sha256").update(ctx.wikiPath).digest("hex")) {
+      return NextResponse.json(
+        { error: "当前 Wiki 已切换，草稿未保存。请返回原 Wiki 后重试。" },
+        { status: 409 },
+      );
+    }
+    // Validate every association before creating Markdown, so stale form data
+    // cannot leave behind an unclassified page after a rejected request.
+    const collections = new Set(
+      listWorkspaceCollections(ctx.db).map((collection) => collection.id),
+    );
+    if (body.collectionIds?.some((id) => !collections.has(id))) {
+      return NextResponse.json(
+        { error: "专题不存在，可能已被删除；草稿未保存。" },
+        { status: 404 },
+      );
+    }
+    if (body.sources?.some((id) => !getSource(ctx.db, id))) {
+      return NextResponse.json(
+        { error: "来源不存在，可能已被删除；草稿未保存。" },
+        { status: 404 },
+      );
+    }
     const page = await createPage(ctx.wikiPath, ctx.db, {
       slug: body.slug,
       title: body.title,
@@ -84,10 +133,12 @@ export async function POST(req: Request) {
       content: body.content,
       ...(body.tags !== undefined ? { tags: body.tags } : {}),
       ...(body.sources !== undefined ? { sources: body.sources } : {}),
+      ...(body.collectionIds !== undefined ? { collectionIds: body.collectionIds } : {}),
     });
     return NextResponse.json({
       ok: true,
       slug: page.slug,
+      ...(page.maintenanceWarnings ? { warnings: page.maintenanceWarnings } : {}),
       page: {
         slug: page.slug,
         frontmatter: page.frontmatter,
@@ -95,6 +146,9 @@ export async function POST(req: Request) {
       },
     });
   } catch (err) {
+    if (err instanceof WorkspaceError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
     if (err instanceof PageAlreadyExistsError) {
       return NextResponse.json(
         { error: `page already exists: ${err.slug}`, type: "PageAlreadyExistsError" },

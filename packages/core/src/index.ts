@@ -8,6 +8,7 @@ export * from "./retrieval";
 export * from "./retrieval-store";
 export * from "./db-sources";
 export * from "./workspace";
+export * from "./excerpts";
 export { getChat, insertChat, updateChat, listChatRows } from "./db-chats";
 export * from "./db-usage";
 export * from "./db-sync";
@@ -32,3 +33,5 @@ export * from "./lint-fixes";
 export * from "./query";
 export * from "./chat";
 export * from "./lint";
+
+export { resolveQueryScope, QueryScopeError, type QueryScope } from "./query-scope";

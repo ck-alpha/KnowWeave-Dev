@@ -7,6 +7,9 @@
     "scifact-dataset.ts",
     "verify-retrieval.mts",
     "prepare-workspace-demo.mts",
-    "prepare-graph-demo.mts"
+    "prepare-graph-demo.mts",
+    "prepare-research-demo.mts",
+    "prepare-interview-demo.mts",
+    "research-workflow-api.mts"
   ]
 }

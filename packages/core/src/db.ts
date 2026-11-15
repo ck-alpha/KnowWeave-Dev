@@ -87,6 +87,31 @@ CREATE TABLE IF NOT EXISTS workspace_collection_pages (
 );
 CREATE INDEX IF NOT EXISTS workspace_collection_pages_slug ON workspace_collection_pages(page_slug);
 
+-- A source may be removed while its saved quotations remain research records.
+-- Deliberately no source FK: resolve against the current source on every read.
+CREATE TABLE IF NOT EXISTS source_excerpts (
+  id TEXT PRIMARY KEY,
+  source_id TEXT NOT NULL,
+  source_title TEXT NOT NULL,
+  source_filename TEXT NOT NULL,
+  quote TEXT NOT NULL,
+  start_offset INTEGER NOT NULL,
+  end_offset INTEGER NOT NULL,
+  content_hash TEXT NOT NULL,
+  prefix TEXT NOT NULL,
+  suffix TEXT NOT NULL,
+  annotation TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS source_excerpts_source ON source_excerpts(source_id);
+CREATE TABLE IF NOT EXISTS excerpt_collections (
+  excerpt_id TEXT NOT NULL REFERENCES source_excerpts(id) ON DELETE CASCADE,
+  collection_id TEXT NOT NULL REFERENCES workspace_collections(id) ON DELETE CASCADE,
+  PRIMARY KEY (excerpt_id, collection_id)
+);
+CREATE INDEX IF NOT EXISTS excerpt_collections_collection ON excerpt_collections(collection_id);
+
 CREATE TABLE IF NOT EXISTS chats (
   id TEXT PRIMARY KEY,
   filename TEXT NOT NULL,

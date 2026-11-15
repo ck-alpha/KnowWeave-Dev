@@ -1,5 +1,7 @@
 # KnowWeave 最终 Demo
 
+AI 产品经理面试请优先使用新的 [5–8 分钟完整 Demo](INTERVIEW_DEMO.md)，包含中文人工样例、隔离启动、讲稿和后备材料。本文保留 SciFact 模型链路演示的复现步骤。
+
 这个演示使用 BEIR SciFact 公开原文，展示可维护 Wiki 和证据追溯。它不是检索 benchmark，不能用于计算答案准确率。历史全量检索指标见 [Round 02](ROUND_02_ACCEPTANCE.md)，本轮真实结果见 [Round 03](ROUND_03_ACCEPTANCE.md)。
 
 ## 准备与隔离

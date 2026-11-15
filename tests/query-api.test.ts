@@ -12,6 +12,15 @@ const mocks = vi.hoisted(() => ({
 vi.mock("../packages/core/src/index", () => ({
   getApiKey: mocks.getApiKey,
   queryWiki: mocks.queryWiki,
+  QueryScopeError: class extends Error {
+    name = "QueryScopeError";
+    constructor(
+      message: string,
+      public status: number,
+    ) {
+      super(message);
+    }
+  },
   RetrievalError: class extends Error {
     name = "RetrievalError";
     constructor(
@@ -34,8 +43,9 @@ vi.mock("../packages/llm/src/index", () => ({
 }));
 vi.mock("../apps/web/src/lib/server-wiki", () => ({ openWikiContext: mocks.openWikiContext }));
 
-import { RetrievalError } from "../packages/core/src/index";
+import { QueryScopeError, RetrievalError } from "../packages/core/src/index";
 import { EmbeddingError } from "../packages/llm/src/index";
+import { wikiIdentity } from "../apps/web/src/lib/wiki-identity";
 import { POST } from "../apps/web/src/app/api/query/route";
 
 beforeEach(() => {
@@ -126,5 +136,59 @@ describe("query API retrieval boundary", () => {
     expect((await response.json()).type).toBe("EmbeddingError");
     expect(mocks.queryWiki).toHaveBeenCalledOnce();
     expect(mocks.close).toHaveBeenCalledOnce();
+  });
+});
+
+describe("query collection HTTP contract", () => {
+  it.each(["", " ", null, 42, [], "a".repeat(101)])(
+    "rejects an invalid collection ID %j",
+    async (collectionId) => {
+      expect((await POST(request({ question: "evidence", collectionId }))).status).toBe(400);
+      expect(mocks.openWikiContext).not.toHaveBeenCalled();
+    },
+  );
+
+  it("passes the selected collection to the core and returns its actual snapshot unchanged", async () => {
+    const scope = {
+      kind: "collection",
+      collectionId: "topic",
+      title: "课题",
+      pageSlugs: ["paper"],
+      capturedAt: "2026-11-12T00:00:00Z",
+    };
+    mocks.queryWiki.mockResolvedValueOnce({ scope });
+    const response = await POST(
+      request({ question: "evidence", collectionId: "topic", wikiId: wikiIdentity("/wiki/test") }),
+    );
+    expect(response.status).toBe(200);
+    expect(mocks.queryWiki).toHaveBeenCalledWith(
+      expect.objectContaining({ collectionId: "topic" }),
+    );
+    expect((await response.json()).response.scope).toEqual(scope);
+  });
+
+  it("returns 404 for a deleted collection instead of silently searching the Wiki", async () => {
+    mocks.queryWiki.mockRejectedValueOnce(new QueryScopeError("专题已删除", 404));
+    const response = await POST(request({ question: "evidence", collectionId: "deleted" }));
+    expect(response.status).toBe(404);
+    expect(mocks.queryWiki).toHaveBeenCalledOnce();
+    expect(mocks.close).toHaveBeenCalledOnce();
+  });
+
+  it("rejects a stale UI Wiki identity before calling either model", async () => {
+    const response = await POST(
+      request({ question: "evidence", mode: "hybrid", wikiId: wikiIdentity("/wiki/previous") }),
+    );
+    expect(response.status).toBe(409);
+    expect((await response.json()).error).toContain("Wiki 已切换");
+    expect(mocks.queryWiki).not.toHaveBeenCalled();
+    expect(mocks.createClient).not.toHaveBeenCalled();
+    expect(mocks.createOllamaEmbedder).not.toHaveBeenCalled();
+    expect(mocks.close).toHaveBeenCalledOnce();
+  });
+
+  it.each(["invalid", null, 42])("rejects malformed Wiki identity %j", async (wikiId) => {
+    expect((await POST(request({ question: "evidence", wikiId }))).status).toBe(400);
+    expect(mocks.openWikiContext).not.toHaveBeenCalled();
   });
 });

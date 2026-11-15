@@ -1,4 +1,13 @@
-import { mkdir, readFile, writeFile, appendFile, readdir, access } from "node:fs/promises";
+import {
+  mkdir,
+  readFile,
+  writeFile,
+  appendFile,
+  readdir,
+  access,
+  open,
+  unlink,
+} from "node:fs/promises";
 import { join } from "node:path";
 
 import matter from "gray-matter";
@@ -9,7 +18,13 @@ import {
   DEFAULT_LOG_TEMPLATE,
   DEFAULT_SCHEMA_TEMPLATE,
 } from "./templates";
-import { PAGE_TYPES, type Page, type PageFrontmatter, type PageSummary, type PageType } from "./types";
+import {
+  PAGE_TYPES,
+  type Page,
+  type PageFrontmatter,
+  type PageSummary,
+  type PageType,
+} from "./types";
 
 export const WIKI_PATHS = {
   schema: "CLAUDE.md",
@@ -130,11 +145,28 @@ export async function readPage(wikiPath: string, slug: string): Promise<Page> {
   return { slug, frontmatter, content };
 }
 
-export async function writePage(wikiPath: string, page: Page): Promise<void> {
+export async function writePage(
+  wikiPath: string,
+  page: Page,
+  options: { exclusive?: boolean } = {},
+): Promise<void> {
   await mkdir(join(wikiPath, WIKI_PATHS.wiki), { recursive: true });
   const fm: PageFrontmatter = { ...page.frontmatter, slug: page.slug };
   const serialized = matter.stringify(page.content, fm as unknown as Record<string, unknown>);
-  await writeFile(pageFilePath(wikiPath, page.slug), serialized, "utf8");
+  const path = pageFilePath(wikiPath, page.slug);
+  if (!options.exclusive) {
+    await writeFile(path, serialized, "utf8");
+    return;
+  }
+  const handle = await open(path, "wx");
+  try {
+    await handle.writeFile(serialized, "utf8");
+  } catch (error) {
+    await unlink(path);
+    throw error;
+  } finally {
+    await handle.close();
+  }
 }
 
 export async function listPages(wikiPath: string): Promise<PageSummary[]> {
@@ -165,7 +197,9 @@ export async function listPages(wikiPath: string): Promise<PageSummary[]> {
       }
     }),
   );
-  return pages.filter((p): p is PageSummary => p !== null).sort((a, b) => a.slug.localeCompare(b.slug));
+  return pages
+    .filter((p): p is PageSummary => p !== null)
+    .sort((a, b) => a.slug.localeCompare(b.slug));
 }
 
 export async function readIndex(wikiPath: string): Promise<string> {

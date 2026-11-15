@@ -1,4 +1,14 @@
-import { access, copyFile, mkdir, readFile, rename, stat, unlink, utimes, writeFile } from "node:fs/promises";
+import {
+  access,
+  copyFile,
+  mkdir,
+  readFile,
+  rename,
+  stat,
+  unlink,
+  utimes,
+  writeFile,
+} from "node:fs/promises";
 import { join } from "node:path";
 
 import type { Db } from "./db";
@@ -6,19 +16,24 @@ import {
   deletePage as deletePageRow,
   getPage as getPageRow,
   indexPageForSearch,
+  linkPageSource,
   unindexPageFromSearch,
   upsertPage,
 } from "./db-pages";
+import { getSource } from "./db-sources";
 import { upsertSyncState } from "./db-sync";
-import {
-  parseIndexEntries,
-  refreshIndexEntryForSlug,
-  renderIndex,
-} from "./index-builder";
+import { parseIndexEntries, refreshIndexEntryForSlug, renderIndex } from "./index-builder";
 import { uniqueLinkedSlugs } from "./links";
 import type { Page, PageType } from "./types";
 import { appendLog, listPages, readPage, WIKI_PATHS, writeIndex, writePage } from "./wiki";
-import { getPageWorkspace, listWorkspaceCollections, READING_STATUSES, updatePageWorkspace, type WorkspacePage } from "./workspace";
+import {
+  getPageWorkspace,
+  listWorkspaceCollections,
+  READING_STATUSES,
+  updatePageWorkspace,
+  WorkspaceError,
+  type WorkspacePage,
+} from "./workspace";
 
 const PAGE_HISTORY_DIR = "page-history";
 
@@ -158,10 +173,7 @@ export type SaveSchemaResult = {
  * .llm-wiki/schema-history/ (capped at the last SCHEMA_HISTORY_LIMIT
  * snapshots) and appending a log entry. Per docs/04 P0 feature 7.
  */
-export async function saveSchema(
-  wikiPath: string,
-  content: string,
-): Promise<SaveSchemaResult> {
+export async function saveSchema(wikiPath: string, content: string): Promise<SaveSchemaResult> {
   const schemaPath = join(wikiPath, WIKI_PATHS.schema);
   const dir = join(wikiPath, WIKI_PATHS.tooling, SCHEMA_HISTORY_DIR);
   await mkdir(dir, { recursive: true });
@@ -220,6 +232,8 @@ export type CreatePageInput = {
   tags?: string[];
   /** Optional source attribution (e.g., a query promotion). */
   sources?: string[];
+  /** Existing collections to assign atomically with the page metadata. */
+  collectionIds?: string[];
 };
 
 export class PageAlreadyExistsError extends Error {
@@ -240,11 +254,12 @@ export async function createPage(
   wikiPath: string,
   db: Db,
   input: CreatePageInput,
-): Promise<Page> {
+): Promise<Page & { maintenanceWarnings?: string[] }> {
   const filePath = join(wikiPath, WIKI_PATHS.wiki, `${input.slug}.md`);
   if (await fileExists(filePath)) {
     throw new PageAlreadyExistsError(input.slug);
   }
+  validateCreateAssociations(db, input);
 
   const today = new Date().toISOString().slice(0, 10);
   const tags = input.tags ?? [];
@@ -261,24 +276,46 @@ export async function createPage(
     },
     content: ensureTrailingNewline(input.content),
   };
-  await writePage(wikiPath, page);
-  const persistedPage = await readPage(wikiPath, input.slug);
-
-  upsertPage(db, {
-    slug: input.slug,
-    title: input.title,
-    type: input.type,
-    created_at: today,
-    updated_at: today,
-    word_count: wordCount(persistedPage.content),
-    tags,
-  });
-  indexPageForSearch(db, {
-    slug: input.slug,
-    title: input.title,
-    content: persistedPage.content,
-    tags,
-  });
+  try {
+    await writePage(wikiPath, page, { exclusive: true });
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "EEXIST")
+      throw new PageAlreadyExistsError(input.slug);
+    throw error;
+  }
+  let persistedPage: Page;
+  try {
+    persistedPage = await readPage(wikiPath, input.slug);
+    db.transaction(() => {
+      // Another request may have removed a source or collection while the
+      // Markdown write was pending. Recheck before any metadata is registered.
+      validateCreateAssociations(db, input);
+      upsertPage(db, {
+        slug: input.slug,
+        title: input.title,
+        type: input.type,
+        created_at: today,
+        updated_at: today,
+        word_count: wordCount(persistedPage.content),
+        tags,
+      });
+      indexPageForSearch(db, {
+        slug: input.slug,
+        title: input.title,
+        content: persistedPage.content,
+        tags,
+      });
+      for (const sourceId of new Set(input.sources ?? [])) linkPageSource(db, input.slug, sourceId);
+      if (input.collectionIds !== undefined) {
+        updatePageWorkspace(db, input.slug, { collectionIds: input.collectionIds });
+      }
+    })();
+  } catch (error) {
+    // This file was exclusively created by this call. Failed registration must
+    // not leave a detached research note that the next disk sync would import.
+    await unlink(filePath);
+    throw error;
+  }
 
   try {
     const s = await stat(filePath);
@@ -292,34 +329,78 @@ export async function createPage(
     // best effort
   }
 
+  // The page and its associations are already durable. Auxiliary maintenance
+  // failures must not tell the caller to retry creation with a fresh slug.
+  const maintenanceWarnings: string[] = [];
   const stamp = new Date().toISOString().replace("T", " ").slice(0, 16);
-  await appendLog(wikiPath, `## [${stamp}] create | ${input.title} (${input.slug})`);
+  try {
+    await appendLog(wikiPath, `## [${stamp}] create | ${input.title} (${input.slug})`);
+  } catch {
+    maintenanceWarnings.push("笔记已保存，但日志写入失败；请检查 log.md 的文件状态与权限。");
+  }
 
   // Add this slug to index.md so the new page is visible from /wiki without
   // waiting for the next ingest or rebuild.
-  await refreshIndexEntryForSlug(wikiPath, db, input.slug);
+  try {
+    await refreshIndexEntryForSlug(wikiPath, db, input.slug);
+  } catch {
+    maintenanceWarnings.push(
+      "笔记已保存，但目录摘要未更新；请检查 index.md 后在 Lint 重建页面目录。",
+    );
+  }
 
-  return persistedPage;
+  return maintenanceWarnings.length ? { ...persistedPage, maintenanceWarnings } : persistedPage;
+}
+
+function validateCreateAssociations(db: Db, input: CreatePageInput): void {
+  if (input.collectionIds !== undefined) {
+    if (
+      !Array.isArray(input.collectionIds) ||
+      input.collectionIds.length > 100 ||
+      input.collectionIds.some((id) => typeof id !== "string" || !id || id.length > 100)
+    ) {
+      throw new WorkspaceError("专题列表须为最多 100 个有效专题 ID。");
+    }
+    const collections = new Set(listWorkspaceCollections(db).map((collection) => collection.id));
+    if (input.collectionIds.some((id) => !collections.has(id))) {
+      throw new WorkspaceError("专题不存在，可能已被删除；草稿未保存。", 404);
+    }
+  }
+  if (input.sources?.some((id) => !getSource(db, id))) {
+    throw new WorkspaceError("来源不存在，可能已被删除；草稿未保存。", 404);
+  }
 }
 
 // ---- soft delete + restore for wiki pages -------------------------------
 
 const WIKI_TRASH_DIR = "trash/wiki";
 const WORKSPACE_TRASH_SUFFIX = ".workspace.json";
-type WorkspaceTrashState = Pick<WorkspacePage, "slug" | "starred" | "readingStatus" | "note" | "collectionIds"> & { version: 1 };
+type WorkspaceTrashState = Pick<
+  WorkspacePage,
+  "slug" | "starred" | "readingStatus" | "note" | "collectionIds"
+> & { version: 1 };
 
 async function readWorkspaceTrash(path: string, slug: string): Promise<WorkspaceTrashState | null> {
   let raw: string;
-  try { raw = await readFile(path, "utf8"); }
-  catch (err) {
+  try {
+    raw = await readFile(path, "utf8");
+  } catch (err) {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") return null; // Older trash has no sidecar.
     throw err;
   }
   const value = JSON.parse(raw) as WorkspaceTrashState;
-  if (!value || value.version !== 1 || value.slug !== slug || typeof value.starred !== "boolean"
-    || !READING_STATUSES.includes(value.readingStatus) || typeof value.note !== "string" || value.note.length > 20000
-    || !Array.isArray(value.collectionIds) || value.collectionIds.length > 100
-    || !value.collectionIds.every((id) => typeof id === "string" && id.length > 0 && id.length <= 100)) {
+  if (
+    !value ||
+    value.version !== 1 ||
+    value.slug !== slug ||
+    typeof value.starred !== "boolean" ||
+    !READING_STATUSES.includes(value.readingStatus) ||
+    typeof value.note !== "string" ||
+    value.note.length > 20000 ||
+    !Array.isArray(value.collectionIds) ||
+    value.collectionIds.length > 100 ||
+    !value.collectionIds.every((id) => typeof id === "string" && id.length > 0 && id.length <= 100)
+  ) {
     throw new Error("Invalid reading-state backup; the page remains in trash for recovery.");
   }
   return value;
@@ -390,8 +471,12 @@ export async function softDeletePage(
   const workspacePath = `${trashPath}${WORKSPACE_TRASH_SUFFIX}`;
   if (workspace) {
     const state: WorkspaceTrashState = {
-      version: 1, slug, starred: workspace.starred, readingStatus: workspace.readingStatus,
-      note: workspace.note, collectionIds: workspace.collectionIds,
+      version: 1,
+      slug,
+      starred: workspace.starred,
+      readingStatus: workspace.readingStatus,
+      note: workspace.note,
+      collectionIds: workspace.collectionIds,
     };
     // Write the recovery record first. A failed disk write must not delete the page.
     await writeFile(workspacePath, JSON.stringify(state), { encoding: "utf8", flag: "wx" });
@@ -460,10 +545,8 @@ export class PageRestoreConflictError extends Error {
  * Reading state is restored from the accompanying versioned JSON sidecar;
  * references to collections deleted in the meantime are not recreated.
  * Older trash files without a sidecar restore with the default reading state.
- * Note: page_sources links are NOT restored — they cascaded on delete and
- * we don't keep a separate audit log of what they were. Re-ingesting the
- * source(s) would re-create them. For now, the restored page is "lineage-
- * orphan" until then; the body content is intact.
+ * Source links recorded in Markdown are restored when their source still
+ * exists. Deleted sources remain visible as missing frontmatter references.
  */
 export async function restoreDeletedPage(
   wikiPath: string,
@@ -483,12 +566,16 @@ export async function restoreDeletedPage(
   if (trashFilename.includes("/") || trashFilename.includes("\\")) {
     throw new Error("trashFilename must not contain path separators");
   }
-  if (!trashFilename.endsWith(`-${slug}.md`)) throw new Error("trashFilename does not match the page slug");
+  if (!trashFilename.endsWith(`-${slug}.md`))
+    throw new Error("trashFilename does not match the page slug");
   const trashPath = join(trashDir, trashFilename);
   // Reject anything that escapes the trash dir.
   const normalizedTrashPath = trashPath.replace(/\\/g, "/");
   const normalizedTrashDir = trashDir.replace(/\\/g, "/");
-  if (!normalizedTrashPath.startsWith(normalizedTrashDir + "/") && normalizedTrashPath !== normalizedTrashDir) {
+  if (
+    !normalizedTrashPath.startsWith(normalizedTrashDir + "/") &&
+    normalizedTrashPath !== normalizedTrashDir
+  ) {
     throw new Error("trashFilename must not contain path separators");
   }
   if (!(await fileExists(trashPath))) {
@@ -521,11 +608,16 @@ export async function restoreDeletedPage(
     content: page.content,
     tags,
   });
+  for (const sourceId of new Set(page.frontmatter.sources ?? [])) {
+    if (getSource(db, sourceId)) linkPageSource(db, slug, sourceId);
+  }
 
   if (workspace) {
     const existing = new Set(listWorkspaceCollections(db).map((collection) => collection.id));
     updatePageWorkspace(db, slug, {
-      starred: workspace.starred, readingStatus: workspace.readingStatus, note: workspace.note,
+      starred: workspace.starred,
+      readingStatus: workspace.readingStatus,
+      note: workspace.note,
       collectionIds: workspace.collectionIds.filter((id) => existing.has(id)),
     });
     // The restored state is already durable. Leftover cleanup can be retried by

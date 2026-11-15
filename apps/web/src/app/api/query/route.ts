@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { getApiKey, queryWiki, RetrievalError } from "@llm-wiki/core";
+import { getApiKey, queryWiki, RetrievalError, QueryScopeError } from "@llm-wiki/core";
 import {
   createClient,
   createOllamaEmbedder,
@@ -12,11 +12,15 @@ import {
 
 import { openWikiContext, type WikiContext } from "@/lib/server-wiki";
 
+import { wikiIdentity } from "@/lib/wiki-identity";
+
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
 type QueryBody = {
   question?: string;
+  collectionId?: string;
+  wikiId?: string;
   model?: string;
   mode?: "bm25" | "embedding" | "hybrid";
 };
@@ -44,10 +48,31 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "model must be a non-empty string" }, { status: 400 });
   }
 
+  if (
+    body.collectionId !== undefined &&
+    (typeof body.collectionId !== "string" ||
+      !body.collectionId.trim() ||
+      body.collectionId.length > 100)
+  ) {
+    return NextResponse.json(
+      { error: "collectionId must be a non-empty string of at most 100 characters" },
+      { status: 400 },
+    );
+  }
+  if (
+    body.wikiId !== undefined &&
+    (typeof body.wikiId !== "string" || !/^[a-f0-9]{64}$/.test(body.wikiId))
+  ) {
+    return NextResponse.json({ error: "wikiId must be a SHA256 identity" }, { status: 400 });
+  }
+
   let ctx: WikiContext | undefined;
   try {
     const { key } = await getApiKey();
     ctx = await openWikiContext();
+    if (body.wikiId !== undefined && body.wikiId !== wikiIdentity(ctx.wikiPath)) {
+      throw new QueryScopeError("当前 Wiki 已切换，请刷新页面后重新提问。", 409);
+    }
     const provider = ctx.settings.defaultModels.query.provider;
     if (provider === "openrouter" && !key) {
       return NextResponse.json(
@@ -65,20 +90,23 @@ export async function POST(req: Request) {
       client,
       model,
       retrievalMode: mode,
+      ...(body.collectionId !== undefined ? { collectionId: body.collectionId } : {}),
       ...(mode !== "bm25" ? { embedder: createOllamaEmbedder() } : {}),
     });
     return NextResponse.json({ ok: true, model, mode, response });
   } catch (err) {
     const status =
-      err instanceof ContextLengthError || err instanceof UnknownModelError
-        ? 400
-        : err instanceof RateLimitError
-          ? 429
-          : err instanceof EmbeddingError
-            ? 503
-            : err instanceof RetrievalError && err.code !== "INDEX_CORRUPT"
-              ? 409
-              : 500;
+      err instanceof QueryScopeError
+        ? err.status
+        : err instanceof ContextLengthError || err instanceof UnknownModelError
+          ? 400
+          : err instanceof RateLimitError
+            ? 429
+            : err instanceof EmbeddingError
+              ? 503
+              : err instanceof RetrievalError && err.code !== "INDEX_CORRUPT"
+                ? 409
+                : 500;
     return NextResponse.json(
       {
         ok: false,

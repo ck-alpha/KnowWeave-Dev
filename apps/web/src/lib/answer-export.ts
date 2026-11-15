@@ -26,6 +26,20 @@ export function answerMarkdown(input: {
     "",
     question,
     "",
+    "## 本次实际问答范围",
+    "",
+    response.scope.kind === "collection"
+      ? `专题：${escapeLabel(response.scope.title)}（ID：${response.scope.collectionId}）`
+      : "全库",
+    `提交时范围：${response.scope.pageSlugs.length} 个页面；记录时间：${response.scope.capturedAt}`,
+    "",
+    ...(response.scope.pageSlugs.length
+      ? [
+          "范围内页面：",
+          ...response.scope.pageSlugs.map((slug) => `- \`${slug.replace(/`/g, "\\`")}\``),
+        ]
+      : ["该范围没有页面。"]),
+    "",
     "## 回答",
     "",
     answer,
