@@ -125,6 +125,36 @@
 .navLink:focus-visible {
   outline-offset: -3px;
 }
+.navLink,
+.menuLink,
+.utilityLinks a,
+.manage {
+  touch-action: manipulation;
+  transition:
+    background-color var(--duration-press) ease,
+    color var(--duration-press) ease,
+    border-color var(--duration-press) ease;
+}
+.navLink:focus-visible,
+.menuLink:focus-visible,
+.utilityLinks a:focus-visible,
+.manage:focus-visible {
+  transition: none;
+}
+.navLink:active,
+.menuLink:active,
+.utilityLinks a:active,
+.manage:active,
+.iconButton:active,
+.switchSection:active {
+  color: hsl(var(--primary));
+  background: hsl(var(--primary) / 0.14);
+}
+.search:active {
+  border-color: hsl(var(--primary) / 0.5);
+  color: hsl(var(--foreground));
+  background: hsl(var(--accent));
+}
 .compactBar {
   display: none;
 }
@@ -275,6 +305,9 @@
   .expanded {
     transform: rotate(180deg);
   }
+  .switchSection[data-motion="pointer"]:not(:focus-visible) > svg {
+    transition: transform var(--duration-enter) var(--ease-out);
+  }
 }
 @media (max-width: 1023px) {
   .search {
@@ -375,24 +408,27 @@
   }
 }
 @media (hover: hover) and (pointer: fine) {
-  .iconButton:hover,
-  .menuLink:hover,
-  .utilityLinks a:hover,
-  .manage:hover,
-  .switchSection:hover {
+  .iconButton:hover:not(:active),
+  .menuLink:hover:not(:active),
+  .utilityLinks a:hover:not(:active),
+  .manage:hover:not(:active),
+  .switchSection:hover:not(:active) {
     color: hsl(var(--primary));
     background: hsl(var(--accent));
   }
-  .search:hover {
+  .search:hover:not(:active) {
     border-color: hsl(var(--primary) / 0.5);
     color: hsl(var(--foreground));
   }
-  .navLink:hover {
+  .navLink:hover:not(:active) {
     background: hsl(var(--accent) / 0.75);
     color: hsl(var(--primary));
   }
 }
 @media (prefers-reduced-motion: reduce) {
+  .switchSection[data-motion="pointer"]:not(:focus-visible) > svg {
+    transition: none;
+  }
   .panel[data-motion="pointer"] {
     transform: none;
     transition: opacity 100ms linear;

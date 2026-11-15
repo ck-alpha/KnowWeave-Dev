@@ -1,6 +1,6 @@
 # KnowWeave 项目架构
 
-最后核对：2026-11-15（Asia/Shanghai，提交前核对既有科研工作流与隔离面试 Demo；专题问答、文本摘录、研究模板及启动入口与源码一致）。当前实现范围：Round 01–03、知识工作台、研究札记视觉与科研工作流；本轮验证状态见 [PROGRESS](docs/PROGRESS.md)。
+最后核对：2026-11-15（Asia/Shanghai，首页阅读切换、多格式解析，以及按用户要求移除专用面试 Demo 入口）。当前实现范围：Round 01–03、知识工作台、研究札记视觉与科研工作流；本轮验证状态见 [PROGRESS](docs/PROGRESS.md)。
 本文件是当前架构的统一入口；模块、调用链、接口、数据格式、检索/模型协议或部署入口变化时，随代码在同一次提交中更新核对日期。当前名称 **KnowWeave**；既有 `KNOWWAEVE_*` 环境变量和内部包名为兼容保留。
 
 ## 技术栈与入口
@@ -41,6 +41,16 @@ flowchart LR
 | `scripts` | [scifact.py](scripts/scifact.py) 下载/校验/小样本；[benchmark-scifact.mts](scripts/benchmark-scifact.mts) 原始语料全量评测；[demo_retrieval.py](scripts/demo_retrieval.py) 三模式真实 Qwen/来源核对 |
 
 导入：`POST /api/ingest` → `ingestPastedText` / `ingestSource` → prompt → `callLLM` → `IngestResponseSchema` → `applyIngestResponse`。新来源使用 `raw/<date>-<slug>-<source UUID>.<ext>` 排他创建，避免同名导入覆盖原文；旧文件名仍可读取。写入 `wiki/*.md`、`index.md`、`log.md`，维护 `pages`、`pages_fts`、`sources`、`page_sources`；来源 UUID 同时存于 frontmatter。Ingest 在同 Wiki 的应用进程内互斥写入，写页前拒绝同一提案重复 slug 或把现存页当作 newPage；失败来源保持 pending，可在 Sources Retry。Ingest 和手工创建/编辑均读取序列化后实际落盘正文用于索引与返回值，并等待同步状态完成，保证新建/更新内容与 Query 的正文指纹相同。此互斥不覆盖多个服务进程或外部编辑器并发。
+
+### 文件解析与模型分流
+
+上传及 `POST /api/sources/[id]/retry` 共用 [file.ts](packages/ingestion/src/file.ts) 的 `extractSourceFile`。上传检查 `File.size` 后读取；Retry 先检查原文件大小再读取，并复核实际 Buffer 大小。单文件最多 20 MiB（20×1024×1024 字节），超限接口返回413；这不代表 HTTP multipart 流式限流。空文件、无法识别的二进制、旧版 `.doc`、无可提取正文均返回可操作错误，不调用整理模型。
+
+- PDF：已安装的 OfficeParser 5.2.2 / PDF.js 在本地提取文字层，返回 `ExtractedTextSource`；经 `ingestSource` 使用 ingest 模型，不再把 PDF 文件块交给 Ollama。损坏/加密/无文字层明确报错；没有新增扫描 OCR、逐页图像渲染或自动视觉回退。混合扫描页、图表、公式及复杂版式可能缺失，界面要求核对原件。
+- Word：已有 Mammoth 将 `.docx` 转为 HTML，再由 Turndown 转为 Markdown 正文；禁用默认内嵌图片base64输出并移除图片节点，避免把图像数据当文字证据送入模型。纯图片Word按无正文拒绝，内嵌图片需单独上传识别；`.doc` 明确要求另存。PPTX/XLSX 沿用 OfficeParser。内容提取不等于还原全部格式或识别内嵌图像。
+- 图片：PNG/JPEG/WebP 根据实际字节选择 MIME，返回 `ExtractedVisionSource`；上传与Retry都经 `ingestVisionSource` 使用 vision 槽的 provider/model。模型必须支持图像输入，Ollama 现有 `images` 协议保持不变；不自动下载或更换模型。
+
+原始 Buffer 仍独立保存到 `raw/`，Wiki 输出继续为 Markdown，来源UUID/审批/apply/pending语义不变。解析失败发生在保存前；模型失败保留已保存原件供重试。重试不创建第二份来源，按当前配置选择实际文本或视觉模型。没有新增数据库字段、运行依赖、OCR服务或PDF页码定位；来源阅读与精确摘录沿用文本限制。
 
 问答：`POST /api/query` → `queryWiki` → `retrievePages` → 从磁盘 `readPage` → `buildQueryPrompt` → Qwen → `QueryResponseSchema` → 校验引用属于实际供给正文。返回 `scope`、`pagesUsed` 和 `retrieval`，后者含模式、排名、模型、参数、耗时以及 `suppliedPages` 的正文 SHA256/UTF8 字节数。排名本身不作为模型证据，真正供给的是当前页面正文。无命中直接返回低置信证据不足；低置信模型回答可无引用，其他回答必须有引用。引用存在性不证明科学结论正确。
 
@@ -127,7 +137,11 @@ Workspace 的「专题问答」进入 `/query?collection=<id>`，Query 默认仍
 
 Wiki 与 Chats 共用 [SidebarLayoutWrapper](apps/web/src/components/sidebar-layout-wrapper.tsx) 和独立 CSS module：窄屏关闭侧栏时隐藏可见性并设置原生 `inert`；打开后正文区暂时 inert，焦点限制在侧栏内，Escape 或遮罩关闭返回触发按钮，路由切换关闭时处理侧栏内遗留焦点。React 18 下通过 DOM 属性设置 inert，避免 JSX 属性序列化差异。桌面侧栏继续常显；切换断点清除移动展开状态。
 
-共享按钮提供轻微按压反馈；栏目菜单、Wiki切换和低频展开区仅在指针操作时使用短入场动效，键盘与高频搜索立即响应。动效只改变透明度/变换，hover样式限制在精确指针设备，减少动态效果设置禁用位移。专题新建/编辑表单打开后聚焦名称，取消或保存后恢复触发器焦点；阅读笔记展开仍保留本地草稿。没有新增动画库、外部字体或后端协议。
+共享按钮提供轻微按压反馈；栏目菜单、Wiki切换和低频展开区仅在指针操作时使用短入场动效，键盘与高频搜索立即响应。位移动效只改变透明度/变换，颜色反馈使用短过渡；hover样式限制在精确指针设备，减少动态效果设置禁用位移。专题新建/编辑表单打开后聚焦名称，取消或保存后恢复触发器焦点；阅读笔记展开仍保留本地草稿。没有新增动画库、外部字体或后端协议。
+
+2026-11-15 补充：共享控件增加140ms颜色反馈与触屏按下颜色；位移动效仍仅透明度/变换，disabled、aria-disabled及aria-busy不产生按压/悬停反馈。导航整行仅变色，栏目与Wiki切换箭头按指针展开短旋转，键盘即时切换；系统减少动态效果关闭位移。
+
+首页 [HomeReadingShelf](apps/web/src/app/home-reading-shelf.tsx) 从既有快照下发「最近更新／正在阅读／我的收藏」各最多5条小型记录，计数使用对应完整集合。最近列表按页面更新时间，在读/收藏沿用Workspace个人记录排序；客户端切换不发网络请求，支持方向键/Home/End，以Wiki身份重挂载。专题显示真实个人已读/在读数，首页最多两条个人笔记摘要；均不影响模型证据。Sources 新增独立 [sources.module.css](apps/web/src/app/sources/sources.module.css)、格式说明与选中文件/忙碌/错误反馈，切Wiki重挂载客户端草稿，审批/整理期间禁用输入；不改审批流程或自动触发导入。
 
 `/wiki` 从 `listPageRows` 与 `index.md` 的摘要构建馆藏，以类型签条、标题摘要、标签和更新日期组成索引行；`/workspace` 用专题书签选择、状态筛选横条和连续阅读条目呈现已有专题与个人笔记。馆藏 GET 参数 `q/type/tag/sort` 支持标题、slug、标签和目录摘要搜索、组合筛选，以及最近/最早/标题排序。重复查询参数先归一为单个值。该目录查找不是正文全文或语义检索。新建笔记沿用 `POST /api/pages`，不调用模型；空库与删除最后一页均保留新建/撤销入口。
 
@@ -171,7 +185,7 @@ Qwen 仍使用 `qwen3.8:27b`，`/api/chat` 请求级 `num_ctx=32768`、`num_pred
 | 接口 | 行为 |
 | --- | --- |
 | `POST /api/query` | `{question, mode?: "bm25"\|"embedding"\|"hybrid", model?, collectionId?, wikiId?}`；省略 mode 为 BM25；响应 `response.retrieval` 记录实际取证 |
-| `POST /api/sources/[id]/retry` | 重试尚未完成的来源；响应与 Ingest 一致（`kind: applied/preview`、`fullResponse`），遵守审批设置；已完成来源再次 Retry/Apply 返回 409。PDF/图片需转文本或重新上传，Office 文件重新提取 |
+| `POST /api/sources/[id]/retry` | 重试尚未完成的来源；响应与 Ingest 一致（`kind: applied/preview`、`fullResponse`），遵守审批设置；已完成来源再次 Retry/Apply 返回409。共用上传解析器重新提取文本PDF/Office；图片选择vision槽，超20MiB返回413 |
 | `POST /api/sources/[id]/delete` | 删除来源；除原文件已不存在外，I/O 失败保留记录；若历史其他来源共享同一原文件则保留文件 |
 | `GET /api/retrieval` | 当前 Wiki 的 total/indexed/pending/ready、模型状态与提示；模型不可用仍可查看本地状态 |
 | `POST /api/retrieval` | 空 body 或 `{force:false}` 刷新变化向量，`{force:true}` 全量重建；同 Wiki 同进程构建互斥；成功返回构建数量/耗时，冲突或未就绪为 409，Embedding 故障为 503 |
@@ -179,16 +193,6 @@ Qwen 仍使用 `qwen3.8:27b`，`/api/chat` 请求级 `num_ctx=32768`、`num_pred
 Query UI 提供模式解释、索引状态、构建/刷新按钮、取证页链接；空 Wiki 显示先导入，刷新显示新建/复用数量，失败后重读实际状态，模式切换和窗口聚焦时重新核对。Sources 失败后刷新 pending 列表，同页 Retry 与新 Ingest 互斥；重复导入仍是新来源，失败应使用 Retry 复用原文。Wiki 显示已删除来源计数，原文详情默认展示相对路径。BM25 保持无需 Embedding 服务，错误不会冒充降级后的成功。所有 Wiki 数据库相互隔离，无全局向量池。
 
 ## 评测和验证边界
-
-### 面试 Demo 入口
-
-[prepare-interview-demo.mts](scripts/prepare-interview-demo.mts) / `pnpm demo:interview:prepare [新空目录]` 默认创建 `.local/interview-demo`。主题 `KnowWeave Interview Demo`，14 页人工中文资料、38 条真实 Wiki 引用、5 份来源（1 pending）、3 个专题和2条精确摘录，复用现有存储/API，不调用模型。`fixture.json` 的 `version:1,synthetic:true` 标识样例，记录 Wiki/config 绝对路径、专题/来源/摘录 ID、问题和相对链接；数据与模型回答不提交 Git。
-
-[interview-demo.mjs](scripts/interview-demo.mjs) / `pnpm demo:interview:start [--dir 路径] [--port 3002]` 是前台隔离生产启动器：校验样例真实路径，拒绝3000/3001和被占端口；在样例 `builds/` 复制源码与配置，复用已安装第三方依赖但将工作区包链接指向副本。锁文件避免同样例并发启动，源码/lockfile/启动脚本摘要匹配才复用构建；build/start均通过pnpm保持原生外部依赖解析。固定两组兼容Wiki/config环境变量，只监听127.0.0.1；Ollama地址与向量模型优先采用启动环境变量，再回退到样例manifest值，生成模型读取样例Wiki设置。不执行默认库setup，不共享已有实例`.next`。Ctrl-C/SIGTERM传播到所拥有的POSIX进程组并清理锁；异常强杀后的锁须确认旧进程停止后手工移除。Windows未实测。未新增常驻服务、npm依赖或自动端口转发。
-
-[check-interview-demo.mjs](scripts/check-interview-demo.mjs) / `pnpm demo:interview:check` 默认只读HTTP预检（API可能同步Markdown元数据、检查Ollama模型信息），检查样例身份、固定Wiki、专题、原文定位和页面入口。`--model` 显式调用实际向量模型并彩排三模式问答，核对返回模式、候选/正文/引用范围、落盘正文指纹和新生成usage，检查空专题没有生成usage；`--ingest` 额外整理pending来源并核对落盘及来源关系，应用于独立彩排库。`reports/check-*` 保留JSON和实际回答Markdown，失败明确记录，不把人工页当作模型成果，不将这些检查作为prompt抓包或回答事实正确率。
-
-[interview-demo-browser.mjs](scripts/interview-demo-browser.mjs) 使用真实Chromium与CDP，无新增浏览器依赖。必须显式指定样例，核对loopback、专用端口、服务Wiki路径和主题；默认只读导航、两次真实Markdown下载、定位与模板草稿，保存截图及错误报告。`--3d` 可选软件WebGL检查；`--model` 额外通过界面真实提交一次问答并下载回答，严格限制允许的写请求。前后比较业务数据快照，输出目录须不存在。主讲稿面向AI产品经理5–8分钟，说明开源/AI辅助边界与未执行的用户价值研究，见 [INTERVIEW_DEMO](docs/INTERVIEW_DEMO.md)。
 
 ### 既有科研和产品验收
 
@@ -202,7 +206,7 @@ Query UI 提供模式解释、索引状态、构建/刷新按钮、取证页链�
 
 `scripts/demo_round03.py` 面向独立空 Wiki，先核对服务器目录、模型槽与官方数据指纹，顺序导入两篇原文，记录实际 LLM 旧页更新；再单独标注一次手工跨文档阅读列表编辑，验证单页失效、Hybrid 409、刷新 1 页/重复刷新 0 页和三模式引用与原文完整性。`scripts/demo-browser.mjs` 使用本机 Chromium DevTools 协议，首次通过 UI 导入第三篇、浏览 Wiki、刷新索引、三模式提问并点击引用到原文，直接截图；无新增浏览器 npm 依赖。详见 [Demo 说明](docs/DEMO.md) 与 [Round 03 验收](docs/ROUND_03_ACCEPTANCE.md)。
 
-Round 02 历史检索结果与完整命令见 [Round 02 验收](docs/ROUND_02_ACCEPTANCE.md)；历史 Round 01 数据保留在其报告。大型运行产物、模型、数据库、私有文档与数据集不入 Git。当前精确扫描适合本地中小集合，尚未验证大型 Wiki、并发压力、中文/多语言专项及 PDF/OCR；无 MCP、GraphRAG、登录、微服务和云部署。
+Round 02 历史检索结果与完整命令见 [Round 02 验收](docs/ROUND_02_ACCEPTANCE.md)；历史 Round 01 数据保留在其报告。大型运行产物、模型、数据库、私有文档与数据集不入 Git。当前精确扫描适合本地中小集合，尚未验证大型 Wiki、并发压力、中文/多语言专项、复杂 PDF/扫描 OCR 或真实图片模型质量；无 MCP、GraphRAG、登录、微服务和云部署。
 
 ## 源码仓库与发布入口
 
@@ -216,6 +220,8 @@ Round 02 历史检索结果与完整命令见 [Round 02 验收](docs/ROUND_02_AC
 
 | 日期（Asia/Shanghai） | 变更 |
 | --- | --- |
+| 2026-11-15 | 按用户要求移除专用面试 Demo 的样例、启动/彩排脚本及讲稿，停止3002实例；既有产品功能和科研验收入口保留。 |
+| 2026-11-15 | 首页只读阅读切换、专题进度与笔记摘要；共享点击反馈、Sources格式/文件状态；上传及Retry共用20MiB文件解析器，PDF本地文字层进入ingest，图片进入vision；保留原件及审批，未增加OCR服务。 |
 | 2026-11-12 | 新增人工面试样例、源码快照隔离生产启动、HTTP/真实模型彩排与真实浏览器截图/下载入口；复用既有API与存储，新增AI产品经理5–8分钟剧本。 |
 | 2026-11-12 | 新增专题问答范围快照与三路候选约束、稳定UTF-8文本摘录及归类/定位/导出、研究笔记模板与真实来源关联；摘录/私人阅读笔记不进模型，模板Wiki正文延续既有检索规则。 |
 | 2026-11-12 | 图谱重绘为纸面图册与页边札记，读取专题/个人阅读上下文，增加专题范围、全库孤页与互斥方向分组；Workspace 增加专题图谱往返入口及 Markdown 阅读清单导出，无新存储/API/模型协议。 |

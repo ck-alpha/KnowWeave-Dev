@@ -21,10 +21,7 @@ describe("detectFormat", () => {
   it("uses magic bytes to override a lying filename for PDFs and images", () => {
     expect(detectFormat("looks-like.txt", Buffer.from("%PDF-1.4\n"))).toBe("pdf");
     expect(
-      detectFormat(
-        "lying.txt",
-        Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47]), Buffer.alloc(4)]),
-      ),
+      detectFormat("lying.txt", Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])),
     ).toBe("image");
   });
 

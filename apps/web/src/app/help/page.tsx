@@ -37,6 +37,11 @@ export default function HelpPage() {
           <p className="mt-3 text-muted-foreground">
             建议先用一篇简短文本体验完整流程。仓库 README 提供了可复现的 SciFact 小样本演示步骤。
           </p>
+          <p className="mt-3 text-muted-foreground">
+            文件每次上传一份，最大 20 MiB。PDF 提取文字层，Word 使用 .docx；旧版 .doc 请另存。 PNG /
+            JPG / WebP 需要在 vision 中配置支持图像的模型，扫描 PDF 请先 OCR
+            转为文本或逐页导出图片。 Wiki 继续保存为 Markdown，原始文件独立保留。
+          </p>
         </Card>
         <Card>
           <h2 className="font-display text-h2 font-semibold">03 · 提问，并核对依据</h2>

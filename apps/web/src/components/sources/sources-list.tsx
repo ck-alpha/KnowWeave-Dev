@@ -24,6 +24,8 @@ type SourceItem = {
 // Format icons stay in plain text — easier on the eye than emoji for a
 // reading-first product, and matches the rest of the app's chrome.
 const FORMAT_LABEL: Record<string, string> = {
+  md: "MD",
+  txt: "TXT",
   markdown: "MD",
   text: "TXT",
   html: "HTML",
@@ -308,7 +310,10 @@ export function SourcesList({ refreshNonce, onPreview, onBusyChange, disabled }:
           const isPending = s.ingestedAt === null;
           const isBusy = busyId === s.id;
           return (
-            <li key={s.id} className="flex flex-col items-stretch gap-3 py-3 sm:flex-row sm:flex-wrap sm:items-baseline sm:justify-between">
+            <li
+              key={s.id}
+              className="flex flex-col items-stretch gap-3 py-3 sm:flex-row sm:flex-wrap sm:items-baseline sm:justify-between"
+            >
               <div className="min-w-0 flex-1">
                 {/* Title area is a link to /sources/[id] — buttons sit
                     outside the link so clicks don't bubble. */}

@@ -12,16 +12,9 @@ import {
   type IngestResponse,
 } from "@llm-wiki/core";
 import {
-  detectFormat,
-  extractDocx,
-  extractHtml,
-  extractImage,
-  extractMarkdown,
-  extractPdf,
-  extractPlain,
-  extractPptx,
-  extractXlsx,
+  extractSourceFile,
   fetchAndExtractUrl,
+  MAX_SOURCE_FILE_BYTES,
   type ExtractedSource,
 } from "@llm-wiki/ingestion";
 import { createClient, ContextLengthError, RateLimitError, UnknownModelError } from "@llm-wiki/llm";
@@ -54,7 +47,10 @@ export async function POST(req: Request) {
     try {
       body = (await req.json()) as IngestJsonBody;
     } catch {
-      return NextResponse.json({ error: "expected JSON body or multipart upload" }, { status: 400 });
+      return NextResponse.json(
+        { error: "expected JSON body or multipart upload" },
+        { status: 400 },
+      );
     }
     if (!body || typeof body !== "object" || Array.isArray(body)) {
       return NextResponse.json({ error: "expected JSON object" }, { status: 400 });
@@ -208,28 +204,35 @@ async function handleFileUpload(req: Request, apiKey: string): Promise<Response>
   if (file.size === 0) {
     return NextResponse.json({ error: "file must not be empty" }, { status: 400 });
   }
+  if (file.size > MAX_SOURCE_FILE_BYTES) {
+    return NextResponse.json(
+      { error: "文件不能超过 20 MiB，请拆分文件后再导入。" },
+      { status: 413 },
+    );
+  }
 
   const filename = file.name || "upload";
   const buffer = Buffer.from(await file.arrayBuffer());
-  const format = detectFormat(filename, buffer);
 
   let extracted: ExtractedSource;
   try {
-    extracted = await runExtractor(format, buffer, filename);
+    extracted = await extractSourceFile(buffer, filename);
   } catch (err) {
     return NextResponse.json(
-      { error: `extraction failed for ${format}: ${(err as Error).message}` },
+      { error: err instanceof Error ? err.message : "无法解析文件，请检查格式或另存后重试。" },
       { status: 400 },
     );
   }
+  const format = extracted.format;
 
   const title = titleOverride?.trim() || extracted.title;
   if ("title" in extracted) extracted.title = title;
 
   const ctx = await openWikiContext();
-  const provider = extracted.kind === "vision"
-    ? ctx.settings.defaultModels.vision.provider
-    : ctx.settings.defaultModels.ingest.provider;
+  const provider =
+    extracted.kind === "vision"
+      ? ctx.settings.defaultModels.vision.provider
+      : ctx.settings.defaultModels.ingest.provider;
   if (provider === "openrouter" && !apiKey) {
     ctx.db.close();
     return NextResponse.json(
@@ -238,8 +241,11 @@ async function handleFileUpload(req: Request, apiKey: string): Promise<Response>
     );
   }
   const client = createClient(apiKey, provider);
-  const visionModel = modelOverride ?? ctx.settings.defaultModels.vision.model;
-  const textModel = modelOverride ?? ctx.settings.defaultModels.ingest.model;
+  const model =
+    modelOverride ??
+    (extracted.kind === "vision"
+      ? ctx.settings.defaultModels.vision.model
+      : ctx.settings.defaultModels.ingest.model);
   const dryRun = ctx.settings.requireApprovalForIngest;
 
   try {
@@ -257,24 +263,24 @@ async function handleFileUpload(req: Request, apiKey: string): Promise<Response>
     let response: IngestResponse;
     let modelUsed: string;
     if (extracted.kind === "vision") {
-      modelUsed = visionModel;
+      modelUsed = model;
       response = await ingestVisionSource({
         source: extracted,
         wikiPath: ctx.wikiPath,
         db: ctx.db,
         client,
-        model: visionModel,
+        model,
         sourceId: saved.sourceId,
         dryRun,
       });
     } else {
-      modelUsed = textModel;
+      modelUsed = model;
       response = await ingestSource({
         source: { content: extracted.content, title, format },
         wikiPath: ctx.wikiPath,
         db: ctx.db,
         client,
-        model: textModel,
+        model,
         sourceId: saved.sourceId,
         dryRun,
       });
@@ -295,41 +301,6 @@ async function handleFileUpload(req: Request, apiKey: string): Promise<Response>
 }
 
 // ---- helpers --------------------------------------------------------------
-
-async function runExtractor(
-  format: ReturnType<typeof detectFormat>,
-  buffer: Buffer,
-  filename: string,
-): Promise<ExtractedSource> {
-  switch (format) {
-    case "md":
-      return extractMarkdown(buffer, filename);
-    case "txt":
-      return extractPlain(buffer, filename);
-    case "html":
-      return extractHtml(buffer);
-    case "url":
-      // URL detection only happens via URL string, not via uploaded file.
-      // If we somehow get here, fall back to HTML.
-      return extractHtml(buffer);
-    case "docx":
-      return extractDocx(buffer, filename);
-    case "pptx":
-      return extractPptx(buffer, filename);
-    case "xlsx":
-      return extractXlsx(buffer, filename);
-    case "pdf":
-      return extractPdf(buffer, filename);
-    case "image":
-      return extractImage(buffer, filename);
-    default: {
-      // Exhaustiveness check.
-      const _exhaustive: never = format;
-      void _exhaustive;
-      throw new Error(`unsupported format: ${String(format)}`);
-    }
-  }
-}
 
 function ingestSuccess(args: {
   wikiPath: string;

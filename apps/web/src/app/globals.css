@@ -157,30 +157,65 @@
   touch-action: manipulation;
   transition:
     transform var(--duration-press) var(--ease-out),
-    opacity var(--duration-press) var(--ease-out);
+    opacity var(--duration-press) var(--ease-out),
+    background-color var(--duration-press) ease,
+    border-color var(--duration-press) ease,
+    color var(--duration-press) ease;
 }
-.ui-pressable:active:not(:focus-visible):not(:disabled):not([aria-disabled="true"]) {
+.ui-pressable:active:not(:focus-visible):not(
+    :disabled,
+    [aria-disabled="true"],
+    [aria-busy="true"]
+  ) {
   transform: scale(0.97);
 }
-.ui-pressable:focus-visible {
+.ui-pressable:focus-visible,
+.ui-pressable:is(:disabled, [aria-disabled="true"], [aria-busy="true"]) {
   transition: none;
 }
+/* Color confirms touch presses too; disabled and busy actions stay quiet. */
+.ui-pressable:is(:disabled, [aria-disabled="true"], [aria-busy="true"]) {
+  transform: none;
+}
+.ui-button-primary:active:not(:disabled, [aria-disabled="true"], [aria-busy="true"]) {
+  background: hsl(var(--primary) / 0.84);
+}
+.ui-button-destructive:active:not(:disabled, [aria-disabled="true"], [aria-busy="true"]) {
+  background: hsl(var(--destructive) / 0.84);
+}
+.ui-button-secondary:active:not(:disabled, [aria-disabled="true"], [aria-busy="true"]),
+.ui-button-outline:active:not(:disabled, [aria-disabled="true"], [aria-busy="true"]),
+.ui-button-ghost:active:not(:disabled, [aria-disabled="true"], [aria-busy="true"]) {
+  background: hsl(var(--accent));
+  color: hsl(var(--accent-foreground));
+}
+.ui-button-link:active:not(:disabled, [aria-disabled="true"], [aria-busy="true"]) {
+  text-decoration-line: underline;
+}
 @media (hover: hover) and (pointer: fine) {
-  .ui-button-primary:hover {
+  .ui-button-primary:hover:not(:active):not(:disabled, [aria-disabled="true"], [aria-busy="true"]) {
     background: hsl(var(--primary) / 0.9);
   }
-  .ui-button-destructive:hover {
+  .ui-button-destructive:hover:not(:active):not(
+      :disabled,
+      [aria-disabled="true"],
+      [aria-busy="true"]
+    ) {
     background: hsl(var(--destructive) / 0.9);
   }
-  .ui-button-secondary:hover {
+  .ui-button-secondary:hover:not(:active):not(
+      :disabled,
+      [aria-disabled="true"],
+      [aria-busy="true"]
+    ) {
     background: hsl(var(--secondary) / 0.8);
   }
-  .ui-button-outline:hover,
-  .ui-button-ghost:hover {
+  .ui-button-outline:hover:not(:active):not(:disabled, [aria-disabled="true"], [aria-busy="true"]),
+  .ui-button-ghost:hover:not(:active):not(:disabled, [aria-disabled="true"], [aria-busy="true"]) {
     background: hsl(var(--accent));
     color: hsl(var(--accent-foreground));
   }
-  .ui-button-link:hover {
+  .ui-button-link:hover:not(:disabled, [aria-disabled="true"], [aria-busy="true"]) {
     text-decoration-line: underline;
   }
 }
@@ -209,7 +244,11 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
-  .ui-pressable:active:not(:focus-visible):not(:disabled):not([aria-disabled="true"]) {
+  .ui-pressable:active:not(:focus-visible):not(
+      :disabled,
+      [aria-disabled="true"],
+      [aria-busy="true"]
+    ) {
     transform: none;
   }
   .ui-disclosure[data-motion="pointer"] {

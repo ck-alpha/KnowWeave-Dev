@@ -11,6 +11,7 @@ import {
   Bookmark,
   ArrowUpRight,
   Search,
+  NotebookPen,
 } from "lucide-react";
 
 import {
@@ -25,9 +26,11 @@ import {
 } from "@llm-wiki/core";
 
 import styles from "./home.module.css";
+import { HomeReadingShelf, type HomeShelfPage } from "./home-reading-shelf";
 
 import { Onboarding } from "@/components/onboarding";
 import { openWikiContext, resolveWikiPath } from "@/lib/server-wiki";
+import { wikiIdentity } from "@/lib/wiki-identity";
 
 export const dynamic = "force-dynamic";
 
@@ -37,14 +40,6 @@ const TYPE_LABELS = {
   source: "文献",
   comparison: "比较",
   overview: "综述",
-};
-
-const RECENT_TYPE_LABELS = {
-  entity: "Entity",
-  concept: "Concept",
-  source: "Source",
-  comparison: "Comparison",
-  overview: "Overview",
 };
 
 export default async function HomePage({ searchParams }: { searchParams: { needsKey?: string } }) {
@@ -88,6 +83,24 @@ export default async function HomePage({ searchParams }: { searchParams: { needs
   const isFresh = pages.length === 0 && sources.length === 0;
 
   const readingPages = workspace.pages.filter((page) => page.readingStatus === "reading");
+  const starredPages = workspace.pages.filter((page) => page.starred);
+  const notedPages = workspace.pages.filter((page) => page.note.trim()).slice(0, 2);
+  const shelfPage = (page: (typeof workspace.pages)[number]): HomeShelfPage => ({
+    slug: page.slug,
+    title: page.title,
+    type: page.type,
+    tags: page.tags,
+    updatedAt: page.updatedAt,
+  });
+  const collectionProgress = new Map<string, { reading: number; reviewed: number }>();
+  for (const page of workspace.pages) {
+    for (const id of page.collectionIds) {
+      const progress = collectionProgress.get(id) ?? { reading: 0, reviewed: 0 };
+      if (page.readingStatus === "reading") progress.reading += 1;
+      if (page.readingStatus === "reviewed") progress.reviewed += 1;
+      collectionProgress.set(id, progress);
+    }
+  }
   const featuredPage =
     readingPages[0] ?? workspace.pages.find((page) => page.starred) ?? workspace.pages[0];
   const featuredCollection = featuredPage
@@ -208,50 +221,68 @@ export default async function HomePage({ searchParams }: { searchParams: { needs
       </section>
 
       <div className={styles.contentGrid}>
-        <section className={styles.recent} aria-labelledby="recent-pages-title">
-          <div className={styles.sectionHeading}>
-            <h2 id="recent-pages-title">最近更新的知识</h2>
-            <Link href="/wiki">
-              全部页面 <ArrowUpRight size={14} aria-hidden />
-            </Link>
-          </div>
-          {recentPages.length ? (
-            <ul className={styles.pageList}>
-              {recentPages.map((page) => (
-                <li key={page.slug}>
-                  <Link href={`/wiki/${encodeURIComponent(page.slug)}`} className={styles.pageRow}>
-                    <span className={styles.pageType}>{RECENT_TYPE_LABELS[page.type]}</span>
-                    <div className={styles.pageInfo}>
-                      <h3>{page.title}</h3>
-                      <div className={styles.pageMeta}>
-                        <time dateTime={page.updated_at}>{formatDate(page.updated_at)} 更新</time>
-                        {page.tags.slice(0, 2).map((tag) => (
-                          <span key={tag}>#{tag}</span>
-                        ))}
-                      </div>
-                    </div>
-                    <ArrowUpRight className={styles.rowArrow} size={17} aria-hidden />
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <div className={styles.empty}>
-              <BookOpen size={26} aria-hidden />
-              <h3>给新知识一个落脚点</h3>
-              <p>添加资料，或在 Wiki 写下自己的笔记。最近更新的页面会出现在这里。</p>
-              <Link href="/wiki">
-                进入 Wiki <ArrowUpRight size={15} aria-hidden />
-              </Link>
-            </div>
-          )}
+        <div className={styles.recent}>
+          <HomeReadingShelf
+            key={wikiIdentity(ctx.wikiPath)}
+            recent={recentPages.map((page) => ({
+              slug: page.slug,
+              title: page.title,
+              type: page.type,
+              tags: page.tags,
+              updatedAt: page.updated_at,
+            }))}
+            reading={readingPages.slice(0, 5).map(shelfPage)}
+            starred={starredPages.slice(0, 5).map(shelfPage)}
+            counts={{
+              recent: pages.length,
+              reading: readingPages.length,
+              starred: starredPages.length,
+            }}
+          />
           <Link href="/graph" className={styles.graphLink}>
             <GitFork size={17} aria-hidden />
             <span>顺着引用，发现下一条线索</span>
             <span className={styles.graphLabel}>打开 Graph</span>
             <ArrowUpRight size={15} aria-hidden />
           </Link>
-        </section>
+          <section className={styles.notes} aria-labelledby="reading-notes-title">
+            <div className={styles.sectionHeading}>
+              <h2 id="reading-notes-title">阅读时留下的想法</h2>
+              <span className={styles.noteLabel}>个人笔记</span>
+            </div>
+            {notedPages.length ? (
+              <ul className={styles.noteList}>
+                {notedPages.map((page) => (
+                  <li key={page.slug}>
+                    <Link
+                      href={`/wiki/${encodeURIComponent(page.slug)}`}
+                      className={styles.noteLink}
+                    >
+                      <NotebookPen size={18} aria-hidden />
+                      <div>
+                        <h3>{page.title}</h3>
+                        <p>{page.note.length > 240 ? `${page.note.slice(0, 240)}…` : page.note}</p>
+                        <span>
+                          回到阅读与笔记 <ArrowUpRight size={14} aria-hidden />
+                        </span>
+                      </div>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div className={styles.notesEmpty}>
+                <NotebookPen size={21} aria-hidden />
+                <p>
+                  读到值得停留的地方，在页面的「专题与笔记」中记下自己的理解。下次从这里接着想。
+                </p>
+                <Link href="/wiki">
+                  找一篇开始阅读 <ArrowUpRight size={15} aria-hidden />
+                </Link>
+              </div>
+            )}
+          </section>
+        </div>
 
         <aside className={styles.margin}>
           <section aria-labelledby="reading-title">
@@ -293,15 +324,43 @@ export default async function HomePage({ searchParams }: { searchParams: { needs
             </div>
             {workspace.collections.length ? (
               <ul className={styles.collectionList}>
-                {workspace.collections.slice(0, 3).map((collection) => (
-                  <li key={collection.id}>
-                    <Link href={`/workspace?collection=${encodeURIComponent(collection.id)}`}>
-                      <FolderOpen size={16} aria-hidden />
-                      <span>{collection.title}</span>
-                      <small>{collection.pageCount} 篇</small>
-                    </Link>
-                  </li>
-                ))}
+                {workspace.collections.slice(0, 3).map((collection) => {
+                  const progress = collectionProgress.get(collection.id) ?? {
+                    reading: 0,
+                    reviewed: 0,
+                  };
+                  return (
+                    <li key={collection.id}>
+                      <Link href={`/workspace?collection=${encodeURIComponent(collection.id)}`}>
+                        <span className={styles.collectionTitle}>
+                          <FolderOpen size={16} aria-hidden />
+                          <span title={collection.title}>{collection.title}</span>
+                          <ArrowUpRight size={15} aria-hidden />
+                        </span>
+                        {collection.description && <p>{collection.description}</p>}
+                        <span className={styles.collectionStatus}>
+                          <span>
+                            {progress.reviewed} / {collection.pageCount} 篇已读
+                          </span>
+                          <span>
+                            {progress.reading
+                              ? `${progress.reading} 篇在读`
+                              : collection.pageCount
+                                ? "继续阅读"
+                                : "添加页面"}
+                          </span>
+                        </span>
+                        <span className={styles.collectionTrack} aria-hidden>
+                          <span
+                            style={{
+                              width: `${collection.pageCount ? (progress.reviewed / collection.pageCount) * 100 : 0}%`,
+                            }}
+                          />
+                        </span>
+                      </Link>
+                    </li>
+                  );
+                })}
               </ul>
             ) : (
               <p className={styles.marginCopy}>

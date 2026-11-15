@@ -91,7 +91,8 @@ const SLOT_HINT: Record<Slot, string> = {
   query: "检索 Wiki 页面，生成附带引用的回答。",
   chat: "用于多轮对话，作为新建会话的默认模型。",
   lint: "检查 Wiki 内容中的语义问题。",
-  vision: "图片与扫描版 PDF 需要支持图像输入的模型；当前仅验证了文本导入。",
+  vision:
+    "PNG / JPG / WebP 图片需要支持图像输入的模型。PDF 文字层使用 ingest；扫描 PDF 请先 OCR 或逐页导出图片。",
 };
 
 // ─── State shape ───────────────────────────────────────────────────────────────

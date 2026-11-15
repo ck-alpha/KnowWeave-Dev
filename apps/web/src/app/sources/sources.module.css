@@ -1,0 +1,180 @@
+.importLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.8fr) minmax(17rem, 1fr);
+  align-items: start;
+  gap: 2rem;
+}
+
+.importLayout > section {
+  min-width: 0;
+}
+
+.modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.5rem;
+  background: hsl(var(--secondary) / 0.5);
+}
+
+.mode {
+  display: inline-flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  padding: 0.5rem 0.65rem;
+  border-radius: 0.3rem;
+  color: hsl(var(--muted-foreground));
+  font-size: 1.125rem;
+}
+
+.mode[aria-pressed="true"] {
+  color: hsl(var(--primary));
+  background: hsl(var(--card));
+  box-shadow: 0 1px 3px hsl(var(--foreground) / 0.1);
+}
+
+.mode:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.9rem;
+  min-height: 16rem;
+  padding: 1.5rem;
+  text-align: center;
+  border: 2px dashed hsl(var(--input));
+  border-radius: 0.5rem;
+  background: hsl(var(--background));
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease;
+}
+
+.dropzone[data-drag-over="true"] {
+  border-color: hsl(var(--primary));
+  background: hsl(var(--primary) / 0.05);
+}
+
+.fileIcon {
+  color: hsl(var(--primary));
+}
+.fileName {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.guide {
+  padding: 0.5rem 0 0 1.5rem;
+  border-left: 1px solid hsl(var(--border));
+}
+.guide h2 {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  line-height: 1.4;
+}
+.guide > p {
+  margin-top: 0.75rem;
+  color: hsl(var(--muted-foreground));
+}
+.formats {
+  margin-top: 0.5rem;
+}
+.formats > div {
+  padding: 1.25rem 0;
+  border-bottom: 1px solid hsl(var(--border));
+}
+.formats dt {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-weight: 600;
+}
+.formats dt svg {
+  flex-shrink: 0;
+  color: hsl(var(--primary));
+}
+.formats dd {
+  margin-top: 0.5rem;
+  font-size: 1rem;
+  line-height: 1.75;
+  color: hsl(var(--muted-foreground));
+}
+.guideNote {
+  margin-top: 1.5rem;
+}
+.guideNote h3 {
+  font-weight: 600;
+}
+.guideNote p {
+  margin: 0.5rem 0 0.75rem;
+  font-size: 1rem;
+  color: hsl(var(--muted-foreground));
+}
+.guideNote a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: hsl(var(--primary));
+}
+.busyNote {
+  padding: 0.75rem;
+  border-left: 2px solid hsl(var(--primary));
+  background: hsl(var(--primary) / 0.05);
+  font-size: 1rem;
+}
+.spinner {
+  flex-shrink: 0;
+  animation: spin 850ms linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .mode:not(:disabled):hover {
+    color: hsl(var(--primary));
+    background: hsl(var(--card) / 0.75);
+  }
+}
+
+@media (max-width: 900px) {
+  .importLayout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .guide {
+    border-left: 0;
+    border-top: 1px solid hsl(var(--border));
+    padding: 1.5rem 0 0;
+  }
+}
+
+@media (max-width: 420px) {
+  .mode {
+    flex-basis: 100%;
+    justify-content: flex-start;
+  }
+  .dropzone {
+    padding: 1rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+  }
+  .dropzone {
+    transition: none;
+  }
+}

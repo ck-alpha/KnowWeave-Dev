@@ -1,5 +1,6 @@
 import { SourcesView } from "./sources-view";
-import { requireSetup } from "@/lib/server-wiki";
+import { requireSetup, resolveWikiPath } from "@/lib/server-wiki";
+import { wikiIdentity } from "@/lib/wiki-identity";
 
 export const dynamic = "force-dynamic";
 
@@ -9,5 +10,5 @@ export const dynamic = "force-dynamic";
 // user tries to add anything, instead of redirecting to onboarding first.
 export default async function SourcesPage() {
   await requireSetup("ingest");
-  return <SourcesView />;
+  return <SourcesView key={wikiIdentity(resolveWikiPath())} />;
 }

@@ -1,3 +1,30 @@
+.chevron {
+  flex-shrink: 0;
+  color: hsl(var(--muted-foreground));
+}
+.trigger[aria-expanded="true"] .chevron {
+  transform: rotate(180deg);
+}
+.trigger[data-motion="pointer"]:not(:focus-visible) .chevron {
+  transition: transform var(--duration-enter) var(--ease-out);
+}
+.item {
+  touch-action: manipulation;
+  transition:
+    background-color var(--duration-press) ease,
+    color var(--duration-press) ease;
+}
+.item:focus-visible,
+.item:disabled {
+  transition: none;
+}
+.trigger:active {
+  background: hsl(var(--accent));
+}
+.item:active:not(:disabled) {
+  background: hsl(var(--primary) / 0.14);
+  color: hsl(var(--primary));
+}
 .panel {
   transform-origin: top left;
 }
@@ -19,7 +46,7 @@
     background: hsl(var(--accent));
     border-color: hsl(var(--primary) / 0.4);
   }
-  .item:hover:not(:disabled) {
+  .item:hover:not(:active):not(:disabled) {
     background: hsl(var(--accent));
   }
 }
@@ -27,6 +54,9 @@
   outline-offset: -3px;
 }
 @media (prefers-reduced-motion: reduce) {
+  .trigger[data-motion="pointer"]:not(:focus-visible) .chevron {
+    transition: none;
+  }
   .panel[data-motion="pointer"] {
     transform: none;
     transition: opacity 100ms linear;

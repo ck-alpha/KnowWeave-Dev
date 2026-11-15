@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { ChevronDown } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import styles from "./wiki-switcher.module.css";
@@ -160,15 +161,14 @@ export function WikiSwitcher() {
         )}
         aria-controls={panelId}
         aria-expanded={open}
+        data-motion={motion}
         title={`当前 Wiki：${chipLabel}`}
       >
         <span aria-hidden className="shrink-0 text-muted-foreground">
           ⌂
         </span>
         <span className="min-w-0 flex-1 truncate text-left">{chipLabel}</span>
-        <span aria-hidden className="shrink-0 text-muted-foreground">
-          ▾
-        </span>
+        <ChevronDown size={18} aria-hidden className={styles.chevron} />
       </button>
 
       {open ? (

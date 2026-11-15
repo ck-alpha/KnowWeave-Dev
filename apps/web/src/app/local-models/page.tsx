@@ -33,8 +33,8 @@ ollama serve`}</pre>
             ，为所需操作选择 Ollama，并填写已安装的模型 tag，然后保存。本地 Ollama 无需 API key。
           </p>
           <p className="mt-3 text-muted-foreground">
-            建议从文本资料开始。图片和扫描版 PDF
-            需要支持图像输入的模型，当前项目尚未专项验证这类导入。
+            PDF 文字层和 Word .docx 会先在本地提取正文，再交给 ingest 模型。 图片需要支持图像输入的
+            vision 模型；扫描 PDF 请先 OCR 转为文本或逐页导出图片。
           </p>
         </Card>
         <Card>

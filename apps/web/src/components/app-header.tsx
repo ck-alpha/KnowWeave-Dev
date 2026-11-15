@@ -194,7 +194,7 @@ export function AppHeader() {
           </div>
           <Link
             href="/settings"
-            className={cn(styles.iconButton, styles.settings)}
+            className={cn(styles.iconButton, styles.settings, "ui-pressable")}
             aria-label="应用设置"
             title="应用设置"
           >
@@ -241,6 +241,7 @@ export function AppHeader() {
           aria-label="切换栏目"
           aria-expanded={menuOpen}
           aria-controls="tools-navigation"
+          data-motion={menuMotion}
           className={cn(styles.switchSection, "ui-pressable")}
         >
           切换栏目

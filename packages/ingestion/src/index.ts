@@ -11,3 +11,4 @@ export * from "./pptx";
 export * from "./xlsx";
 export * from "./pdf";
 export * from "./image";
+export * from "./file";
